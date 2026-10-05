@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.creator.json",
+  "include": [
+    "../extensions/MKFramework/assets/MKFramework/Framework/MKUIManage.ts",
+    "../extensions/MKFramework/assets/MKFramework/Framework/Resources/MKBundle.ts",
+    "../extensions/MKFramework/assets/MKFramework/Framework/MKObjectPool.ts"
+  ],
+  "exclude": []
+}

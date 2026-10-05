@@ -1,0 +1,107 @@
+{
+  "schema": "p10-visual-art-manifest.v2",
+  "style": "original_chinese_cyberpunk",
+  "backgrounds": [
+    {
+      "id": "map",
+      "file": "backgrounds/map.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Original Chinese cyberpunk food district world map at night, six distinct culinary neighborhoods connected by glowing streets, high-angle 9:16 panorama, vermilion jade indigo palette, calm top center and bottom negative space, scenery only, no text pseudo-text logos buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "level",
+      "file": "backgrounds/level.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Chinese cyberpunk culinary district entrance and neon night-market plaza, vertical 9:16, architecture on the edges and central 55 percent calm negative space for runtime level controls, no text pseudo-text logos buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "kitchen",
+      "file": "backgrounds/kitchen.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Original Chinese cyberpunk open kitchen with wok, steam, copper cookware, ingredients and distant diners, vertical 9:16, clear central upper and lower-center runtime UI space, no text pseudo-text logos buttons numbers HUD order cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "result_success",
+      "file": "backgrounds/result_success.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Celebratory Chinese cyberpunk restaurant courtyard after successful service, glowing flower-petal fireworks and feast scenery, vertical 9:16, radiant clear center for runtime results, no text pseudo-text logos rating symbols buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "result_failure",
+      "file": "backgrounds/result_failure.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Chinese cyberpunk kitchen after a difficult failed service, rain, cooled stove and a single warm retry light, vertical 9:16, subdued central negative space, no text pseudo-text logos symbols buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "upgrade",
+      "file": "backgrounds/upgrade.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Chinese cyberpunk cooking-equipment workshop with plain copper wok, cleavers and bamboo steamers at the far edges, vertical 9:16, completely blank warm plaster wall in central 60 percent, every surface unmarked, no text pseudo-text glyphs logos displays buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Regenerated to remove pseudo-text and display-like markings.", "Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "renovation",
+      "file": "backgrounds/renovation.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Chinese cyberpunk restaurant interior under tasteful renovation, plain red lacquer columns, blank lanterns and jade light strips, vertical 9:16, clear center floor for runtime UI, no scrolls plaques inscriptions text pseudo-text glyphs logos buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Regenerated to remove calligraphy-like decorations.", "Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "story",
+      "file": "backgrounds/story.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Quiet Chinese cyberpunk night-market story scene with two distant chef silhouettes beside a steaming stall, vertical 9:16, lower 50 percent dark negative space, no text pseudo-text signage logos speech bubbles buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "recovery",
+      "file": "backgrounds/recovery.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Serene Chinese cyberpunk restaurant archive corridor with glowing memory lanterns and safe dawn beyond, vertical 9:16, calm central and bottom space, no text pseudo-text glyphs logos buttons numbers HUD cards panels documents or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    },
+    {
+      "id": "unlock",
+      "file": "backgrounds/unlock.jpg",
+      "canvas": [720, 1280],
+      "generatedPrompt": "Majestic Chinese cyberpunk gate opening onto a new culinary district at dawn, vertical 9:16, uncluttered central opening and lower path for runtime unlock content, no text pseudo-text signs logos lock icons buttons numbers HUD cards panels or watermark.",
+      "manualEdits": ["Resampled and encoded as 720x1280 quality-90 JPEG for Shipping."],
+      "reviewStatus": "INTERNAL_PASS"
+    }
+  ],
+  "components": [
+    {
+      "mode": "runtime_generated",
+      "bitmapAssets": [],
+      "note": "Runtime nine-slice neon panels remain the single interactive UI layer; backgrounds contain no baked panels."
+    }
+  ],
+  "icons": [
+    {
+      "mode": "runtime_generated",
+      "bitmapAssets": [],
+      "note": "Runtime vector or label icons are retained; backgrounds contain no baked icons."
+    }
+  ],
+  "fonts": [
+    {
+      "mode": "engine_builtin",
+      "bitmapAssets": [],
+      "note": "Cocos default font remains in use until a licensed source font is separately approved."
+    }
+  ]
+}

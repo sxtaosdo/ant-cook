@@ -1,0 +1,11 @@
+{
+  "ver": "1.1.50",
+  "importer": "prefab",
+  "imported": true,
+  "uuid": "bd280c59-f324-458b-a64e-f1c9f7affbbc",
+  "files": [".json"],
+  "subMetas": {},
+  "userData": {
+    "syncNodeName": "SettingsFlowGroup"
+  }
+}

@@ -1,0 +1,3 @@
+[submodule "shidai3"]
+	url = git@github.com:sxtaosdo/ComposableGameFramework.git
+	path = extensions/shidai3

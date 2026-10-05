@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "target": "ES2022", "skipLibCheck": true, "types": ["../temp/declarations/cc", "../temp/declarations/cc.env"], "useDefineForClassFields": false },
+  "include": ["../assets/**/*.ts"],
+  "exclude": ["../assets/**/testing/**", "../assets/**/views/Dev*.ts"]
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "asset-provenance-v1",
+  "recordStatus": "Historical generation record; selectedOutputs below are not a current runtime inventory.",
+  "currentSelectionManifest": "../../art/manifest.csv",
+  "project": "colony-flow-food-hunt-replicate-v2",
+  "referenceBoundary": "Original presentation only. No competitor art, UI, trademark, animation, or audio was copied, traced, extracted, or reused.",
+  "art": {
+    "generator": "OpenAI image generation",
+    "promptSummary": "Original woodland fruit-tart transport adventure for a 750x1334 portrait game: warm illustrated orchard board, readable trail, and friendly color-coded ant couriers; no logos, text, or competitor assets.",
+    "currentGenerationPromptSummaries": {
+      "ant-courier-neutral-v2.png": "One original top-down casual mobile ant courier with a pale neutral tintable body, simple bright silhouette and transparent background; no white disc, platform, badge, text or shadow circle.",
+      "prop-trowel-v1.png": "One original polished garden trowel power-up icon for a warm woodland fruit-picnic mobile game, centered on transparency with no text or UI plate.",
+      "prop-extra-slot-v1.png": "One original polished extra-slot power-up icon using an empty wooden tray plus green add mark, centered on transparency with no text or UI plate.",
+      "prop-compass-v1.png": "One original polished route compass power-up icon for a warm woodland fruit-picnic mobile game, centered on transparency with no text or UI plate."
+    },
+    "generationSourceFiles": [
+      "/Users/sxt/.codex/generated_images/2026-08-17/exec-710e6533-*/image.png",
+      "/Users/sxt/.codex/generated_images/2026-08-17/exec-5bef*/image.png",
+      "/Users/sxt/.codex/generated_images/2026-08-17/exec-0cbb*/image.png",
+      "/Users/sxt/.codex/generated_images/019ffa2c-5285-75c3-b51d-371cd2c426e0/exec-995dd683-8e53-415d-814d-8fdb4fc92191.png",
+      "/Users/sxt/.codex/generated_images/019ffa2c-5285-75c3-b51d-371cd2c426e0/exec-e9e974ab-e318-4a89-ba3f-bdfff505cafd.png",
+      "/Users/sxt/.codex/generated_images/019ffa2c-5285-75c3-b51d-371cd2c426e0/exec-d5772517-23b1-45f6-b3e0-a96195155e13.png",
+      "/Users/sxt/.codex/generated_images/019ffa2c-5285-75c3-b51d-371cd2c426e0/exec-425de408-d9d6-4d4f-b05d-1519057d6309.png",
+      "/Users/sxt/.codex/generated_images/019ffa2c-5285-75c3-b51d-371cd2c426e0/exec-38d23310-cd9e-4348-bdf2-ea0fb0561cce.png"
+    ],
+    "selection": "The orchard board remains the scene background. A newly generated transparent neutral courier is tint-shared by every semantic color, and three transparent single-use prop icons were selected. The older white-disc courier sprites and rough drawn hole are not used by the current runtime.",
+    "selectedOutputs": [
+      { "path": "art/generated/board-background-v1.png", "sha256": "10109688f46eebb28e142a67ddc849e6990cf85664bf8bda91640321aeaafaf3" },
+      { "path": "art/generated/board-mosaic-v2.png", "sha256": "0946d76abbf5088ad2a5b4c028fb3dbde55db9974a53bb5b08ef2cc4e470f8f7" },
+      { "path": "art/generated/ant-red-walk.png", "sha256": "c3169b8e7c579c21280a9ac92e18960b564ef241eaba210a30737fa29070f59a" },
+      { "path": "art/generated/ant-orange-walk.png", "sha256": "bce1b6d8d6875e3cf9c60886f3a1a4429c9a2daa391965de49f9ee27f8de777a" },
+      { "path": "art/generated/ant-green-walk.png", "sha256": "d1f7ba9cc8868589a6b86dfbd137ab5a50e03f02cf2f901ac3d2d373fe97d9e0" },
+      { "path": "art/generated/ant-purple-walk.png", "sha256": "619b89fc81bcb867f5c6c11df703eddcb9daa443e9042ceb4222be615ea51472" },
+      { "path": "art/generated/ant-blue-walk.png", "sha256": "74db51f868d86630906f0ae7bae4155dc056adbfc3e7d2f4dacf4bfb917fb65c" },
+      { "path": "art/generated/ant-guide-idle.png", "sha256": "7481b635347ecc8db0e709ac64f7a9ad52dc97994750663fde85037c3a93346d" },
+      { "path": "art/generated/ant-courier-neutral-v2.png", "sha256": "f04a7a3a5a836a27937b6e8326c146686a9ee37b3d2cd0fd71bfb51161d390a2" },
+      { "path": "art/generated/prop-trowel-v1.png", "sha256": "d6476477e40cef378f436a46aef541ff1dd522c133e34e8a399112bad3317ee0" },
+      { "path": "art/generated/prop-extra-slot-v1.png", "sha256": "6d9d759bd04d61537331f44e222927e9b96c03b78ddd7b2711a31f7e17702fa7" },
+      { "path": "art/generated/prop-compass-v1.png", "sha256": "3ecaa66396354c48f2402da8ffd09a6d921daa0e1cb8e0046eb76bdb28986340" }
+    ]
+  },
+  "audio": {
+    "generator": "Local synthesized sine tones via FFmpeg",
+    "license": "Original procedural output created for this project",
+    "outputs": [
+      { "path": "audio/click.wav", "sha256": "32ae3b8a779b96624c5f2431f5a70e6186b9100d4537c45c063e231036509485" },
+      { "path": "audio/success.wav", "sha256": "cb485943374e93aa9e925d1b05115ced81bbe6b3081f940f4a5f5b1336719634" },
+      { "path": "audio/fail.wav", "sha256": "f2837da8011cee369e3e963d60a9e091f1d39011d80a27ad7d6ce8787dfe67" }
+    ]
+  }
+}

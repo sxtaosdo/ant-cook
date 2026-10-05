@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "experimentalDecorators": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "paths": {
+      "db://shidai3/index": ["./extensions/shidai3/assets/index.ts"],
+      "db://shidai3/minigame/index": ["./extensions/shidai3/assets/minigame/index.ts"],
+      "mk": ["./tests/support/mkBootStub.d.ts"]
+    },
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "useDefineForClassFields": false
+  },
+  "files": [
+    "/Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/bin/.declarations/cc.d.ts",
+    "../tests/support/mkBootStub.d.ts",
+    "../assets/boot/BootRoot.ts",
+    "../assets/boot/MkBundleLoader.ts",
+    "../assets/bundles/game/GameRoot.ts",
+    "../assets/bundles/game/bootstrap/cookSceneBootstrap.ts",
+    "../assets/bundles/game/application/cookLevelSession.ts",
+    "../assets/bundles/game/application/cookLevelAddress.ts",
+    "../assets/bundles/game/presentation/pageStates/loadingState.ts",
+    "../assets/bundles/game/presentation/pageStates/mapState.ts",
+    "../assets/bundles/game/presentation/pageStates/levelState.ts",
+    "../assets/bundles/game/presentation/pageStates/kitchenState.ts",
+    "../assets/bundles/game/presentation/P10CookPresentation.ts",
+    "../assets/bundles/game/presentation/MapFlowScreenGroup.ts",
+    "../assets/bundles/game/presentation/KitchenFlowScreenGroup.ts",
+    "../assets/bundles/game/presentation/ProgressionScreenGroup.ts",
+    "../assets/bundles/game/presentation/SettingsFlowScreenGroup.ts",
+    "../assets/bundles/game/presentation/IntentInputPort.ts",
+    "../assets/bundles/game/infrastructure/CocosLocalStorageAdapter.ts"
+  ]
+}

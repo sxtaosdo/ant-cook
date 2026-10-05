@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "source": "assets/Colony/art/yutu-night-market/ui/neutral-cell.png",
+      "destination": "assets/resources/Module/@Common/Mask/neutral-cell.png",
+      "uuid": "cb688f9c-b874-42d9-8aa3-f5e3d9aa42b2",
+      "reason": "The common MK modal mask and Ant share this neutral solid texture. Build staging promotes the unchanged texture/meta pair into the shared resources tree.",
+      "repository": "P4000/colony-flow-food-hunt",
+      "sourceHead": "a6d0bbccd2bac88769e0b697a4f56f9220ce4cb6",
+      "sourceSha256": "428698a9cd4c031962c9f5defd15057fd1f20273dc3cd6eddcbd2ce14c4057d8",
+      "metaSha256": "7fced52a88ff9331d035dc6b9da33c57f2ba969ba88821b170d90711f0c30a95"
+    }
+  ]
+}

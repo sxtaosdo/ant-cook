@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "experimentalDecorators": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "paths": {
+      "mk": ["./Tests/support/mkStrictStub.d.ts"],
+      "GlobalConfig": ["./Tests/support/globalConfigStub.d.ts"],
+      "db://shidai3/index": ["./extensions/shidai3/assets/index.ts"],
+      "db://shidai3/minigame/index": ["./extensions/shidai3/assets/minigame/index.ts"]
+    },
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "useDefineForClassFields": false
+  },
+  "files": [
+    "../temp/declarations/cc.d.ts",
+    "../temp/declarations/cc.env.d.ts",
+    "support/mkStrictStub.d.ts",
+    "support/globalConfigStub.d.ts"
+  ],
+  "include": [
+    "../assets/Colony/scripts/**/*.ts",
+    "../assets/Colony/popups/**/*.ts",
+    "../assets/scripts/bootstrap/mainBootstrap.ts"
+  ]
+}

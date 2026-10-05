@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "allowImportingTsExtensions": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["node"],
+    "baseUrl": "..",
+    "paths": {
+      "db://shidai3/index": ["./extensions/shidai3/assets/index.ts"],
+      "db://shidai3/minigame/index": ["./extensions/shidai3/assets/minigame/index.ts"]
+    }
+  },
+  "include": [
+    "../assets/bundles/game/application/**/*.ts",
+    "../assets/bundles/game/core/**/*.ts",
+    "../assets/bundles/game/infrastructure/save/**/*.ts",
+    "../assets/bundles/game/presentation/pageStates/**/*.ts",
+    "application-runtime.test.ts",
+    "save-runtime.test.ts",
+    "cook-level-session.test.ts"
+  ]
+}

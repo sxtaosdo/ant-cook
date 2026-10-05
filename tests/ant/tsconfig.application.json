@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "allowImportingTsExtensions": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "../assets/Colony/scripts/application/**/*.ts",
+    "../assets/Colony/scripts/application/levelCatalog.ts",
+    "../assets/Colony/scripts/gameModel.ts",
+    "../assets/Colony/scripts/testing/colonyTestTraces.ts",
+    "application/**/*.test.ts",
+    "gameplay/**/*.test.ts",
+    "support/developmentLevelCatalog.ts"
+  ]
+}

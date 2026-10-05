@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "44f7a595-b7a2-4b6a-8fde-6ffd59aa2094",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "isSubpackage": false,
+    "isBundle": true,
+    "bundleName": "Colony",
+    "priority": 8
+  }
+}

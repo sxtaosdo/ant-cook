@@ -1,0 +1,7 @@
+node_modules/
+library/
+temp/
+local/
+profiles/
+build/
+extensions/creator-ai-bridge/

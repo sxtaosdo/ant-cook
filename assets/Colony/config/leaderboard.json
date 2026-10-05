@@ -1,0 +1,18 @@
+{
+  "opponentCount": 50,
+  "maxLevel": 60,
+  "initialExponent": 2,
+  "turnoverDays": 2,
+  "turnoverRatio": [0.12, 0.18],
+  "catchUpDays": 3,
+  "highProgressThreshold": 50,
+  "highProgressMultiplier": 0.35,
+  "growth": [
+    { "chance": 0.3, "minimum": 1, "maximum": 1 },
+    { "chance": 0.55, "minimum": 1, "maximum": 2 },
+    { "chance": 0.8, "minimum": 2, "maximum": 4 }
+  ],
+  "avatarColors": ["#D9A44E", "#78B4A1", "#D77D75", "#9C8AB8", "#719DB7", "#9BA958"],
+  "nicknameStarts": ["芒果", "椰椰", "糖豆", "小满", "阿橙", "糯米", "青瓜", "布丁", "暖暖", "小麦", "栗子", "团团", "小桃", "圆圆", "豆芽", "柚柚", "番茄", "甜薯", "花生", "小葵"],
+  "nicknameEnds": ["摊主", "搬搬", "队长", "小铺", "一号", "行者", "同学", "仔仔", "小队", "食客", "伙伴", "团子", "小厨", "阿姨", "先生"]
+}

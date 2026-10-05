@@ -1,0 +1,13 @@
+{
+  "unlockClears": 3,
+  "maxFollows": 5,
+  "dailyHelpCount": 3,
+  "helpCoins": 10,
+  "responseHours": [18, 30],
+  "returnChance": 0.5,
+  "naturalVisits": [2, 4],
+  "historyLimit": 100,
+  "messages": ["摊位真漂亮", "一起收集下一件", "谢谢你的帮助", "你的水果摆得真整齐", "下次再来逛逛", "收集加油！"],
+  "replies": ["谢谢你来逛摊位！", "一起慢慢收集吧！", "看到你的留言啦，来回访一下。", "你的摊位也很漂亮！", "下次还来逛！", "蚂蚁小队一起加油！"],
+  "thankYou": "谢谢你的援助，补给已收到！"
+}
