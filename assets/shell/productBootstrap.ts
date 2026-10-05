@@ -1,4 +1,4 @@
-import { _decorator, Camera, Canvas, Color, Component, director, Label, Layers, Node, sys, UITransform, view } from 'cc';
+import { _decorator, Camera, Canvas, Color, Component, director, Label, Layers, Node, ResolutionPolicy, sys, UITransform, view } from 'cc';
 import { StateMachine, type IState } from 'db://shidai3/index';
 import mk from 'mk';
 import { BUILD_MODES } from './buildModes';
@@ -34,6 +34,7 @@ export class ProductBootstrap extends Component {
     Layers.addLayer('ProductShell', 19);
     this.node.layer = SHELL_LAYER;
     director.addPersistRootNode(this.node);
+    view.setDesignResolutionSize(750, 1334, ResolutionPolicy.FIXED_WIDTH);
     this.createNavigation();
     await this.StateMachine.changeState(ShellBootState);
     const driver: SceneDriver = {
@@ -87,14 +88,16 @@ export class ProductBootstrap extends Component {
     camera.visibility = SHELL_LAYER; camera.priority = 100; camera.clearFlags = Camera.ClearFlag.DEPTH_ONLY;
     cameraNode.setPosition(0, 0, 1000); canvas.cameraComponent = camera;
     const size = view.getVisibleSize(); this.node.getComponent(UITransform)?.setContentSize(size.width, size.height);
+    camera.orthoHeight = size.height / 2;
     const makeLabel = (name: string, text: string, x: number, y: number, width: number, action?: () => void): Label => {
       const node = new Node(name); node.layer = SHELL_LAYER; this.node.addChild(node); node.setPosition(x, y);
       node.addComponent(UITransform).setContentSize(width, 42);
-      const label = node.addComponent(Label); label.string = text; label.fontSize = 20; label.color = Color.WHITE;
+      const label = node.addComponent(Label); label.string = text; label.fontSize = 26; label.color = Color.WHITE;
       if (action) node.on(Node.EventType.TOUCH_END, action, this);
       return label;
     };
-    const top = size.height / 2 - 26;
+    const safe = sys.getSafeAreaRect(false);
+    const top = size.height / 2 - Math.max(0, size.height - safe.y - safe.height) - 30;
     BUILD_MODES.forEach((mode, index) => makeLabel(`Switch_${mode.id}`, mode.id === 'ant' ? '蚂蚁搬搬搬' : '星际美食家', -180 + index * 190, top, 180,
       () => { void this.openMode(mode.id); }));
     makeLabel('RetrySave', '重试保存', 250, top, 140, () => this.retrySave());

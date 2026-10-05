@@ -71,9 +71,16 @@ export class ProgressPresentation {
         if (this.context.progressPopup === this.control) this.context.progressPopup = null;
         if (this.context.destroyed) { this.context.inputLocked = true; return; }
         this.context.inputLocked = this.context.play?.snapshot().result !== 'PLAYING';
-        this.context.homeView?.refresh(this.context.progress!);
-        this.context.constructionView?.refreshSocialNotice(this.context.progress!.readSocial().unread);
-        this.onClosed?.();
+        // Resource cleanup has completed. A failed refresh/notification must not
+        // become a cleanup failure with no remaining owner and locked input.
+        try {
+          this.context.homeView?.refresh(this.context.progress!);
+          this.context.constructionView?.refreshSocialNotice(this.context.progress!.readSocial().unread);
+          this.onClosed?.();
+        } catch (cause) {
+          this.context.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
+          this.context.hudView?.setFeedback('页面刷新未完成，请重试');
+        }
       },
     };
     return this.section.startsWith('tool-')

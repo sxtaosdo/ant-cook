@@ -75,8 +75,8 @@ export class ColonyHudView extends mk.StaticViewBase {
   public setResources(coins: number, diamonds: number): void {
     const diamond = this.node.getChildByName('DiamondLabel')?.getComponent(Label);
     const coin = this.node.getChildByName('CoinLabel')?.getComponent(Label);
-    if (diamond) diamond.string = `◆ ${diamonds}`;
-    if (coin) coin.string = `● ${coins}`;
+    if (diamond) diamond.string = String(diamonds);
+    if (coin) coin.string = `金币 ${coins}`;
   }
 
   /** Main levels are a read-only horizontal track; progress changes only after cargo clears. */
@@ -148,17 +148,18 @@ export class ColonyHudView extends mk.StaticViewBase {
       this.levelLabel!.node.getComponent(UITransform)!.setContentSize(130, 36);
       move('HeaderSubtitle', -65, 15);
       move('SpeedButton', -305, 32);
-      move('SettingsButton', 305, 32);
-      move('LeaderboardButton', 305, -58);
-      move('ShopButton', 205, 32);
-      this.node.getChildByName('ShopButton')!.getComponent(UITransform)!.setContentSize(112, 88);
-      move('CoinLabel', 205, 49);
-      move('DiamondLabel', 205, 16);
+      move('SettingsButton', 320, 32);
+      move('LeaderboardButton', 320, -58);
+      move('ShopButton', 170, 32);
+      this.node.getChildByName('ShopButton')!.getComponent(UITransform)!.setContentSize(200, 153);
+      move('CoinLabel', 170, 64);
+      move('DiamondLabel', 185, 16);
+      move('DiamondIcon', 100, 16);
       this.node.getChildByName('ShopButton')!.getComponent(Sprite)!.enabled = false;
       this.node.getChildByName('ShopButton')!.getChildByName('Text')!.active = false;
       const resource = this.node.getChildByName('ShopButton')!.getChildByName('ResourceCard')!;
       resource.getComponent(Sprite)!.sizeMode = Sprite.SizeMode.CUSTOM;
-      resource.getComponent(UITransform)!.setContentSize(112, 86);
+      resource.getComponent(UITransform)!.setContentSize(200, 153);
       resource.active = true;
       this.node.getChildByName('DiamondLabel')!.setSiblingIndex(this.node.children.length - 1);
       move('ThemeTargetIcon', -10, 47);
@@ -173,6 +174,7 @@ export class ColonyHudView extends mk.StaticViewBase {
         this.node.getChildByName(name)!.active = false;
       }
     } else {
+      move('DiamondIcon', 175, -40);
       this.railView?.node.setPosition(0, 50, 0);
       move('HeaderPlaque', -5, 32);
       this.node.getChildByName('ThemeTargetIcon')!.getComponent(UITransform)!.setContentSize(90, 90);
@@ -187,7 +189,7 @@ export class ColonyHudView extends mk.StaticViewBase {
   }
 
   private setRailLayout(visible: boolean): void {
-    for (const name of ['SpeedButton', 'LevelLabel', 'ShopButton', 'SettingsButton', 'ThemeTargetIcon', 'FeedbackLabel', 'FeedbackPill', 'DiamondLabel', 'BasketIcon0', 'BasketIcon1', 'BasketIcon2', 'BasketIcon3', 'BasketProgressLabel']) {
+    for (const name of ['SpeedButton', 'LevelLabel', 'ShopButton', 'SettingsButton', 'ThemeTargetIcon', 'FeedbackLabel', 'FeedbackPill', 'DiamondLabel', 'DiamondIcon', 'BasketIcon0', 'BasketIcon1', 'BasketIcon2', 'BasketIcon3', 'BasketProgressLabel']) {
       const node = this.node.getChildByName(name);
       if (!node) continue;
       const widget = node.getComponent(Widget);

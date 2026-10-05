@@ -1,6 +1,6 @@
 # Ant Cook 联合产品
 
-**当前版本：`v0.3.0.1`**
+**当前版本：`v0.3.0.2`**
 
 状态: Draft
 
@@ -14,6 +14,6 @@ P0002 以 `extensions/shidai3` Git submodule 消费，固定 `2384980aab0c2bb605
 
 `P8000/dual-game-build/build-input.mjs` 在任务 Temp 目录创建独立 Creator 输入，支持 `ant`、`cook`、`both`，物理排除未选玩法。`SHARED_ASSETS.json` 记录通用遮罩纹理的构建期共享归属，纹理和 meta 保留原字节及 UUID；原目录不移动。工具拒绝没有 Creator 保存的 `assets/shell/Bootstrap.scene` 的正式输入。
 
-当前限制：Bootstrap.scene 已经 Creator 3.8.8 创建、绑定 ProductBootstrap、保存并回读；Bridge 0.3.118 已获批安装登记。蚂蚁入口已在 Preview 显示。双向切换、真实保存故障恢复、三种正式构建和多尺寸视觉仍待本轮验收，不能将隔离夹具和业务测试计作 Runtime 完成。广告单元、AppID、远程服务和推广阈值尚未配置。
+Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存并回读；Bridge 0.3.118 已获批安装登记。Preview 已验证两个来源入口、双向往返、退出保存故障重试及持续就绪。四项蚂蚁界面调整通过 Creator 保存。正式构建使用工具生成的隔离输入，排除 P0002 的开发示例入口；运行、多尺寸和产物验收以对应源码 SHA 的本次任务回执为准，业务替身测试不能代替它们。广告单元、AppID、远程服务和推广阈值尚未配置。
 
 来源快照见 `MIGRATION_SOURCES.json`；功能状态见 `CHANGELOG.md`。

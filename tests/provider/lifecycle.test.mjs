@@ -109,6 +109,13 @@ test('actual Presentation-Control-MVC failed popup open releases its business pl
   f.ui.open = async () => { openCalls++; return view; };
   await bounded(Presentation.open(context, 'daily')); assert.ok(context.progressPopup); assert.equal(openCalls, 2);
   await context.progressPopup.forceClose(); assert.equal(context.progressPopup, null); assert.equal(context.inputLocked, false);
+  for (const notification of ['refresh', 'onClosed']) {
+    context.homeView.refresh = () => { if (notification === 'refresh') throw Error('refresh save failed'); };
+    f.ui.open = async () => null;
+    await bounded(Presentation.open(context, 'daily', () => { if (notification === 'onClosed') throw Error('notification failed'); }));
+    assert.equal(context.progressPopup, null); assert.equal(context.inputLocked, false);
+    assert.match(feedback, /加载失败/);
+  }
 });
 
 test('actual MVC rejected open settles its gate and concurrent cleanup retries partial owners', async () => {

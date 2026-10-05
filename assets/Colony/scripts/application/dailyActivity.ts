@@ -21,8 +21,10 @@ export class DailyActivityBuffer {
       if (this.batch && Math.floor((this.batch.startAt + 8 * 3600000) / 86400000) !== day) this.seal();
       if (!this.batch) this.batch = { sequence: ++this.sequence, startAt: start, endAt: end, onlineMs: 0, boostMs: 0 };
       this.batch.endAt = end;
-      this.batch.onlineMs += end - start;
-      this.batch.boostMs += Math.floor(boost * (end - start) / elapsed);
+      // Monotonic and wall clock millisecond boundaries can differ by one tick.
+      // Keep the accumulated observation inside its actual wall-time interval.
+      this.batch.onlineMs = Math.min(this.batch.onlineMs + end - start, this.batch.endAt - this.batch.startAt);
+      this.batch.boostMs = Math.min(this.batch.onlineMs, this.batch.boostMs + Math.floor(boost * (end - start) / elapsed));
       start = end;
       if (this.batch.onlineMs >= 30000) this.seal();
     }

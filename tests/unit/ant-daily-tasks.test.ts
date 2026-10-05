@@ -14,6 +14,19 @@ function fixture(resetDay = true) {
   if (resetDay) { now += 86400000; p.snapshot(); }
   return { data, get p() { return p; }, restart() { p = create(); }, now: () => now, time: (value: number) => { now = value; }, fail: (value: boolean) => { fail = value; } };
 }
+test('real fractional frame clocks do not produce a receipt longer than its wall interval', () => {
+  const f = fixture(), start = f.now();
+  const buffer = new DailyActivityBuffer(0, 10.9, start);
+  buffer.sample(27.1, start + 17, true, 17);
+  buffer.sample(44.2, start + 33, true, 17);
+  buffer.sample(60.1, start + 50, true, 16);
+  f.time(start + 50);
+  const written: unknown[] = [];
+  buffer.flush(receipt => { f.p.recordDailyTime(receipt); written.push(receipt); });
+  assert.equal(written.length, 1);
+  assert.equal(f.p.snapshot().daily.tasks.onlineMs, 49);
+  assert.ok(f.p.snapshot().daily.tasks.boostMs <= 50);
+});
 test('each task pays once; valid replay, failure and duplicate settlement are distinguished', () => {
   const f = fixture(), initial = f.p.snapshot().coins;
   const r = f.p.startRound(1); f.p.settleRound(r.id, 'SUCCESS', 1); f.p.settleRound(r.id, 'SUCCESS', 1);
