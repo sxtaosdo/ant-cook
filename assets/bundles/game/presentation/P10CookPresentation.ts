@@ -63,6 +63,8 @@ const C = {
 export interface CookPageNavigation {
     showMap(): void; showUpgrade(): void; showDecor(): void; showStory(): void;
     showSettings(): void; showUnlock(): void; showRecovery(): void;
+    showProductNavigation?(): void;
+    canReceiveInput?(): boolean;
 }
 
 export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> {
@@ -207,7 +209,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     }
 
     private publish(intent: P10Intent): void {
-        if (!this.inputEnabled) return;
+        if (!this.inputEnabled || this.navigation.canReceiveInput?.() === false) return;
         this.intents.publish(intent);
     }
 
@@ -516,7 +518,8 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
             this.publish({ type: 'p10.toggle-setting', payload: { key: 'reducedMotion', value: !settings.reducedMotion } });
         });
         this.button('存档恢复', this.node, 0, -230, 520, 82, C.panel2, () => this.navigation.showRecovery());
-        this.text('状态同时使用文字与形状表达，不只依赖颜色', this.node, 0, -355, 20, 620, 40, C.muted, HorizontalTextAlignment.CENTER);
+        this.button('切换玩法', this.node, 0, -340, 520, 100, C.jade, () => this.navigation.showProductNavigation?.());
+        this.text('状态同时使用文字与形状表达，不只依赖颜色', this.node, 0, -435, 20, 620, 40, C.muted, HorizontalTextAlignment.CENTER);
     }
 
     private settingRow(name: string, value: string, y: number, enabled: boolean, action: () => void): void {
@@ -698,7 +701,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     }
 
     private handlePointer(event: EventTouch | EventMouse): void {
-        if (!this.inputEnabled || !this.active) return;
+        if (!this.inputEnabled || !this.active || this.navigation.canReceiveInput?.() === false) return;
         const point = event.getUILocation();
         for (let index = this.tapTargets.length - 1; index >= 0; index -= 1) {
             const target = this.tapTargets[index];

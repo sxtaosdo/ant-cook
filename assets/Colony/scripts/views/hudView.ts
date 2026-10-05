@@ -174,7 +174,7 @@ export class ColonyHudView extends mk.StaticViewBase {
         this.node.getChildByName(name)!.active = false;
       }
     } else {
-      move('DiamondIcon', 175, -40);
+      move('DiamondIcon', 163, -40);
       this.railView?.node.setPosition(0, 50, 0);
       move('HeaderPlaque', -5, 32);
       this.node.getChildByName('ThemeTargetIcon')!.getComponent(UITransform)!.setContentSize(90, 90);

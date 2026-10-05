@@ -42,6 +42,9 @@ export interface ModuleEntry {
   ready(report: ModuleReady): void;
   saveBlocked(cause: unknown): void;
   fail(cause: unknown): void;
+  /** Shell UI requests do not transfer gameplay state or economy. */
+  requestNavigation?(): boolean;
+  isNavigationCovered?(): boolean;
 }
 
 export interface SceneDriver {
@@ -51,7 +54,7 @@ export interface SceneDriver {
 
 export type SwitchResult =
   | { readonly ok: true; readonly mode: ModeId; readonly metadataPending: boolean }
-  | { readonly ok: false; readonly reason: string; readonly recoveredMode?: ModeId };
+  | { readonly ok: false; readonly reason: string; readonly recoveredMode?: ModeId; readonly canContinue?: boolean };
 
 /** One explicit business entry, set before scene replacement. No arbitrary service lookup. */
 export class ModuleEntryGate {

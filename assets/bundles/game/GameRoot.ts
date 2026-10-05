@@ -46,6 +46,8 @@ export class GameRoot extends Component implements GameplayModule {
             showDecor: () => this.requestPage(DecorState), showStory: () => this.requestPage(StoryState),
             showSettings: () => this.requestPage(SettingsState), showUnlock: () => this.requestPage(UnlockState),
             showRecovery: () => this.requestPage(RecoveryState),
+            showProductNavigation: () => { this.entry?.requestNavigation?.(); },
+            canReceiveInput: () => !this.entry?.isNavigationCovered?.(),
         });
         this.bootstrap.bind(this.application, this.session, () => this.renderNow(),
             () => this.presentation!.initializeResources(), cause => this.entry?.saveBlocked(cause),

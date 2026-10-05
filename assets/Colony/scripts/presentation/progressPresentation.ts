@@ -1,4 +1,5 @@
 import mk from 'mk';
+import { ModuleEntryGate } from '../../../shell/contracts';
 import { ProgressControl } from '../../popups/progress/script/progressControl';
 import type { ProgressNavigation } from '../../popups/progress/script/progressControl';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
@@ -305,6 +306,7 @@ export class ProgressPresentation {
   private async act(action: string): Promise<string> {
     const p = this.context.progress!;
     const [kind, value] = action.split(':');
+    if (kind === 'product-navigation' && !this.context.ads?.hasPendingReward()) { ModuleEntryGate.require('ant').requestNavigation?.(); return ''; }
     if (this.context.ads?.hasPendingReward() && kind !== 'ad-supply' && kind !== 'ad-speed') return '奖励待保存，请重试原广告领取，无需再看视频';
     if (kind === 'gm' || kind === 'gm-confirm') {
       const gm = this.context.gm;

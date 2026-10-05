@@ -182,7 +182,7 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     const { settings } = this._model.page;
     const root = this.settingsRoot;
     if (!root || !settings) throw new Error('Settings popup binding is missing');
-    panel.getComponent(UITransform)!.setContentSize(640, 860);
+    panel.getComponent(UITransform)!.setContentSize(640, 980);
     for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1', 'LeaderboardHint']) panel.getChildByName(name)!.active = false;
     this.list!.node.active = false;
     this.leaderboardList!.node.active = false;
@@ -197,7 +197,7 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     controls.forEach(([name, action, frame], index) => {
       const button = root.getChildByName(name)!;
       button.active = index < 2 || settings.inRound;
-      button.setPosition(settings.inRound ? -210 + index * 140 : -100 + index * 200, 165, 0);
+      button.setPosition(settings.inRound ? -210 + index * 140 : -100 + index * 200, 225, 0);
       if (index < 2) button.getChildByName('Icon')!.getComponent(Sprite)!.spriteFrame = frame;
       this.bind(button, true, () => this.event.emit('action', action));
     });
@@ -205,6 +205,7 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
       this.bind(root.getChildByName(name)!, true, () => this.event.emit('action', action));
     }
     this.bind(root.getChildByName('Close')!, true, () => this.event.emit('close'));
+    this.bind(root.getChildByName('ProductNavigationButton')!, true, () => this.event.emit('action', 'product-navigation'));
     root.getChildByName('Version')!.getComponent(Label)!.string = settings.version;
     root.getChildByName('UserId')!.getComponent(Label)!.string = `ID: ${settings.userId}`;
     const gmButton = root.getChildByName('GmButton')!;

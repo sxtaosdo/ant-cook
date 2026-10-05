@@ -57,14 +57,14 @@ test('ads, rewards, live round and pending save block switch without closing the
   const f = fixture(); await f.coordinator.switchTo('ant');
   for (const reason of ['adShowing', 'rewardPending', 'playing', 'saveFailed'] as const) {
     f.modules[0].leave = reason;
-    assert.deepEqual(await f.coordinator.switchTo('cook'), { ok: false, reason });
+    assert.deepEqual(await f.coordinator.switchTo('cook'), { ok: false, reason, canContinue: reason !== 'saveFailed' });
     assert.equal(f.modules[0].closed, 0); assert.equal(f.coordinator.currentMode, 'ant');
   }
 });
 
 test('flush failure stays on source, and retry does not execute another mode transition', async () => {
   const f = fixture(); await f.coordinator.switchTo('ant'); f.modules[0].saved = { ok: false, reason: 'quota' };
-  assert.equal((await f.coordinator.switchTo('cook')).ok, false); assert.equal(f.modules[0].closed, 0);
+  const blocked = await f.coordinator.switchTo('cook'); assert.ok(!blocked.ok && blocked.canContinue === false); assert.equal(f.modules[0].closed, 0);
   assert.equal(await f.coordinator.retrySave(), false);
   f.modules[0].saved = { ok: true }; assert.equal(await f.coordinator.retrySave(), true);
   assert.equal(f.entries.length, 1); assert.equal(f.modules[0].resumed, 1);
@@ -85,6 +85,40 @@ test('partial source close retains failed owner and blocks every entry until ser
   await tick(); assert.equal((await f.coordinator.switchTo('cook')).ok, false); assert.equal(f.entries.length, 1);
   finish(); assert.equal(await retry, true); assert.equal(f.coordinator.cleanupBlockedMode, null);
   assert.equal((await f.coordinator.switchTo('cook')).ok, true);
+});
+
+test('same-mode selection cannot dismiss a pending business save, while preload refusal permits returning', async () => {
+  const f = fixture(); await f.coordinator.switchTo('ant'); f.modules[0].leave = 'saveFailed';
+  const pending = await f.coordinator.switchTo('ant'); assert.ok(!pending.ok && pending.canContinue === false);
+  assert.equal(f.entries.length, 1); assert.equal(f.modules[0].resumed, 0);
+  f.modules[0].leave = 'ready'; f.driver.preflight = async () => { throw Error('offline'); };
+  const stillPending = await f.coordinator.switchTo('cook'); assert.ok(!stillPending.ok && stillPending.canContinue === false);
+  assert.equal(await f.coordinator.retrySave(), true);
+  const offline = await f.coordinator.switchTo('cook'); assert.ok(!offline.ok && offline.canContinue === true);
+  assert.equal(f.coordinator.currentMode, 'ant'); assert.equal(f.modules[0].closed, 0);
+});
+
+test('metadata failure after business recovery allows continuation and subsequent retries never flush gameplay', async () => {
+  const f = fixture(); f.store.fail = true; await f.coordinator.switchTo('ant');
+  const module = f.modules[0]; let flushes = 0; module.leave = 'saveFailed';
+  module.flush = async () => { flushes++; module.leave = 'ready'; return { ok: true }; };
+  assert.equal(await f.coordinator.retrySave(), false); assert.equal(flushes, 1);
+  assert.equal(f.coordinator.onlyMetadataPending, true); assert.equal(f.coordinator.currentMode, 'ant');
+  assert.equal(await f.coordinator.retrySave(), false); assert.equal(flushes, 1);
+  f.store.fail = false; assert.equal(await f.coordinator.retrySave(), true); assert.equal(flushes, 1);
+  assert.equal(f.coordinator.hasPendingMetadata, false); assert.equal(f.entries.length, 1);
+});
+
+test('page recovery rejection cannot be mistaken for metadata-only work or bypassed by selecting the same mode', async () => {
+  const f = fixture(); f.store.fail = true; await f.coordinator.switchTo('cook');
+  const module = f.modules[0]; let flushes = 0; module.leave = 'saveFailed';
+  module.flush = async () => { flushes++; module.leave = 'playing'; throw Error('page render failed after save'); };
+  assert.equal(await f.coordinator.retrySave(), false); assert.equal(f.coordinator.onlyMetadataPending, false);
+  const same = await f.coordinator.switchTo('cook'); assert.ok(!same.ok && same.canContinue === false);
+  module.flush = async () => { flushes++; module.leave = 'ready'; return { ok: true }; };
+  assert.equal(await f.coordinator.retrySave(), false); assert.equal(flushes, 2); assert.equal(f.coordinator.onlyMetadataPending, true);
+  f.store.fail = false; assert.equal(await f.coordinator.retrySave(), true); assert.equal(flushes, 2);
+  assert.equal(f.entries.length, 1);
 });
 
 test('failed target and failed recovery cleanup retain their exact owner, with no fresh entry', async () => {

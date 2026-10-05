@@ -15,6 +15,8 @@ export class SwitchCoordinator {
   private pendingNavigation: Navigation | null = null;
   private pendingStart: { module: GameplayModule; ready: Promise<GameplayModule> } | null = null;
   private retryingSave = false;
+  /** Remains true through save/page recovery rejection, even if canLeave says playing. */
+  private businessRecoveryPending = false;
   private cleanupBlocked: { module: GameplayModule; cause: unknown } | null = null;
   private cleanupRetry: Promise<boolean> | null = null;
   public navigationWarning: string | null = null;
@@ -46,6 +48,8 @@ export class SwitchCoordinator {
   get isSwitching(): boolean { return this.flight !== null; }
   get lastPlayed(): ModeId | undefined { return this.navigation.lastPlayed; }
   get cleanupBlockedMode(): ModeId | null { return this.cleanupBlocked?.module.id ?? null; }
+  get hasPendingMetadata(): boolean { return this.pendingNavigation !== null; }
+  get onlyMetadataPending(): boolean { return !!this.pendingNavigation && !!this.active && !this.pendingStart && !this.cleanupBlocked && !this.businessRecoveryPending && this.active.canLeave() !== 'saveFailed'; }
 
   switchTo(target: ModeId, source: EntrySource = 'manual'): Promise<SwitchResult> {
     if (this.cleanupBlocked || this.cleanupRetry) return Promise.resolve({ ok: false, reason: `Cleanup incomplete: ${this.cleanupBlocked?.module.id ?? 'retry in progress'}` });
@@ -54,7 +58,13 @@ export class SwitchCoordinator {
     if (this.flight) return this.flight.target === target ? this.flight.promise
       : Promise.resolve({ ok: false, reason: 'A mode transition is already running' });
     if (!this.descriptors.some(d => d.id === target)) return Promise.resolve({ ok: false, reason: 'Mode is not included in this build' });
-    if (this.active?.id === target) return Promise.resolve({ ok: true, mode: target, metadataPending: this.pendingNavigation !== null });
+    if (this.active?.id === target) {
+      if (this.businessRecoveryPending || this.active.canLeave() === 'saveFailed') {
+        this.businessRecoveryPending = true;
+        return Promise.resolve({ ok: false, reason: 'Save or page recovery is pending', canContinue: false });
+      }
+      return Promise.resolve({ ok: true, mode: target, metadataPending: this.pendingNavigation !== null });
+    }
     const promise = this.performSwitch(target, source);
     this.flight = { target, promise };
     void promise.finally(() => { if (this.flight?.promise === promise) this.flight = null; });
@@ -63,9 +73,11 @@ export class SwitchCoordinator {
 
   async retrySave(): Promise<boolean> {
     if (this.flight || this.retryingSave || this.cleanupBlocked || this.cleanupRetry) return false;
+    if (this.onlyMetadataPending) return this.retryMetadata();
     const module = this.pendingStart?.module ?? this.active;
     if (!module) return false;
     this.retryingSave = true;
+    this.businessRecoveryPending = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Save readiness retry timed out')), this.readyTimeoutMs); });
@@ -76,7 +88,7 @@ export class SwitchCoordinator {
         this.pendingNavigation = { version: 1, lastPlayed: this.active.id };
         this.retryMetadata();
       }
-      if (saved.ok) module.resumeInput();
+      if (saved.ok) { module.resumeInput(); this.businessRecoveryPending = false; }
       return saved.ok && this.retryMetadata();
     } catch {
       if (this.pendingStart) {
@@ -132,11 +144,16 @@ export class SwitchCoordinator {
       await this.bounded(this.driver.preflight(descriptor), 'Gameplay preload timed out');
       if (previous) {
         const leave = previous.canLeave();
-        if (leave !== 'ready') return { ok: false, reason: leave };
+        if (this.businessRecoveryPending || leave !== 'ready') {
+          if (leave === 'saveFailed') this.businessRecoveryPending = true;
+          return { ok: false, reason: leave, canContinue: !this.businessRecoveryPending };
+        }
+        this.businessRecoveryPending = true;
         const prepared = await previous.prepareExit();
-        if (prepared !== 'ready') { previous.resumeInput(); return { ok: false, reason: prepared }; }
+        if (prepared !== 'ready') { previous.resumeInput(); this.businessRecoveryPending = prepared === 'saveFailed'; return { ok: false, reason: prepared, canContinue: !this.businessRecoveryPending }; }
         const saved = await previous.flush();
-        if (!saved.ok) return { ok: false, reason: saved.reason };
+        if (!saved.ok) return { ok: false, reason: saved.reason, canContinue: false };
+        this.businessRecoveryPending = false;
         closeStarted = true;
         this.entry = null;
         // A cleanup timeout cannot prove global registrations have been released.
@@ -145,18 +162,20 @@ export class SwitchCoordinator {
         this.active = null;
       }
       this.active = await this.enterReady(descriptor, source, previous === null);
+      this.businessRecoveryPending = false;
       this.pendingNavigation = { version: 1, lastPlayed: target };
       return { ok: true, mode: target, metadataPending: !this.retryMetadata() };
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
       if (cause instanceof StartupSaveBlocked && this.pendingStart) return { ok: false, reason };
       if (this.cleanupBlocked) return { ok: false, reason: `${reason}; cleanup incomplete: ${this.cleanupBlocked.module.id}` };
-      if (!closeStarted && previous) { previous.resumeInput(); return { ok: false, reason }; }
+      if (!closeStarted && previous) { if (!this.businessRecoveryPending) previous.resumeInput(); return { ok: false, reason, canContinue: !this.businessRecoveryPending && previous.canLeave() !== 'saveFailed' }; }
       this.active = null;
       if (previous) {
         try {
           await this.bounded(this.driver.preflight(this.descriptor(previous.id)), 'Source recovery preload timed out');
           this.active = await this.enterReady(this.descriptor(previous.id), 'recovery');
+          this.businessRecoveryPending = false;
           return { ok: false, reason, recoveredMode: previous.id };
         } catch (recoveryError) {
           return { ok: false, reason: `${reason}; source recovery failed: ${String(recoveryError)}` };

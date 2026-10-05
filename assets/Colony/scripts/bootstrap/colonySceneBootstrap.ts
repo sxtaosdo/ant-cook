@@ -263,7 +263,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
     }
   }
 
-  public resumeInput(): void { if (!this.destroyed && !this.exitSaveFailed) this.inputLocked = false; }
+  public resumeInput(): void { if (!this.destroyed && !this.exitSaveFailed) this.inputLocked = !!this.progressPopup || this.navigating; }
 
   public close(_reason: 'switch' | 'recovery'): Promise<void> {
     if (!this.closePromise) this.closePromise = Promise.resolve().then(() => this.closeModule()).catch(cause => { this.closePromise = null; throw cause; });
