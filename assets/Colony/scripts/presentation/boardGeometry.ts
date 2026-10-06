@@ -50,8 +50,15 @@ const STACK_COLUMN_GAP = 102;
 const STACK_ROW_GAP = 104;
 
 /** 未选择的数字组按列纵向排开；列首选走后，后续数字组依次向槽位方向补位。 */
-export function stackPilePosition(stack: Readonly<StackState>, stacks: readonly Readonly<StackState>[]): BoardPosition {
-  const head = Math.min(...stacks.filter((item) => item.pile === stack.pile && !item.selected).map((item) => item.depth));
+/** Compute each queue head once per projection, including locked and offscreen items. */
+export function stackPileHeads(stacks: readonly Readonly<StackState>[]): ReadonlyMap<number, number> {
+  const heads = new Map<number, number>();
+  for (const stack of stacks) if (!stack.selected) heads.set(stack.pile, Math.min(heads.get(stack.pile) ?? Infinity, stack.depth));
+  return heads;
+}
+
+export function stackPilePosition(stack: Readonly<StackState>, stacks: readonly Readonly<StackState>[], heads?: ReadonlyMap<number, number>): BoardPosition {
+  const head = heads ? heads.get(stack.pile) ?? Infinity : Math.min(...stacks.filter((item) => item.pile === stack.pile && !item.selected).map((item) => item.depth));
   const row = Math.max(0, stack.depth - head);
   return {
     x: -205 + stack.pile * STACK_COLUMN_GAP,

@@ -35,13 +35,11 @@ export class ColonyHomeView extends mk.StaticViewBase {
       socialButton.active = progress.socialAvailable();
       socialButton.getChildByName('Notice')!.active = progress.readSocial().unread > 0;
     }
-    const names = { NightMarketButton: true, ThemeButton: false, DailyButton: true, CollectionButton: unlock.collection, EventsButton: unlock.events };
+    const names = { NightMarketButton: true, DailyButton: true, CollectionButton: unlock.collection, EventsButton: unlock.events };
     for (const [name, visible] of Object.entries(names)) {
       const node = this.node.getChildByName(name);
       if (node) node.active = visible;
     }
-    const label = this.node.getChildByName('ProgressSummary')?.getComponent(Label);
-    if (label) label.string = `金币 ${s.coins}   ◆ ${s.diamonds}\n${s.clearedLevels.length === 60 ? '本期收集完成' : `第 ${progress.nextLevel()} 关`}`;
     const currency = this.node.getChildByName('HomeCurrencyLabel')?.getComponent(Label);
     const level = this.node.getChildByName('HomeLevelLabel')?.getComponent(Label);
     if (currency) currency.string = `金币 ${s.coins}     钻石 ${s.diamonds}`;

@@ -2,7 +2,7 @@ import { Button, Color, EventTouch, Label, Node, Sprite, SpriteFrame, tween, Twe
 import type { ColonyReadModel } from '../application/contracts';
 import type { ObservableEvent, SlotStackState } from '../gameModel';
 import { colonyColor } from './colonyColors';
-import { deriveBoardGeometry, stackPilePosition, type BoardGeometry } from './boardGeometry';
+import { deriveBoardGeometry, stackPileHeads, stackPilePosition, type BoardGeometry } from './boardGeometry';
 import { NodeFactory } from './nodeFactory';
 import { PuzzleFrames } from './puzzleFrames';
 
@@ -28,6 +28,7 @@ export class BoardPresentation {
   private movingStackAnimations = 0;
   private slotNodes: Node[] = [];
   private displaySlots: Array<SlotStackState | null> = [];
+  private slotTokens: Array<{ node: Node; label: Label; stackId: string; color: SlotStackState['color']; remaining: number; frame: SpriteFrame } | null> = [];
   private geometryValue: BoardGeometry | null = null;
   private queueOffset = 0;
   private queueMaxOffset = 0;
@@ -120,6 +121,7 @@ export class BoardPresentation {
     this.stackNodes.clear();
     this.slotNodes = [];
     this.displaySlots = [];
+    this.slotTokens = [];
     this.moving.clear();
     this.movingStackAnimations = 0;
     if (this.stackRootOriginalSiblingIndex !== null && this.stackRoot.parent) {
@@ -294,8 +296,9 @@ export class BoardPresentation {
   /** 创建可点击数字组并绑定选取回调。 */
   private createStacks(readModel: ColonyReadModel): void {
     const stacks = [...readModel.snapshot.stacks].sort((left, right) => right.depth - left.depth);
+    const heads = stackPileHeads(stacks);
     for (const stack of stacks) {
-      const position = stackPilePosition(stack, stacks);
+      const position = stackPilePosition(stack, stacks, heads);
       const node = this.factory.acquire(
         this.stackPool,
         `stack-${stack.id}`,
@@ -359,15 +362,24 @@ export class BoardPresentation {
   /** 按 displaySlots 绘制槽内色块与剩余计数。 */
   private renderSlots(): void {
     this.slotNodes.forEach((node, index) => {
-      for (const child of [...node.children]) this.slotTokenPool.put(child);
       const occupant = this.displaySlots[index];
+      const cached = this.slotTokens[index];
+      const frame = this.stackTile ?? this.stackFrame;
+      if (occupant && cached?.node.isValid && cached.label.isValid && cached.node.parent === node && cached.node.active
+        && cached.stackId === occupant.stackId && cached.color === occupant.color && cached.frame === frame) {
+        if (cached.remaining !== occupant.remaining) { cached.label.string = String(occupant.remaining); cached.remaining = occupant.remaining; }
+        return;
+      }
+      for (const child of [...node.children]) this.slotTokenPool.put(child);
+      this.slotTokens[index] = null;
       if (!occupant) return;
       const token = this.factory.acquire(this.slotTokenPool, `slot-token-${index}`, 0, 0, 80, 80, node);
-      this.factory.token(token, colonyColor(occupant.color), this.stackTile ?? this.stackFrame);
+      this.factory.token(token, colonyColor(occupant.color), frame);
       const label = token.getComponentInChildren(Label)
         ?? this.factory.label(String(occupant.remaining), token, 76, 34, 28, Color.WHITE);
       label.string = String(occupant.remaining);
       label.color = ['white', 'cream', 'yellow', 'gold', 'orange', 'citrus'].includes(occupant.color) ? new Color('#493F53') : Color.WHITE;
+      this.slotTokens[index] = { node: token, label, stackId: occupant.stackId, color: occupant.color, remaining: occupant.remaining, frame };
     });
   }
 
@@ -375,6 +387,7 @@ export class BoardPresentation {
   private renderStacks(readModel: ColonyReadModel, animateReflow = false): void {
     this.latestReadModel = readModel;
     const stacks = new Map(readModel.snapshot.stacks.map((stack) => [stack.id, stack]));
+    const heads = stackPileHeads(readModel.snapshot.stacks);
     for (const [stackId, node] of this.stackNodes) {
       const stack = stacks.get(stackId);
       if (!stack) continue;
@@ -385,7 +398,7 @@ export class BoardPresentation {
       }
       node.active = !stack.selected;
       if (stack.selected) continue;
-      const position = stackPilePosition(stack, readModel.snapshot.stacks);
+      const position = stackPilePosition(stack, readModel.snapshot.stacks, heads);
       const y = position.y + this.queueOffset;
       node.active = this.stackTile ? y >= -260 && y <= 64 : y >= -112 && y <= 112;
       const target = new Vec3(position.x, y, 0);
