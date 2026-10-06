@@ -1,7 +1,7 @@
-import { _decorator, Button, Color, EditBox, EventTouch, Label, Node, Sprite, SpriteFrame, UITransform, tween, Tween, Vec3, view } from 'cc';
+import { _decorator, Color, EditBox, Label, Node, Sprite, SpriteFrame, UITransform, tween, Tween, Vec3 } from 'cc';
 import { ColonyPopupView } from './popupView';
 import mk from 'mk';
-import { ProgressModel, type ProgressRow } from './progressModel';
+import { type ProgressRow } from './progressModel';
 import { VirtualScrollView } from '../../../vendor/vscrollview/VScrollView';
 import { ColonySocialView } from '../../../scripts/views/social/socialView';
 
@@ -23,11 +23,6 @@ export class ColonyProgressView extends ColonyPopupView {
   @property(VirtualScrollView) public shopList: VirtualScrollView | null = null;
   @property(ColonySocialView)
   public socialView: ColonySocialView | null = null;
-  @property(Node) public settingsRoot: Node | null = null;
-  @property(SpriteFrame) public musicOnFrame: SpriteFrame | null = null;
-  @property(SpriteFrame) public musicOffFrame: SpriteFrame | null = null;
-  @property(SpriteFrame) public soundOnFrame: SpriteFrame | null = null;
-  @property(SpriteFrame) public soundOffFrame: SpriteFrame | null = null;
 
   protected prepareOpen(): void {
     this.listTitle = '';
@@ -45,12 +40,6 @@ export class ColonyProgressView extends ColonyPopupView {
     this.list!.node.active = page.layout !== 'shop';
     const selector = panel.getChildByName('GmLevelSelector');
     if (selector) selector.active = page.layout === 'gm';
-    if (this.settingsRoot) this.settingsRoot.active = page.layout === 'settings';
-    panel.getComponent(Sprite)!.enabled = page.layout !== 'settings';
-    if (page.layout === 'settings') {
-      this.renderSettings(panel);
-      return;
-    }
     if (page.layout === 'social') {
       for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1']) panel.getChildByName(name)!.active = false;
       list.node.active = false;
@@ -59,11 +48,6 @@ export class ColonyProgressView extends ColonyPopupView {
     }
     this.socialView?.hide();
     for (const name of ['Title', 'Summary', 'Close', 'Back']) panel.getChildByName(name)!.active = true;
-    list.node.active = page.layout !== 'confirm';
-    if (page.layout === 'confirm') {
-      this.renderConfirm(panel);
-      return;
-    }
     secondaryAction.spriteFrame = this.primaryActionFrame;
     const hasSummary = Boolean(page.summary);
     const hasTabs = Boolean(page.activeTab);
@@ -126,42 +110,6 @@ export class ColonyProgressView extends ColonyPopupView {
     this.listTitle = page.title;
     this.bind(panel.getChildByName('Close')!, true, () => this.event.emit('close'));
     this.bind(panel.getChildByName('Back')!, true, () => this.event.emit('action', 'back'));
-  }
-
-  private renderSettings(panel: Node): void {
-    const { settings } = this._model.page;
-    const root = this.settingsRoot;
-    if (!root || !settings) throw new Error('Settings popup binding is missing');
-    panel.getComponent(UITransform)!.setContentSize(640, 980);
-    for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1']) panel.getChildByName(name)!.active = false;
-    this.list!.node.active = false;
-    this.socialView?.hide();
-    const controls = [
-      ['MusicButton', 'toggle-music', settings.musicEnabled ? this.musicOnFrame : this.musicOffFrame],
-      ['SoundButton', 'toggle-sound', settings.soundEnabled ? this.soundOnFrame : this.soundOffFrame],
-      ['HomeButton', 'section:confirm-home', null],
-      ['RestartButton', 'section:confirm-restart', null],
-    ] as const;
-    controls.forEach(([name, action, frame], index) => {
-      const button = root.getChildByName(name)!;
-      button.active = index < 2 || settings.inRound;
-      button.setPosition(settings.inRound ? -210 + index * 140 : -100 + index * 200, 225, 0);
-      if (index < 2) button.getChildByName('Icon')!.getComponent(Sprite)!.spriteFrame = frame;
-      this.bind(button, true, () => this.event.emit('action', action));
-    });
-    for (const [name, action] of [['FeedbackButton', 'settings-link:feedback'], ['AgreementButton', 'settings-link:agreement'], ['PrivacyButton', 'settings-link:privacy']] as const) {
-      this.bind(root.getChildByName(name)!, true, () => this.event.emit('action', action));
-    }
-    this.bind(root.getChildByName('Close')!, true, () => this.event.emit('close'));
-    this.bind(root.getChildByName('ProductNavigationButton')!, true, () => this.event.emit('action', 'product-navigation'));
-    root.getChildByName('Version')!.getComponent(Label)!.string = settings.version;
-    root.getChildByName('UserId')!.getComponent(Label)!.string = `ID: ${settings.userId}`;
-    const gmButton = root.getChildByName('GmButton')!;
-    gmButton.active = settings.gmAvailable;
-    this.bind(gmButton, settings.gmAvailable, () => this.event.emit('action', 'section:gm'));
-    const notice = root.getChildByName('Notice')!;
-    notice.active = Boolean(this._model.feedback);
-    notice.getComponent(Label)!.string = this._model.feedback;
   }
 
   private renderRow(card: Node, row: ProgressRow): void {
@@ -281,71 +229,6 @@ export class ColonyProgressView extends ColonyPopupView {
     action.getChildByName('Text')!.getComponent(Label)!.string = row.button;
     action.getComponent(Sprite)!.color = new Color(product.priceYuan === undefined && !product.claimed ? '#FFFFFF' : '#CBD2DE');
     this.bind(action, row.enabled, () => this.event.emit('action', row.action));
-  }
-
-  private renderConfirm(panel: Node): void {
-    const revision = this.revision;
-    const { page, feedback } = this._model;
-    panel.getComponent(UITransform)!.setContentSize(620, 560);
-    panel.getChildByName('Tabs')!.active = false;
-    const title = panel.getChildByName('Title')!;
-    title.setPosition(0, 125, 0);
-    title.getComponent(Label)!.string = page.title;
-    panel.getChildByName('Summary')!.active = false;
-    panel.getChildByName('Back')!.active = false;
-    const close = panel.getChildByName('Close')!;
-    close.setPosition(225, 205, 0);
-    this.bind(close, true, () => this.event.emit('close'));
-    const notice = panel.getChildByName('Feedback')!;
-    notice.active = Boolean(feedback);
-    notice.setPosition(0, -85, 0);
-    notice.getComponent(Label)!.string = feedback;
-    for (let index = 0; index < 2; index += 1) {
-      const card = panel.getChildByName(`Row${index}`)!;
-      const row = page.rows[index];
-      card.active = index < 2 && Boolean(row);
-      if (!card.active || !row) continue;
-      card.setPosition(0, 0, 0);
-      card.getComponent(Sprite)!.enabled = false;
-      card.getChildByName('Emblem')!.active = false;
-      card.getChildByName('ProduceIcon')!.active = false;
-      for (const name of ['Basket', 'Produce0', 'Produce1', 'Produce2', 'Produce3']) {
-        const child = card.getChildByName(name);
-        if (child) child.active = false;
-      }
-      const lantern = card.getChildByName('Emblem')!.getChildByName('Lantern');
-      if (lantern) Tween.stopAllByTarget(lantern);
-      const heading = card.getChildByName('Title')!;
-      const detail = card.getChildByName('Detail')!;
-      heading.active = index === 0;
-      detail.active = index === 0;
-      if (index === 0) {
-        heading.setPosition(0, 35, 0);
-        heading.getComponent(UITransform)!.setContentSize(480, 42);
-        heading.getComponent(Label)!.fontSize = 27;
-        heading.getComponent(Label)!.horizontalAlign = Label.HorizontalAlign.CENTER;
-        heading.getComponent(Label)!.string = row.title;
-        detail.setPosition(0, -25, 0);
-        detail.getComponent(UITransform)!.setContentSize(480, 80);
-        detail.getComponent(Label)!.fontSize = 22;
-        detail.getComponent(Label)!.lineHeight = 28;
-        detail.getComponent(Label)!.horizontalAlign = Label.HorizontalAlign.CENTER;
-        detail.getComponent(Label)!.string = row.detail;
-      }
-      const button = card.getChildByName('Action')!;
-      button.active = true;
-      button.setPosition(index === 0 ? -115 : 115, -165, 0);
-      button.getComponent(UITransform)!.setContentSize(190, 70);
-      button.getChildByName('Text')!.getComponent(UITransform)!.setContentSize(180, 60);
-      button.getChildByName('Text')!.getComponent(Label)!.string = row.button;
-      if (index === 1) {
-        void mk.asset.get('db://assets/Colony/art/toy-market/ui/button-secondary.png', SpriteFrame, this.node)
-          .then(frame => {
-            if (revision === this.revision && this.isAvailable() && frame && button.isValid && this._model.page.layout === 'confirm') button.getComponent(Sprite)!.spriteFrame = frame;
-          }).catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load confirmation button', cause); });
-      }
-      this.bind(button, row.enabled, () => this.event.emit('action', row.action));
-    }
   }
 
 }

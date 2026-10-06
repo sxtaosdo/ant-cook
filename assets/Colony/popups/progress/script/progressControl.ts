@@ -5,6 +5,8 @@ import { ProgressModel, type ProgressPage } from './progressModel';
 import { ColonyProgressView } from './progressView';
 import { ColonyPopupView } from './popupView';
 import { ColonyLeaderboardView } from '../../leaderboard/script/leaderboardView';
+import { ColonySettingsView } from '../../settings/script/settingsView';
+import { ColonyConfirmView } from '../../confirm/script/confirmView';
 import { swallowMkInterrupt } from '../../resultPopupNav';
 
 export interface ProgressNavigation {
@@ -15,12 +17,14 @@ export interface ProgressNavigation {
   canClose?(): boolean;
 }
 
+export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView;
+
 export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopupView> {
   private busy = false;
   private notified = false;
 
   public constructor(private readonly parent: Node, private readonly navigation: ProgressNavigation,
-    public readonly viewType: typeof ColonyProgressView | typeof ColonyLeaderboardView = ColonyProgressView) { super(); }
+    public readonly viewType: ProgressViewType = ColonyProgressView) { super(); }
 
   protected async open(): Promise<void> {
     this._model = await ProgressModel.new();

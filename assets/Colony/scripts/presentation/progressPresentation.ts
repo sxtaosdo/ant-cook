@@ -1,9 +1,11 @@
 import mk from 'mk';
 import { ModuleEntryGate } from '../../../shell/contracts';
 import { ProgressControl } from '../../popups/progress/script/progressControl';
-import type { ProgressNavigation } from '../../popups/progress/script/progressControl';
+import type { ProgressNavigation, ProgressViewType } from '../../popups/progress/script/progressControl';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
 import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
+import { ColonySettingsView } from '../../popups/settings/script/settingsView';
+import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
 import { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import type { ProgressPage, ProgressRow } from '../../popups/progress/script/progressModel';
@@ -102,8 +104,11 @@ export class ProgressPresentation {
     return owner;
   }
 
-  private progressViewType(): typeof ColonyProgressView | typeof ColonyLeaderboardView {
-    return this.section === 'leaderboard' ? ColonyLeaderboardView : ColonyProgressView;
+  private progressViewType(): ProgressViewType {
+    if (this.section === 'leaderboard') return ColonyLeaderboardView;
+    if (this.section === 'settings') return ColonySettingsView;
+    if (this.section.startsWith('confirm-')) return ColonyConfirmView;
+    return ColonyProgressView;
   }
 
   private async switchControl(): Promise<void> {
