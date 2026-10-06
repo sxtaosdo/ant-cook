@@ -9,6 +9,7 @@ import { ConstructionState } from '../presentation/pageStates/constructionState'
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
 import { ColonyPopupView } from '../../popups/progress/script/popupView';
 import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
+import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
 import { colonyTestLevelTrace } from './colonyTestTraces';
 import { ProgressPresentation, type ProgressSection } from '../presentation/progressPresentation';
 import { createProgressPreviewFixture, createProgressPreviewSession } from './progressPreviewFixture';
@@ -330,7 +331,7 @@ export class ColonyTestBridge {
     const leaderboard = popup instanceof ColonyLeaderboardView ? popup : null;
     const ranking = leaderboard?.leaderboardList;
     const self = leaderboard?.leaderboardSelf?.node;
-    const social = progress?.socialView?.node.activeInHierarchy ? progress.socialView : null;
+    const social = popup instanceof ColonySocialPopupView && popup.socialView?.node.activeInHierarchy ? popup.socialView : null;
     const list = ranking ?? (social?.list?.node.activeInHierarchy ? social.list : progress?.list);
     const construction = this.ctx.constructionView;
     return {

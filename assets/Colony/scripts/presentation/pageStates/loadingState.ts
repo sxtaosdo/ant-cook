@@ -12,6 +12,7 @@ import { ColonyProgressView } from '../../../popups/progress/script/progressView
 import { ColonyLeaderboardView } from '../../../popups/leaderboard/script/leaderboardView';
 import { ColonySettingsView } from '../../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../../popups/confirm/script/confirmView';
+import { ColonySocialPopupView } from '../../../popups/social/script/socialPopupView';
 import { ColonyToolView } from '../../../popups/tool/script/toolView';
 import type { ColonySceneBootstrap } from '../../bootstrap/colonySceneBootstrap';
 import { ColonyFlowModel } from '../../gameModel';
@@ -94,6 +95,7 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       mk.uiManage.regis(ColonyLeaderboardView, 'popups/leaderboard/prefab/leaderboard', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonySettingsView, 'popups/settings/prefab/settings', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyConfirmView, 'popups/confirm/prefab/confirm', session.popupRoot!, colonyLoad),
+      mk.uiManage.regis(ColonySocialPopupView, 'popups/social/prefab/social', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyToolView, 'popups/tool/tool', session.popupRoot!, colonyLoad),
     ]);
   }

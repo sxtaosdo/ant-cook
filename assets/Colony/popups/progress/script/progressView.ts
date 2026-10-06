@@ -3,7 +3,6 @@ import { ColonyPopupView } from './popupView';
 import mk from 'mk';
 import { type ProgressRow } from './progressModel';
 import { VirtualScrollView } from '../../../vendor/vscrollview/VScrollView';
-import { ColonySocialView } from '../../../scripts/views/social/socialView';
 
 const { ccclass, property } = _decorator;
 
@@ -21,8 +20,6 @@ export class ColonyProgressView extends ColonyPopupView {
   @property(VirtualScrollView)
   public list: VirtualScrollView | null = null;
   @property(VirtualScrollView) public shopList: VirtualScrollView | null = null;
-  @property(ColonySocialView)
-  public socialView: ColonySocialView | null = null;
 
   protected prepareOpen(): void {
     this.listTitle = '';
@@ -40,13 +37,6 @@ export class ColonyProgressView extends ColonyPopupView {
     this.list!.node.active = page.layout !== 'shop';
     const selector = panel.getChildByName('GmLevelSelector');
     if (selector) selector.active = page.layout === 'gm';
-    if (page.layout === 'social') {
-      for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1']) panel.getChildByName(name)!.active = false;
-      list.node.active = false;
-      this.socialView!.render(page.social!, page.title, page.summary, feedback, value => this.event.emit('action', value), () => this.event.emit('close'));
-      return;
-    }
-    this.socialView?.hide();
     for (const name of ['Title', 'Summary', 'Close', 'Back']) panel.getChildByName(name)!.active = true;
     secondaryAction.spriteFrame = this.primaryActionFrame;
     const hasSummary = Boolean(page.summary);

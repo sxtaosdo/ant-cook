@@ -52,7 +52,7 @@ function fixture() {
   class Model { static async new(){return new this();} close(){Object.freeze(this);} }
   class Base { static instance(){return new this();} }
   const cc={Component,Node,Button,Label,Sprite,SpriteFrame:class {},UITransform,Widget,Color,Vec3:class {},
-    _decorator:{ccclass:()=>Class=>Class,property:()=>()=>{}}, Tween:{stopAllByTarget(){}},
+    _decorator:{ccclass:()=>Class=>Class,property:(_target,key)=>key === undefined ? () => {} : undefined}, Tween:{stopAllByTarget(){}},
     tween:()=>({repeatForever(){return this;},to(){return this;},start(){}}),view:{getVisibleSize:()=>({width:750,height:1667})},
     js:{getSuper:Class=>{const parent=Object.getPrototypeOf(Class);return parent?.prototype?parent:null;}}};
   const ui={async open(Class,{init}){const view=new Class();view.node=new Node();view._model=init;return view;},
@@ -178,14 +178,37 @@ for(const kind of ['resultSuccess','resultFail']) {
   });
 }
 
-test('actual social icon resolve and reject after hide/destroy never touch a cleared node',async()=>{
-  for(const reject of [false,true]) {
-    const f=fixture(),Class=f.load('assets/Colony/scripts/views/social/socialView.ts').ColonySocialView;
-    const view=new Class();view.node=new f.Node();view.revision=1;
+test('actual social icon resolve and reject during close or after destroy never touch the old page',async()=>{
+  for(const phase of ['closing','microtask-closing','destroyed','empty-destroyed']) for(const reject of [false,true]) {
+    if(phase==='empty-destroyed'&&!reject) continue;
+    const f=fixture(),Class=f.load('assets/Colony/popups/social/script/socialView.ts').ColonySocialView;
+    const view=new Class();view.node=new f.Node();view.revision=1;view.ownerAvailable=()=>true;
     const item={kind:'stall',id:'stall',count:1,name:'stall',boardPath:'board'};
-    view.profile(new f.Node(),{theme:{items:[item],name:'theme',cleared:1,themeIndex:0},partner:{name:'guest'},avatarColor:'#FFFFFF'},1,()=>{});
-    view.onDestroy();view.isValid=false;view.node=null;
-    if(reject)f.assets[0].reject(Error('cancelled'));else f.assets[0].resolve({});await tick();assert.equal(f.errors.length,0);
+    const profileRoot=new f.Node();
+    view.profileAvatar=profileRoot.getChildByName('Avatar').getComponent(f.Sprite);
+    view.profileInitial=profileRoot.getChildByName('Avatar').getChildByName('Initial').getComponent(f.Label);
+    view.themeNameLabel=profileRoot.getChildByName('ThemeName').getComponent(f.Label);
+    view.emptyLabel=profileRoot.getChildByName('Street').getChildByName('Empty').getComponent(f.Label);
+    for(const [property,name] of [['stallSprite','Stall'],['lanternSprite','Lantern'],['signSprite','Sign'],['planterSprite','Planter']])view[property]=profileRoot.getChildByName('Street').getChildByName(name).getComponent(f.Sprite);
+    view.produceSprites=Array.from({length:8},(_,index)=>profileRoot.getChildByName('Street').getChildByName(`Produce${index}`).getComponent(f.Sprite));
+    view.profileButtons=['Previous','Next','Follow','Like','Message','Request'].map(name=>profileRoot.getChildByName(name));
+    view.profileButtonLabels=view.profileButtons.map(node=>node.getChildByName('Text').getComponent(f.Label));
+    view.profile({theme:{items:[item],name:'theme',cleared:1,themeIndex:0},partner:{name:'guest'},avatarColor:'#FFFFFF'},1,()=>{});
+    const frame=view.stallSprite.spriteFrame;
+    let task;
+    if(phase==='empty-destroyed') {view.emptyLabel.node.destroy();assert.equal(view.node.isValid,true);assert.equal(view.ownerAvailable(),true);}
+    else if(phase!=='destroyed') {
+      const Popup=f.load('assets/Colony/popups/social/script/socialPopupView.ts').ColonySocialPopupView;
+      const popup=new Popup();popup.node=new f.Node();popup.socialView=view;
+      popup.viewRoot=popup.node; view.ownerAvailable=()=>popup.isAvailable();
+      if(phase==='microtask-closing') {
+        // Same-tick settled image followed by MK Closing invalidation and real parent-first close helper.
+        if(reject)f.assets[0].reject(Error('cancelled'));else f.assets[0].resolve({});
+        popup.available=false;f.tool.runParentFunc(popup,'close');task=popup.close();
+      } else {popup.close();assert.equal(view.boundNodes.size,0);}
+      assert.equal(view.node.isValid,true);assert.equal(view.node.activeInHierarchy,true);
+    } else {view.onDestroy();view.isValid=false;view.node=null;}
+    if(phase!=='microtask-closing') {if(reject)f.assets[0].reject(Error('cancelled'));else f.assets[0].resolve({});}await task;await tick();assert.equal(f.errors.length,0);assert.equal(view.stallSprite.spriteFrame,frame);
   }
 });
 
