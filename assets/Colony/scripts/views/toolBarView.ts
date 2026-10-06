@@ -38,14 +38,14 @@ export class ColonyToolBarView extends mk.StaticViewBase {
     }
   }
 
-  /** 道具使用后仍保留入口，玩家可以再次查看作用和补给条件。 */
+  /** 显示本局免费可用次数；耗尽时仍可打开原补给入口。 */
   public setUsed(used: readonly ColonyTool[]): void {
     for (const tool of ['trowel', 'slot', 'compass'] as const) {
       const button = this.button(tool);
       button.node.active = true;
       button.interactable = true;
       const status = button.node.getChildByName('Status')?.getComponent(Label);
-      if (status) status.string = used.includes(tool) ? '本局已使用' : '免费';
+      if (status) status.string = used.includes(tool) ? '＋' : '1';
     }
   }
 

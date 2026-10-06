@@ -9,6 +9,9 @@ const { ccclass, property } = _decorator;
 
 @ccclass('ColonyProgressView')
 export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
+  private readonly boundNodes = new Set<Node>();
+  private viewRoot: Node | null = null;
+  private revision = 0;
   private primaryActionFrame: SpriteFrame | null = null;
   private selectedTabFrame: SpriteFrame | null = null;
   private normalTabFrame: SpriteFrame | null = null;
@@ -39,13 +42,15 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
   }
 
   public open(): void {
+    this.clearBindings();
+    this.viewRoot = this.node;
     // MK may reuse this view; controllers belong to one opening only.
     this.event.off('action');
     this.event.off('close');
     this.listTitle = '';
     this.render();
   }
-  public isAvailable(): boolean { return this.node.isValid && this.node.activeInHierarchy; }
+  public isAvailable(): boolean { return this.valid && !!this.viewRoot?.isValid && this.viewRoot.activeInHierarchy; }
 
   public render(): void {
     const panel = this.panel;
@@ -233,6 +238,7 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
   }
 
   private renderRow(card: Node, row: ProgressRow): void {
+    const revision = this.revision;
     this.renderedRows.set(card, row);
     card.getComponent(UITransform)!.setContentSize(500, 224);
     card.getComponent(Sprite)!.enabled = true;
@@ -266,7 +272,8 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
       sprite.grayscale = item.count === 0;
       icon.getChildByName('Count')!.getComponent(Label)!.string = `${item.count}/${item.target}`;
       void mk.asset.get(`db://${item.iconPath}`, SpriteFrame, this.node)
-        .then(frame => { if (frame && icon.isValid && this.renderedRows.get(card) === row) sprite.spriteFrame = frame; });
+        .then(frame => { if (revision === this.revision && this.isAvailable() && frame && icon.isValid && this.renderedRows.get(card) === row) sprite.spriteFrame = frame; })
+        .catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load basket icon', cause); });
     }
     if (row.basketItems) {
       title.setPosition(-100, 86, 0);
@@ -284,10 +291,10 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
         produce.getComponent(Sprite)!.spriteFrame = null;
         void mk.asset.get(`db://${iconPath}`, SpriteFrame, this.node)
           .then((frame) => {
-            if (frame && produce.isValid && this.renderedRows.get(card) === row) {
+            if (revision === this.revision && this.isAvailable() && frame && produce.isValid && this.renderedRows.get(card) === row) {
               produce.getComponent(Sprite)!.spriteFrame = frame;
             }
-          });
+          }).catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load collection icon', cause); });
       }
     }
     const emblem = card.getChildByName('Emblem')!;
@@ -331,6 +338,7 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     button.getChildByName('Text')!.getComponent(Label)!.string = row.button;
   }
   private renderShopRow(card: Node, row: ProgressRow): void {
+    const revision = this.revision;
     this.renderedRows.set(card, row);
     const product = row.shopProduct!;
     card.getComponent(UITransform)!.setContentSize(550, 224);
@@ -340,7 +348,8 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     const image = card.getChildByName('Product')!.getComponent(Sprite)!;
     image.spriteFrame = null;
     void mk.asset.get(`db://assets/Colony/art/toy-market/ui/r07/${product.image}.png`, SpriteFrame, this.node)
-      .then(frame => { if (frame && image.isValid && this.renderedRows.get(card) === row) image.spriteFrame = frame; });
+      .then(frame => { if (revision === this.revision && this.isAvailable() && frame && image.isValid && this.renderedRows.get(card) === row) image.spriteFrame = frame; })
+      .catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load shop icon', cause); });
     const action = card.getChildByName('Action')!;
     action.getChildByName('Text')!.getComponent(Label)!.string = row.button;
     action.getComponent(Sprite)!.color = new Color(product.priceYuan === undefined && !product.claimed ? '#FFFFFF' : '#CBD2DE');
@@ -348,6 +357,7 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
   }
 
   private renderConfirm(panel: Node): void {
+    const revision = this.revision;
     const { page, feedback } = this._model;
     panel.getComponent(UITransform)!.setContentSize(620, 560);
     panel.getChildByName('Tabs')!.active = false;
@@ -404,14 +414,15 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
       if (index === 1) {
         void mk.asset.get('db://assets/Colony/art/toy-market/ui/button-secondary.png', SpriteFrame, this.node)
           .then(frame => {
-            if (frame && button.isValid && this._model.page.layout === 'confirm') button.getComponent(Sprite)!.spriteFrame = frame;
-          });
+            if (revision === this.revision && this.isAvailable() && frame && button.isValid && this._model.page.layout === 'confirm') button.getComponent(Sprite)!.spriteFrame = frame;
+          }).catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load confirmation button', cause); });
       }
       this.bind(button, row.enabled, () => this.event.emit('action', row.action));
     }
   }
 
   private bind(node: Node, enabled: boolean, action: () => void): void {
+    this.boundNodes.add(node);
     node.targetOff(this);
     const button = node.getComponent(Button)!;
     button.disabledColor = new Color(224, 203, 171);
@@ -423,6 +434,15 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
       const current = event.getLocation();
       if (Math.hypot(current.x - start.x, current.y - start.y) > 10) dragged = true;
     }, this);
-    node.on(Button.EventType.CLICK, () => { if (!dragged) action(); }, this);
+    node.on(Button.EventType.CLICK, () => { if (!dragged && this.isAvailable() && node.activeInHierarchy) action(); }, this);
   }
+  private clearBindings(): void {
+    this.revision++;
+    this.viewRoot = null;
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
+  }
+  public close(): void { this.clearBindings(); }
+  protected onDisable(): void { this.clearBindings(); }
+  protected onDestroy(): void { this.clearBindings(); }
 }

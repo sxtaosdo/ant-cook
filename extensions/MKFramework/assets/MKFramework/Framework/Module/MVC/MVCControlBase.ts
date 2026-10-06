@@ -30,6 +30,7 @@ abstract class MVCControlBase<CT extends MVCModelBase = MVCModelBase, CT2 extend
 		const closeChain = this.close.bind(this);
 		this.close = (external = true) => {
 			if (!external) return closeChain(false);
+			this._closeRequested = true;
 			if (!this._closing) this._closing = Promise.resolve().then(() => closeChain(true))
 				.catch(cause => { this._closing = null; throw cause; });
 			return this._closing;
@@ -46,13 +47,22 @@ abstract class MVCControlBase<CT extends MVCModelBase = MVCModelBase, CT2 extend
 	get model(): _MVCControlBase.TypeRecursiveReadonly<Omit<CT, "open" | "close">> {
 		return this._model as any;
 	}
+	/** Closing is terminal for this controller, including retryable cleanup failures. */
+	get isClosing(): boolean { return this._closeRequested; }
 	/* --------------- protected --------------- */
 	protected _model!: CT;
-	protected _view!: _MVCControlBase.TypeView<CT2>;
+	protected get _view(): _MVCControlBase.TypeView<CT2> { return this._ownedView!; }
+	protected set _view(value: _MVCControlBase.TypeView<CT2>) {
+		this._ownedView = value;
+		this._viewEvents = value.event;
+	}
 	/* --------------- private --------------- */
 	private _openTask = new MKStatusTask(false);
 	private _closeTask = new MKStatusTask(true);
 	private _closing: Promise<void> | null = null;
+	private _closeRequested = false;
+	private _ownedView: _MVCControlBase.TypeView<CT2> | null = null;
+	private _viewEvents: MVCViewBase["event"] | null = null;
 	/** Failed startup still permits cleanup of partial model/view ownership. */
 	public openError: unknown = null;
 	private openFailed = false;
@@ -70,6 +80,8 @@ abstract class MVCControlBase<CT extends MVCModelBase = MVCModelBase, CT2 extend
 		await this._openTask.task;
 		this._closeTask.finish(false);
 		if (isExternalCall_) {
+			// Capture the emitter when the view attaches; never recover it from a destroyed component.
+			this._viewEvents?.targetOff(this);
 			await this.close(false);
 			await this._lastClose();
 

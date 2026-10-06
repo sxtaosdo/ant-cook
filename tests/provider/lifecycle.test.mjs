@@ -77,7 +77,7 @@ function provider({ editor = true, realRelease = false } = {}) {
   const { default: ObjectPool } = load(resolve(framework, 'MKObjectPool.ts'));
   mocks.mk = { default: { MVCControlBase, uiManage: ui } };
   mocks.progressModel = { ProgressModel: { async new() { return { page: null, close() { state.popupModelCloses = (state.popupModelCloses ?? 0) + 1; } }; } } };
-  class PopupView extends View { event = { on() {}, off() {} }; isAvailable() { return this.node.isValid; } }
+  class PopupView extends View { event = { on() {}, off() {}, targetOff() {} }; isAvailable() { return this.node.isValid; } }
   mocks.progressView = { ColonyProgressView: PopupView };
   mocks.colonyUtil = { ColonyUtil: { applyUiLayer() {} } };
   mocks.resultPopupNav = { swallowMkInterrupt: async value => { try { await value; } catch (cause) { if (cause !== '中断') throw cause; } } };

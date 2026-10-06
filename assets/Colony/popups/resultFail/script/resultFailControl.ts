@@ -15,6 +15,7 @@ export class ResultFailControl extends mk.MVCControlBase<ResultFailModel, Colony
   private _seed!: ResultPopupSeed;
   private _parent!: Node;
   private _nav!: ResultPopupNav;
+  private finishing = false;
 
   public constructor(seed: ResultPopupSeed, parent: Node, nav: ResultPopupNav) {
     super();
@@ -55,8 +56,12 @@ export class ResultFailControl extends mk.MVCControlBase<ResultFailModel, Colony
 
   /** 关闭弹窗后执行导航。 */
   private async finish(action: 'continue' | 'home'): Promise<void> {
+    if (this.isClosing || this.finishing || this._nav.canNavigate?.() === false) return;
+    this.finishing = true;
+    const navigation = this._nav;
     await swallowMkInterrupt(Promise.resolve(this.close()));
-    if (action === 'continue') await this._nav.onContinue();
-    else await this._nav.onHome();
+    if (navigation.canNavigate?.() === false) return;
+    if (action === 'continue') await navigation.onContinue();
+    else await navigation.onHome();
   }
 }

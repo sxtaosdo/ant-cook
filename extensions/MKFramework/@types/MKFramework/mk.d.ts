@@ -2754,6 +2754,7 @@ declare namespace mk {
 	export declare abstract class MVCControlBase<CT extends MVCModelBase = MVCModelBase, CT2 extends MVCViewBase<CT> = MVCViewBase<CT>> {
 		constructor();
 		whenOpened(): Promise<void>;
+		get isClosing(): boolean;
 		get model(): _MVCControlBase.TypeRecursiveReadonly<Omit<CT, "open" | "close">>;
 		protected _model: CT;
 		protected _view: _MVCControlBase.TypeView<CT2>;

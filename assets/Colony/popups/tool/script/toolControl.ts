@@ -8,6 +8,7 @@ import { ColonyToolView } from './toolView';
 
 export class ToolControl extends mk.MVCControlBase<ToolModel, ColonyToolView> {
   private busy = false;
+  private notified = false;
 
   public constructor(private readonly parent: Node, private readonly navigation: ProgressNavigation) { super(); }
 
@@ -25,21 +26,24 @@ export class ToolControl extends mk.MVCControlBase<ToolModel, ColonyToolView> {
   private async act(value: unknown): Promise<void> {
     if (typeof value !== 'string') return;
     const action = value;
-    if (this.busy) return;
+    if (this.busy || this.isClosing) return;
+    const model = this._model, view = this._view;
     this.busy = true;
     try {
-      this._model.feedback = (await this.navigation.act(action)) ?? '';
-      this._model.page = this.navigation.read();
+      const feedback = await this.navigation.act(action);
+      if (this.isClosing || this._model !== model || this._view !== view || !view.isAvailable()) return;
+      model.feedback = feedback ?? '';
+      model.page = this.navigation.read();
     } catch (cause) {
-      this._model.feedback = cause instanceof Error ? cause.message : String(cause);
+      if (!this.isClosing && view.isAvailable()) model.feedback = cause instanceof Error ? cause.message : String(cause);
     } finally {
       this.busy = false;
-      if (this._view?.isAvailable()) this._view.render();
+      if (!this.isClosing && view.isAvailable()) view.render();
     }
   }
 
   private async dismiss(): Promise<void> {
-    if (this.busy) return;
+    if (this.busy || this.isClosing) return;
     if (this.navigation.canClose?.() === false) {
       this._model.feedback = '奖励待保存，请重试领取，无需再看视频';
       this._view.render();
@@ -49,11 +53,7 @@ export class ToolControl extends mk.MVCControlBase<ToolModel, ColonyToolView> {
   }
 
   public async forceClose(): Promise<void> {
-    if (this._view?.isAvailable()) {
-      this._view.event.off('action', this.act, this);
-      this._view.event.off('close', this.dismiss, this);
-    }
     await swallowMkInterrupt(Promise.resolve(this.close()));
-    this.navigation.closed();
+    if (!this.notified) { this.notified = true; this.navigation.closed(); }
   }
 }

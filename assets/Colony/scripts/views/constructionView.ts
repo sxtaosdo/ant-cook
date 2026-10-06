@@ -9,6 +9,7 @@ const { ccclass } = _decorator;
 export class ColonyConstructionView extends mk.StaticViewBase {
   private onAction: ((action: string) => void) | null = null;
   private revision = 0;
+  private readonly boundNodes = new Set<Node>();
 
   public bind(onAction: (action: string) => void): void { this.onAction = onAction; }
   public setVisible(visible: boolean): void { this.node.active = visible; if (!visible) this.revision += 1; }
@@ -57,6 +58,7 @@ export class ColonyConstructionView extends mk.StaticViewBase {
   }
 
   private async projectItem(item: ConstructionItem, stallCollected: boolean, revision: number, card: Node, display: Node): Promise<void> {
+    const owner = this.node;
     const names = item.kind === 'produce' ? [`Produce${item.index - 1}a`, `Produce${item.index - 1}b`]
       : [item.kind === 'stall' ? 'Stall' : item.id.endsWith('-lantern') ? 'Lantern' : item.id.endsWith('-sign') ? 'Sign' : 'Planter'];
     const nodes = names.map(name => display.getChildByName(name)!);
@@ -64,23 +66,34 @@ export class ColonyConstructionView extends mk.StaticViewBase {
     const icon = card.getChildByName('Icon')!.getComponent(Sprite)!;
     icon.grayscale = item.count === 0;
     try {
-      const frame = await mk.asset.get(`db://${item.iconPath}`, SpriteFrame, this.node);
-      if (revision !== this.revision || !this.node.isValid || !frame) return;
+      const frame = await mk.asset.get(`db://${item.iconPath}`, SpriteFrame, owner);
+      if (revision !== this.revision || !this.isValid || !owner.isValid || !owner.activeInHierarchy || !icon.isValid || !frame) return;
       icon.spriteFrame = frame;
-      const displayFrame = item.kind === 'stall' ? await mk.asset.get(`db://${item.boardPath}`, SpriteFrame, this.node) : frame;
-      if (revision !== this.revision || !this.node.isValid || !displayFrame) return;
-      nodes.forEach(node => { node.getComponent(Sprite)!.spriteFrame = displayFrame; });
+      const displayFrame = item.kind === 'stall' ? await mk.asset.get(`db://${item.boardPath}`, SpriteFrame, owner) : frame;
+      if (revision !== this.revision || !this.isValid || !owner.isValid || !owner.activeInHierarchy || !displayFrame) return;
+      nodes.filter(node => node.isValid).forEach(node => { node.getComponent(Sprite)!.spriteFrame = displayFrame; });
     } catch (cause) {
-      if (revision === this.revision && this.node.isValid) this.text(this.child('Selection'), 'Feedback', `图片加载未完成：${item.name}`);
-      console.error('Failed to load collected stall item', cause);
+      if (revision === this.revision && this.isValid && owner.isValid && owner.activeInHierarchy) {
+        this.text(owner.getChildByName('Selection')!, 'Feedback', `图片加载未完成：${item.name}`);
+        console.error('Failed to load collected stall item', cause);
+      }
     }
   }
 
   private button(node: Node, action: string, enabled: boolean): void {
+    this.boundNodes.add(node);
     node.targetOff(this);
     node.getComponent(Button)!.interactable = enabled;
     node.on(Button.EventType.CLICK, () => this.onAction?.(action), this);
   }
   private text(node: Node, name: string, value: string): void { node.getChildByName(name)!.getComponent(Label)!.string = value; }
   private child(name: string): Node { return this.node.getChildByName(name)!; }
+  private clearBindings(): void {
+    this.revision++;
+    this.onAction = null;
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
+  }
+  protected onDisable(): void { this.revision++; }
+  protected onDestroy(): void { this.clearBindings(); }
 }

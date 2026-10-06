@@ -9,6 +9,9 @@ const ICONS: Record<string, string> = {
 
 @ccclass('ColonyToolView')
 export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
+  private readonly boundNodes = new Set<Node>();
+  private viewRoot: Node | null = null;
+  private revision = 0;
   @property(Node)
   public panel: Node | null = null;
 
@@ -18,15 +21,18 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
   }
 
   public open(): void {
+    this.clearBindings();
+    this.viewRoot = this.node;
     this.event.off('action');
     this.event.off('close');
     this.node.getChildByName('Mask')?.setSiblingIndex(0);
     this.render();
   }
 
-  public isAvailable(): boolean { return this.node.isValid && this.node.activeInHierarchy; }
+  public isAvailable(): boolean { return this.valid && !!this.viewRoot?.isValid && this.viewRoot.activeInHierarchy; }
 
   public render(): void {
+    const revision = ++this.revision;
     const panel = this.panel ?? this.node.getChildByName('Panel');
     if (!panel) throw new Error('Tool panel binding is missing');
     const { page, feedback } = this._model;
@@ -47,10 +53,10 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
     const icon = panel.getChildByName('Icon')!;
     const iconName = ICONS[page.title];
     if (iconName) {
-      void mk.asset.get(`db://assets/Colony/art/toy-market/ui/r03/tool-${iconName}.png`, SpriteFrame, this.node)
+      void mk.asset.get(`db://assets/Colony/art/toy-market/ui/r03/tool-${iconName}.png`, SpriteFrame, this.viewRoot!)
         .then((frame) => {
-          if (frame && icon.isValid && this._model.page.title === page.title) icon.getComponent(Sprite)!.spriteFrame = frame;
-        });
+          if (revision === this.revision && this.isAvailable() && frame && icon.isValid && this._model.page.title === page.title) icon.getComponent(Sprite)!.spriteFrame = frame;
+        }).catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load tool icon', cause); });
     }
     for (let index = 0; index < 3; index += 1) {
       const option = panel.getChildByName(`Option${index}`)!;
@@ -65,8 +71,18 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
   }
 
   private bind(node: Node, enabled: boolean, action: () => void): void {
+    this.boundNodes.add(node);
     node.targetOff(this);
     node.getComponent(Button)!.interactable = enabled;
-    node.on(Button.EventType.CLICK, action, this);
+    node.on(Button.EventType.CLICK, () => { if (this.isAvailable() && node.activeInHierarchy) action(); }, this);
   }
+  private clearBindings(): void {
+    this.revision++;
+    this.viewRoot = null;
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
+  }
+  public close(): void { this.clearBindings(); }
+  protected onDisable(): void { this.clearBindings(); }
+  protected onDestroy(): void { this.clearBindings(); }
 }

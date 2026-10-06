@@ -1,4 +1,4 @@
-import { _decorator, Button, Label } from 'cc';
+import { _decorator, Button, Label, Node } from 'cc';
 import mk from 'mk';
 import { ResultFailModel } from './resultFailModel';
 
@@ -7,6 +7,9 @@ const { ccclass, property } = _decorator;
 @ccclass('ColonyResultFailView')
 /** 失败结算 View：展示受阻文案，发出 primary/home。 */
 export class ColonyResultFailView extends mk.MVCViewBase<ResultFailModel> {
+  private readonly boundNodes = new Set<Node>();
+  private viewRoot: Node | null = null;
+  public isAvailable(): boolean { return this.valid && !!this.viewRoot?.isValid && this.viewRoot.activeInHierarchy; }
   @property(Label)
   private titleLabel: Label | null = null;
 
@@ -30,6 +33,8 @@ export class ColonyResultFailView extends mk.MVCViewBase<ResultFailModel> {
 
   /** 填充文案并绑定按钮事件。 */
   public open(): void {
+    this.clearBindings();
+    this.viewRoot = this.node;
     if (!this.titleLabel || !this.detailLabel || !this.primaryButton || !this.primaryLabel || !this.homeButton) {
       throw new Error('Result Prefab is missing required editor bindings');
     }
@@ -37,14 +42,21 @@ export class ColonyResultFailView extends mk.MVCViewBase<ResultFailModel> {
     this.detailLabel.string = '所有暂存槽都已占用，\n当前没有可移动的颜色。';
     this.primaryLabel.string = '免费重试';
     this.homeButton.node.getChildByName('HomeButtonText')!.getComponent(Label)!.string = '回夜市';
-    this.primaryButton.node.targetOff(this);
-    this.homeButton.node.targetOff(this);
-    this.primaryButton.node.on(Button.EventType.CLICK, () => this.event.emit('primary'), this);
-    this.homeButton.node.on(Button.EventType.CLICK, () => this.event.emit('home'), this);
+    this.bind(this.primaryButton.node, 'primary');
+    this.bind(this.homeButton.node, 'home');
   }
 
-  protected onDestroy(): void {
-    this.primaryButton?.node.targetOff(this);
-    this.homeButton?.node.targetOff(this);
+  private bind(node: Node, event: string): void {
+    this.boundNodes.add(node);
+    node.targetOff(this);
+    node.on(Button.EventType.CLICK, () => { if (this.isAvailable() && node.activeInHierarchy) this.event.emit(event); }, this);
   }
+  private clearBindings(): void {
+    this.viewRoot = null;
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
+  }
+  public close(): void { this.clearBindings(); }
+  protected onDisable(): void { this.clearBindings(); }
+  protected onDestroy(): void { this.clearBindings(); }
 }

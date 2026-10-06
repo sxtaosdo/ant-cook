@@ -15,6 +15,8 @@ export class ResultSuccessControl extends mk.MVCControlBase<ResultSuccessModel, 
   private _seed!: ResultPopupSeed;
   private _parent!: Node;
   private _nav!: ResultPopupNav;
+  private finishing = false;
+  private adBusy = false;
 
   public constructor(seed: ResultPopupSeed, parent: Node, nav: ResultPopupNav) {
     super();
@@ -50,12 +52,18 @@ export class ResultSuccessControl extends mk.MVCControlBase<ResultSuccessModel, 
   }
 
   private async onAd(): Promise<void> {
-    if (!this._model.adAvailable || !this._nav.onAd) return;
-    this._model.adAvailable = false;
-    this._view.refreshReward();
-    this._model.rewardText = await this._nav.onAd();
-    this._model.adAvailable = this._nav.canAd?.() ?? false;
-    if (this._view.isAvailable()) this._view.refreshReward();
+    if (this.isClosing || this.adBusy || !this._model.adAvailable || !this._nav.onAd) return;
+    const model = this._model, view = this._view;
+    this.adBusy = true;
+    try {
+      model.adAvailable = false;
+      view.refreshReward();
+      const rewardText = await this._nav.onAd();
+      if (this.isClosing || this._model !== model || this._view !== view || !view.isAvailable()) return;
+      model.rewardText = rewardText;
+      model.adAvailable = this._nav.canAd?.() ?? false;
+      view.refreshReward();
+    } finally { this.adBusy = false; }
   }
 
   /** 主按钮：每日可再挑战；主线有下一关则继续，否则回首页。 */
@@ -70,16 +78,17 @@ export class ResultSuccessControl extends mk.MVCControlBase<ResultSuccessModel, 
 
   /** 关闭弹窗后执行导航。 */
   private async finish(action: 'continue' | 'home'): Promise<void> {
+    if (this.isClosing || this.finishing || this.adBusy) return;
     if (this._nav.canNavigate?.() === false) {
       this._model.rewardText = '奖励待保存，请重试领取，无需再看视频';
       this._view.refreshReward();
       return;
     }
-    this._view.event.off('primary', this.onPrimary, this);
-    this._view.event.off('home', this.onHome, this);
-    this._view.event.off('ad', this.onAd, this);
+    this.finishing = true;
+    const navigation = this._nav;
     await swallowMkInterrupt(Promise.resolve(this.close()));
-    if (action === 'continue') await this._nav.onContinue();
-    else await this._nav.onHome();
+    if (navigation.canNavigate?.() === false) return;
+    if (action === 'continue') await navigation.onContinue();
+    else await navigation.onHome();
   }
 }

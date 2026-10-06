@@ -14,6 +14,7 @@ export class ColonySocialView extends Component {
   public list: VirtualScrollView | null = null;
   private revision = 0;
   private pageKey = '';
+  private readonly boundNodes = new Set<Node>();
 
   public hide(): void { this.node.active = false; this.revision++; }
   public render(page: DeepReadonly<SocialPage>, title: string, summary: string, feedback: string, action: (value: string) => void, close: () => void): void {
@@ -60,6 +61,7 @@ export class ColonySocialView extends Component {
     this.bind(button, card.enabled, () => action(card.action));
   }
   private profile(root: Node, profile: DeepReadonly<SocialProfile>, revision: number, action: (value: string) => void): void {
+    const owner = this.node;
     const street = root.getChildByName('Street')!;
     const theme = profile.theme;
     const avatar = root.getChildByName('Avatar')!;
@@ -77,10 +79,10 @@ export class ColonySocialView extends Component {
       if (!nodes.some(n => n.active)) continue;
       const path = item.kind === 'stall' ? item.boardPath : item.iconPath;
       nodes.forEach(node => { node.getComponent(Sprite)!.spriteFrame = null; });
-      void mk.asset.get(`db://${path}`, SpriteFrame, this.node).then(frame => {
-        if (frame && revision === this.revision && this.node.isValid) nodes.forEach(node => { node.getComponent(Sprite)!.spriteFrame = frame; });
+      void mk.asset.get(`db://${path}`, SpriteFrame, owner).then(frame => {
+        if (frame && revision === this.revision && this.isValid && owner.isValid && owner.activeInHierarchy) nodes.filter(node => node.isValid).forEach(node => { node.getComponent(Sprite)!.spriteFrame = frame; });
       }).catch(() => {
-        if (revision === this.revision && this.node.isValid) this.label(empty, `图片加载未完成：${item.name}`);
+        if (revision === this.revision && this.isValid && owner.isValid && owner.activeInHierarchy && empty.isValid) this.label(empty, `图片加载未完成：${item.name}`);
       });
     }
     for (const [name, text, enabled, value] of [
@@ -97,6 +99,7 @@ export class ColonySocialView extends Component {
   }
   private label(node: Node, value: string): void { node.getComponent(Label)!.string = value; }
   private bind(node: Node, enabled: boolean, action: () => void): void {
+    this.boundNodes.add(node);
     node.targetOff(this); const button = node.getComponent(Button)!; button.interactable = enabled;
     let dragged = false;
     node.on(Node.EventType.TOUCH_START, () => { dragged = false; }, this);
@@ -105,4 +108,11 @@ export class ColonySocialView extends Component {
     }, this);
     node.on(Button.EventType.CLICK, () => { if (!dragged) action(); }, this);
   }
+  private clearBindings(): void {
+    this.revision++;
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
+  }
+  protected onDisable(): void { this.clearBindings(); }
+  protected onDestroy(): void { this.clearBindings(); }
 }

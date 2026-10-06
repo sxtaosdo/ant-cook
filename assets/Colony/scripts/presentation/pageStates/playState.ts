@@ -379,7 +379,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
         return status === 'completed' ? '额外获得40金币，已保存' : status === 'pending' ? '奖励待保存，请重试领取，无需再看视频' : status === 'failed' ? '视频加载或奖励保存失败，请稍后重试' : '视频未完成，奖励与资源不变';
       },
       canAd: (): boolean => Boolean(session.ads?.hasPendingReward() || (session.round && session.progress?.isAdEligible(session.round.id, 'clear'))),
-      canNavigate: (): boolean => !session.ads?.hasPendingReward(),
+      canNavigate: (): boolean => !session.destroyed && generation === session.generation && !session.ads?.hasPendingReward() && !session.ads?.isShowing(),
     };
     control = success
       ? new ResultSuccessControl(seed, parent, nav)
