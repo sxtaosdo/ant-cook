@@ -2,6 +2,7 @@ import { Color, Graphics, Label, Node, ScrollView, Sprite, tween, Tween, UIOpaci
 
 const THEMES = ['tropical-fruit', 'tropical-vegetable', 'orchard-fruit', 'root-vegetable', 'leafy-vegetable'] as const;
 const VIEWPORT_WIDTH = 340;
+const ITEM_HEIGHT = 45;
 
 /** Theme strips are visible only while touching the track. */
 export class LevelRailView {
@@ -80,11 +81,11 @@ export class LevelRailView {
       const item = new Node(`Level${index}`);
       item.layer = this.content.layer;
       item.parent = this.levels;
-      item.addComponent(UITransform).setContentSize(width, 60);
+      item.addComponent(UITransform).setContentSize(width, ITEM_HEIGHT);
       item.setPosition(cursor + width / 2, 0);
       const card = item.addComponent(Graphics);
       card.fillColor = active ? new Color('#FFF9E9DB') : new Color('#FFFDF3B8');
-      card.roundRect(-width / 2, -30, width, 60, 16);
+      card.roundRect(-width / 2, -ITEM_HEIGHT / 2, width, ITEM_HEIGHT, 16);
       card.fill();
       const title = new Node('Title');
       title.layer = item.layer;

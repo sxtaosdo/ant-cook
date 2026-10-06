@@ -2664,7 +2664,7 @@
     "__prefab": {
       "__id__": 112
     },
-    "_alignFlags": 18,
+    "_alignFlags": 45,
     "_target": null,
     "_left": 0,
     "_right": 0,
@@ -2678,8 +2678,8 @@
     "_isAbsBottom": true,
     "_isAbsHorizontalCenter": true,
     "_isAbsVerticalCenter": true,
-    "_originalWidth": 0,
-    "_originalHeight": 0,
+    "_originalWidth": 750,
+    "_originalHeight": 1334,
     "_alignMode": 2,
     "_lockFlags": 0,
     "_id": ""
