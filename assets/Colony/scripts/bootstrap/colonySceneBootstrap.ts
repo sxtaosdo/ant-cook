@@ -31,6 +31,7 @@ import { InstallationIdentity } from '../application/installationIdentity';
 import type { GmTestSession } from '../testing/gmTestSession';
 import { ProgressControl } from '../../popups/progress/script/progressControl';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
+import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
 import type { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import type { DevelopmentLevelCatalog } from '../application/levelCatalog';
@@ -282,11 +283,11 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
       ['ads', () => this.ads?.dispose()], ['progressPopup', () => this.progressPopup?.forceClose()],
       ['states', () => this.StateMachine.releaseAllStates()],
       ['success', () => mk.uiManage.unregis(ColonyResultSuccessView, this.popupRoot)], ['fail', () => mk.uiManage.unregis(ColonyResultFailView, this.popupRoot)],
-      ['progress', () => mk.uiManage.unregis(ColonyProgressView, this.popupRoot)], ['tools', () => mk.uiManage.unregis(ColonyToolView, this.popupRoot)],
+      ['progress', () => mk.uiManage.unregis(ColonyProgressView, this.popupRoot)], ['leaderboard', () => mk.uiManage.unregis(ColonyLeaderboardView, this.popupRoot)], ['tools', () => mk.uiManage.unregis(ColonyToolView, this.popupRoot)],
       ['testBridge', () => ColonyTestBridge.clear()],
     ]);
     const errors: unknown[] = [];
-    for (const phase of [['daily', 'events', 'ads'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'tools', 'testBridge']]) {
+    for (const phase of [['daily', 'events', 'ads'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'leaderboard', 'tools', 'testBridge']]) {
       await Promise.all(phase.map(async key => {
         const operation = this.cleanupSteps!.get(key);
         if (!operation) return;

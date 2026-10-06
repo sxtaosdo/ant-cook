@@ -3,6 +3,7 @@ import { ModuleEntryGate } from '../../../shell/contracts';
 import { ProgressControl } from '../../popups/progress/script/progressControl';
 import type { ProgressNavigation } from '../../popups/progress/script/progressControl';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
+import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
 import { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import type { ProgressPage, ProgressRow } from '../../popups/progress/script/progressModel';
@@ -29,6 +30,7 @@ export class ProgressPresentation {
   private returnSection: ProgressSection | null = null;
   private social: SocialPresentation | null = null;
   private pendingGm: { action: string; level: number } | null = null;
+  private cancelled = false;
 
   constructor(private readonly context: ColonySceneBootstrap, private section: ProgressSection, private readonly onClosed?: () => void) {
     if (this.section === 'tasks') this.section = 'daily';
@@ -65,11 +67,21 @@ export class ProgressPresentation {
   }
 
   private createControl(): ProgressControl | ToolControl {
+    let owner: ProgressControl | ToolControl;
     const navigation: ProgressNavigation = {
-      read: () => this.read(), act: (action) => this.act(action),
+      read: () => this.read(), act: async action => {
+        const owner = this.control;
+        const result = await this.act(action);
+        if (owner && owner === this.control && this.context.progressPopup === owner && owner instanceof ProgressControl
+          && owner.viewType !== this.progressViewType()) await this.switchControl();
+        return result;
+      },
       canClose: () => !this.context.ads?.hasPendingReward(),
+      closing: () => { if (this.control === owner) this.cancelled = true; },
       closed: () => {
-        if (this.context.progressPopup === this.control) this.context.progressPopup = null;
+        if (this.context.progressPopup !== owner) return;
+        this.context.progressPopup = null;
+        if (this.control === owner) this.control = null;
         if (this.context.destroyed) { this.context.inputLocked = true; return; }
         this.context.inputLocked = this.context.play?.snapshot().result !== 'PLAYING';
         // Resource cleanup has completed. A failed refresh/notification must not
@@ -84,17 +96,24 @@ export class ProgressPresentation {
         }
       },
     };
-    return this.section.startsWith('tool-')
+    owner = this.section.startsWith('tool-')
       ? new ToolControl(this.context.popupRoot!, navigation)
-      : new ProgressControl(this.context.popupRoot!, navigation);
+      : new ProgressControl(this.context.popupRoot!, navigation, this.progressViewType());
+    return owner;
+  }
+
+  private progressViewType(): typeof ColonyProgressView | typeof ColonyLeaderboardView {
+    return this.section === 'leaderboard' ? ColonyLeaderboardView : ColonyProgressView;
   }
 
   private async switchControl(): Promise<void> {
     const previous = this.control;
+    const generation = this.context.generation;
     if (previous) {
       await swallowMkInterrupt(Promise.resolve(previous.close()));
-      await mk.uiManage.close(previous instanceof ToolControl ? ColonyToolView : ColonyProgressView);
     }
+    if (this.cancelled || this.context.destroyed || this.context.generation !== generation
+      || this.control !== previous || this.context.progressPopup !== previous) return;
     this.control = this.createControl();
     this.context.progressPopup = this.control;
     await this.waitForControl();
@@ -451,12 +470,13 @@ export class ProgressPresentation {
   }
 
   private async close(): Promise<void> {
+    this.cancelled = true;
+    const control = this.control;
     if (this.context.constructionView) this.context.constructionView.refreshSocialNotice(this.context.progress!.readSocial().unread);
-    if (this.control) await swallowMkInterrupt(Promise.resolve(this.control.close()));
-    if (this.context.progressPopup !== this.control) return;
-    await mk.uiManage.close(this.control instanceof ToolControl ? ColonyToolView : ColonyProgressView);
-    if (this.context.progressPopup !== this.control) return;
+    if (control) await swallowMkInterrupt(Promise.resolve(control.close()));
+    if (this.context.progressPopup !== control) return;
     this.context.progressPopup = null;
+    if (this.control === control) this.control = null;
     this.context.inputLocked = false;
   }
 }

@@ -3,26 +3,30 @@ import mk from 'mk';
 import { ColonyUtil } from '../../../scripts/colonyUtil';
 import { ProgressModel, type ProgressPage } from './progressModel';
 import { ColonyProgressView } from './progressView';
+import { ColonyPopupView } from './popupView';
+import { ColonyLeaderboardView } from '../../leaderboard/script/leaderboardView';
 import { swallowMkInterrupt } from '../../resultPopupNav';
 
 export interface ProgressNavigation {
   read(): ProgressPage;
   act(action: string): Promise<string | void> | string | void;
   closed(): void;
+  closing?(): void;
   canClose?(): boolean;
 }
 
-export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyProgressView> {
+export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopupView> {
   private busy = false;
   private notified = false;
 
-  public constructor(private readonly parent: Node, private readonly navigation: ProgressNavigation) { super(); }
+  public constructor(private readonly parent: Node, private readonly navigation: ProgressNavigation,
+    public readonly viewType: typeof ColonyProgressView | typeof ColonyLeaderboardView = ColonyProgressView) { super(); }
 
   protected async open(): Promise<void> {
     this._model = await ProgressModel.new();
     this._model.page = this.navigation.read();
-    const view = await mk.uiManage.open(ColonyProgressView, { init: this._model, parent: this.parent });
-    if (!(view instanceof ColonyProgressView)) throw new Error('Progress popup could not be opened');
+    const view = await mk.uiManage.open(this.viewType, { init: this._model, parent: this.parent });
+    if (!(view instanceof this.viewType)) throw new Error('Progress popup could not be opened');
     this._view = view;
     ColonyUtil.applyUiLayer(view.node);
     view.event.on('action', this.act, this);
@@ -64,6 +68,7 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyProg
 
   /** Terminal gameplay may supersede an operation popup while ants keep moving. */
   public async forceClose(): Promise<void> {
+    this.navigation.closing?.();
     await swallowMkInterrupt(Promise.resolve(this.close()));
     if (!this.notified) { this.notified = true; this.navigation.closed(); }
   }

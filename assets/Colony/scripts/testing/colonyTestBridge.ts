@@ -7,6 +7,8 @@ import type { ColonyTransportEvidence } from '../presentation/pageStates/playSta
 import { PlayState } from '../presentation/pageStates/playState';
 import { ConstructionState } from '../presentation/pageStates/constructionState';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
+import { ColonyPopupView } from '../../popups/progress/script/popupView';
+import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
 import { colonyTestLevelTrace } from './colonyTestTraces';
 import { ProgressPresentation, type ProgressSection } from '../presentation/progressPresentation';
 import { createProgressPreviewFixture, createProgressPreviewSession } from './progressPreviewFixture';
@@ -323,10 +325,13 @@ export class ColonyTestBridge {
 
   /** UI/对象池相关验收证据。 */
   private uiEvidence(): unknown {
-    const popup = this.ctx.popupRoot?.getComponentsInChildren(ColonyProgressView).find(popup => popup.isAvailable());
-    const ranking = popup?.leaderboardList?.node.activeInHierarchy ? popup.leaderboardList : null;
-    const social = popup?.socialView?.node.activeInHierarchy ? popup.socialView : null;
-    const list = ranking ?? (social?.list?.node.activeInHierarchy ? social.list : popup?.list);
+    const popup = this.ctx.popupRoot?.getComponentsInChildren(ColonyPopupView).find(popup => popup.isAvailable());
+    const progress = popup instanceof ColonyProgressView ? popup : null;
+    const leaderboard = popup instanceof ColonyLeaderboardView ? popup : null;
+    const ranking = leaderboard?.leaderboardList;
+    const self = leaderboard?.leaderboardSelf?.node;
+    const social = progress?.socialView?.node.activeInHierarchy ? progress.socialView : null;
+    const list = ranking ?? (social?.list?.node.activeInHierarchy ? social.list : progress?.list);
     const construction = this.ctx.constructionView;
     return {
       progressList: list ? { totalCount: list.totalCount, pooledNodes: list.content?.children.length,
@@ -334,8 +339,8 @@ export class ColonyTestBridge {
       popupButtons: this.ctx.popupRoot?.getComponentsInChildren(Button).filter(button => button.node.activeInHierarchy).map(button => ({
         name: button.node.name, labels: button.node.getComponentsInChildren(Label).map(label => label.string), position: button.node.worldPosition,
       })),
-      leaderboard: ranking ? { self: popup!.leaderboardSelf!.getComponentsInChildren(Label).map(label => ({ name: label.node.name, text: label.string })),
-        selfWorldY: popup!.leaderboardSelf!.worldPosition.y,
+      leaderboard: ranking ? { self: self!.getComponentsInChildren(Label).map(label => ({ name: label.node.name, text: label.string })),
+        selfWorldY: self!.worldPosition.y,
         rows: ranking.content!.children.filter(node => node.active).map(node => node.getComponentsInChildren(Label).map(label => ({ name: label.node.name, text: label.string }))) } : null,
       inputLocked: this.ctx.inputLocked,
       social: social ? {

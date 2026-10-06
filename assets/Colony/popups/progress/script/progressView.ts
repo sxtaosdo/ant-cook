@@ -1,17 +1,14 @@
 import { _decorator, Button, Color, EditBox, EventTouch, Label, Node, Sprite, SpriteFrame, UITransform, tween, Tween, Vec3, view } from 'cc';
+import { ColonyPopupView } from './popupView';
 import mk from 'mk';
 import { ProgressModel, type ProgressRow } from './progressModel';
 import { VirtualScrollView } from '../../../vendor/vscrollview/VScrollView';
-import type { LeaderboardEntry } from '../../../scripts/application/leaderboard/leaderboard';
 import { ColonySocialView } from '../../../scripts/views/social/socialView';
 
 const { ccclass, property } = _decorator;
 
 @ccclass('ColonyProgressView')
-export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
-  private readonly boundNodes = new Set<Node>();
-  private viewRoot: Node | null = null;
-  private revision = 0;
+export class ColonyProgressView extends ColonyPopupView {
   private primaryActionFrame: SpriteFrame | null = null;
   private selectedTabFrame: SpriteFrame | null = null;
   private normalTabFrame: SpriteFrame | null = null;
@@ -24,10 +21,6 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
   @property(VirtualScrollView)
   public list: VirtualScrollView | null = null;
   @property(VirtualScrollView) public shopList: VirtualScrollView | null = null;
-  @property(VirtualScrollView)
-  public leaderboardList: VirtualScrollView | null = null;
-  @property(Node)
-  public leaderboardSelf: Node | null = null;
   @property(ColonySocialView)
   public socialView: ColonySocialView | null = null;
   @property(Node) public settingsRoot: Node | null = null;
@@ -36,21 +29,9 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
   @property(SpriteFrame) public soundOnFrame: SpriteFrame | null = null;
   @property(SpriteFrame) public soundOffFrame: SpriteFrame | null = null;
 
-  public init(model?: ProgressModel): void {
-    if (!model) throw new Error('Progress popup requires a model');
-    this._model = model;
-  }
-
-  public open(): void {
-    this.clearBindings();
-    this.viewRoot = this.node;
-    // MK may reuse this view; controllers belong to one opening only.
-    this.event.off('action');
-    this.event.off('close');
+  protected prepareOpen(): void {
     this.listTitle = '';
-    this.render();
   }
-  public isAvailable(): boolean { return this.valid && !!this.viewRoot?.isValid && this.viewRoot.activeInHierarchy; }
 
   public render(): void {
     const panel = this.panel;
@@ -71,20 +52,13 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
       return;
     }
     if (page.layout === 'social') {
-      for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1', 'LeaderboardHint']) panel.getChildByName(name)!.active = false;
-      list.node.active = false; this.leaderboardList!.node.active = false; this.leaderboardSelf!.active = false;
+      for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1']) panel.getChildByName(name)!.active = false;
+      list.node.active = false;
       this.socialView!.render(page.social!, page.title, page.summary, feedback, value => this.event.emit('action', value), () => this.event.emit('close'));
       return;
     }
     this.socialView?.hide();
     for (const name of ['Title', 'Summary', 'Close', 'Back']) panel.getChildByName(name)!.active = true;
-    if (page.layout === 'leaderboard') {
-      this.renderLeaderboard(panel);
-      return;
-    }
-    this.leaderboardList!.node.active = false;
-    this.leaderboardSelf!.active = false;
-    panel.getChildByName('LeaderboardHint')!.active = false;
     list.node.active = page.layout !== 'confirm';
     if (page.layout === 'confirm') {
       this.renderConfirm(panel);
@@ -154,44 +128,13 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     this.bind(panel.getChildByName('Back')!, true, () => this.event.emit('action', 'back'));
   }
 
-  private renderLeaderboard(panel: Node): void {
-    const { page } = this._model;
-    const board = page.leaderboard!;
-    const list = this.leaderboardList!;
-    this.list!.node.active = false;
-    list.node.active = true;
-    this.leaderboardSelf!.active = true;
-    const height = Math.min(1200, view.getVisibleSize().height - 120);
-    const top = height / 2;
-    panel.getComponent(UITransform)!.setContentSize(698, height);
-    for (const name of ['Tabs', 'Back', 'Feedback', 'Row0', 'Row1']) panel.getChildByName(name)!.active = false;
-    const title = panel.getChildByName('Title')!;
-    title.setPosition(0, top - 115, 0); title.getComponent(Label)!.string = page.title;
-    const summary = panel.getChildByName('Summary')!;
-    summary.active = true; summary.setPosition(0, top - 185, 0); summary.getComponent(Label)!.string = page.summary;
-    const close = panel.getChildByName('Close')!;
-    close.setPosition(230, top - 115, 0);
-    this.bind(close, true, () => this.event.emit('close'));
-    list.node.setPosition(0, top - 240, 0);
-    list.node.getComponent(UITransform)!.setContentSize(590, height - 420);
-    list.renderItemFn = (card, index) => this.renderLeaderboardRow(card, board.entries[index]!);
-    list.refreshList(board.entries.length);
-    list.scrollToTop(false);
-    this.leaderboardSelf!.setPosition(0, -top + 122, 0);
-    this.renderLeaderboardRow(this.leaderboardSelf!, board.self);
-    const hint = panel.getChildByName('LeaderboardHint')!;
-    hint.active = true; hint.setPosition(0, -top + 65, 0);
-  }
-
   private renderSettings(panel: Node): void {
     const { settings } = this._model.page;
     const root = this.settingsRoot;
     if (!root || !settings) throw new Error('Settings popup binding is missing');
     panel.getComponent(UITransform)!.setContentSize(640, 980);
-    for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1', 'LeaderboardHint']) panel.getChildByName(name)!.active = false;
+    for (const name of ['Title', 'Summary', 'Close', 'Back', 'Feedback', 'Tabs', 'Row0', 'Row1']) panel.getChildByName(name)!.active = false;
     this.list!.node.active = false;
-    this.leaderboardList!.node.active = false;
-    this.leaderboardSelf!.active = false;
     this.socialView?.hide();
     const controls = [
       ['MusicButton', 'toggle-music', settings.musicEnabled ? this.musicOnFrame : this.musicOffFrame],
@@ -219,22 +162,6 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     const notice = root.getChildByName('Notice')!;
     notice.active = Boolean(this._model.feedback);
     notice.getComponent(Label)!.string = this._model.feedback;
-  }
-
-  private renderLeaderboardRow(card: Node, entry: LeaderboardEntry): void {
-    card.getComponent(Sprite)!.color = new Color(entry.isSelf ? '#FFE2A7' : '#FFF9EB');
-    const rank = card.getChildByName('Rank')!.getComponent(Label)!;
-    rank.string = `${entry.rank}`;
-    rank.color = new Color(entry.rank === 1 ? '#B77B17' : entry.rank === 2 ? '#7E8992' : entry.rank === 3 ? '#A76836' : '#654632');
-    const avatar = card.getChildByName('Avatar')!;
-    avatar.getComponent(Sprite)!.color = new Color(entry.avatarColor);
-    avatar.getChildByName('Initial')!.getComponent(Label)!.string = [...entry.name][0]!;
-    card.getChildByName('Name')!.getComponent(Label)!.string = entry.name;
-    card.getChildByName('Progress')!.getComponent(Label)!.string = `${entry.cleared} 关`;
-    const change = card.getChildByName('Change')!.getComponent(Label)!;
-    change.string = entry.isNew ? '新上榜' : entry.change > 0 ? `↑ ${entry.change}` : entry.change < 0 ? `↓ ${-entry.change}` : '—';
-    change.color = new Color(entry.isNew ? '#B77B17' : entry.change > 0 ? '#328D73' : entry.change < 0 ? '#B76C60' : '#A69985');
-    for (const node of [avatar, card.getChildByName('Name')!]) this.bind(node, !entry.isSelf && Boolean(this._model.page.leaderboard?.canVisit), () => this.event.emit('action', `partner:${entry.id}`));
   }
 
   private renderRow(card: Node, row: ProgressRow): void {
@@ -421,28 +348,4 @@ export class ColonyProgressView extends mk.MVCViewBase<ProgressModel> {
     }
   }
 
-  private bind(node: Node, enabled: boolean, action: () => void): void {
-    this.boundNodes.add(node);
-    node.targetOff(this);
-    const button = node.getComponent(Button)!;
-    button.disabledColor = new Color(224, 203, 171);
-    button.interactable = enabled;
-    let dragged = false;
-    node.on(Node.EventType.TOUCH_START, () => { dragged = false; }, this);
-    node.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => {
-      const start = event.getStartLocation();
-      const current = event.getLocation();
-      if (Math.hypot(current.x - start.x, current.y - start.y) > 10) dragged = true;
-    }, this);
-    node.on(Button.EventType.CLICK, () => { if (!dragged && this.isAvailable() && node.activeInHierarchy) action(); }, this);
-  }
-  private clearBindings(): void {
-    this.revision++;
-    this.viewRoot = null;
-    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
-    this.boundNodes.clear();
-  }
-  public close(): void { this.clearBindings(); }
-  protected onDisable(): void { this.clearBindings(); }
-  protected onDestroy(): void { this.clearBindings(); }
 }

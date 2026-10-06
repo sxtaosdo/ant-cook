@@ -90,13 +90,13 @@ test('actual Presentation-Control-MVC failed popup open releases its business pl
   const f = provider(), file = fileURLToPath(new URL('../../assets/Colony/scripts/presentation/progressPresentation.ts', import.meta.url));
   const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true), printer = ts.createPrinter();
   const Class = source.statements.find(node => ts.isClassDeclaration(node) && node.name.text === 'ProgressPresentation');
-  const members = Class.members.filter(node => node.name && ['open', 'createControl', 'waitForControl'].includes(node.name.getText(source)))
+  const members = Class.members.filter(node => node.name && ['open', 'createControl', 'waitForControl', 'progressViewType'].includes(node.name.getText(source)))
     .map(node => printer.printNode(ts.EmitHint.Unspecified, node, source)).join('\n');
   const code = ts.transpileModule(`class ProgressPresentation {
     constructor(context, section, onClosed) { this.context=context; this.section=section; this.onClosed=onClosed; }
     read() { return { rows: [] }; } act() {} ${members}
   }; ProgressPresentation`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const Presentation = vm.runInNewContext(code, { ProgressControl: f.ProgressControl, ToolControl: f.ProgressControl, console });
+  const Presentation = vm.runInNewContext(code, { ProgressControl: f.ProgressControl, ToolControl: f.ProgressControl, ColonyProgressView: f.PopupView, ColonyLeaderboardView: f.PopupView, console });
   let feedback = '', openCalls = 0;
   const context = { progress: { readSocial: () => ({ unread: 0 }) }, progressPopup: null, popupRoot: f.scene, inputLocked: false,
     hudView: { hideRailBackground() {}, setFeedback(value) { feedback = value; } }, app: { setError() {} },

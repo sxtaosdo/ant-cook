@@ -9,6 +9,7 @@ import { ColonyResultFailView } from '../../../popups/resultFail/script/resultFa
 import { ColonyResultSuccessView } from '../../../popups/resultSuccess/script/resultSuccessView';
 import { createOperationalCatalog } from '../../application/operationalLevels';
 import { ColonyProgressView } from '../../../popups/progress/script/progressView';
+import { ColonyLeaderboardView } from '../../../popups/leaderboard/script/leaderboardView';
 import { ColonyToolView } from '../../../popups/tool/script/toolView';
 import type { ColonySceneBootstrap } from '../../bootstrap/colonySceneBootstrap';
 import { ColonyFlowModel } from '../../gameModel';
@@ -88,6 +89,7 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       mk.uiManage.regis(ColonyResultSuccessView, 'popups/resultSuccess/prefab/resultSuccess', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyResultFailView, 'popups/resultFail/prefab/resultFail', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyProgressView, 'popups/progress/progress', session.popupRoot!, colonyLoad),
+      mk.uiManage.regis(ColonyLeaderboardView, 'popups/leaderboard/prefab/leaderboard', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyToolView, 'popups/tool/tool', session.popupRoot!, colonyLoad),
     ]);
   }

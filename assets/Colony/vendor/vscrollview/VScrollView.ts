@@ -18,6 +18,7 @@ import {
   Widget,
 } from 'cc';
 import { VScrollViewItem } from './VScrollViewItem';
+import mk from 'mk';
 
 const { ccclass, property, menu } = _decorator;
 
@@ -592,6 +593,7 @@ export class VirtualScrollView extends Component {
   private _activeTouchId: number = -1;
   private _velSamples: { t: number; delta: number }[] = [];
   private _slotNodes: (Node | null)[] = [];
+  private _fixedNodePool: mk.ObjectPool.Sync<Node> | null = null;
   private _slots = 0;
   private _slotFirstIndex = 0;
   private _itemSizes: number[] = [];
@@ -938,6 +940,8 @@ export class VirtualScrollView extends Component {
   }
 
   onDestroy() {
+    this._fixedNodePool?.destroy();
+    this._fixedNodePool = null;
     this._pendingStartOperations.length = 0;
     this._isStarted = false;
     this._resetItemEnterCallbackState();
@@ -1104,8 +1108,14 @@ export class VirtualScrollView extends Component {
     const stride = this.itemMainSize + this.spacing;
     const visibleLines = Math.ceil(this._viewportSize / stride);
     this._slots = Math.max(1, (visibleLines + this.buffer + 2) * this.gridCount);
+    this._fixedNodePool?.destroy();
+    this._fixedNodePool = new mk.ObjectPool.Sync<Node>({
+      createFunc: () => instantiate(item_pre),
+      minHoldNum: 0, maxHoldNum: 0, initFillNum: 0,
+      clearFunc: nodes => { for (const node of nodes) if (node.isValid) node.destroy(); },
+    });
     for (let i = 0; i < this._slots; i++) {
-      const n = instantiate(item_pre);
+      const n = this._fixedNodePool.get();
       n.parent = this.content!;
       n.active = false;
       const itf = n.getComponent(UITransform);

@@ -19,11 +19,11 @@ function methods(file, className, names, globals) {
 
 test('actual Ant close publishes its task before reentry, orders teardown and retries only failed owners', async () => {
   const calls = []; let root, fail = true, reentry;
-  class Success {} class Fail {} class Progress {} class Tools {}
+  class Success {} class Fail {} class Progress {} class Leaderboard {} class Tools {}
   const Subject = methods('assets/Colony/scripts/bootstrap/colonySceneBootstrap.ts', 'ColonySceneBootstrap', ['close', 'closeModule'], {
     game: { off() { calls.push('off'); } }, Game: { EVENT_HIDE: 'hide', EVENT_SHOW: 'show' },
     mk: { uiManage: { async unregis(Class, owner) { assert.equal(owner, root.popupRoot); calls.push(Class.name); if (Class === Tools && fail) throw Error('pool destroy'); } } },
-    ColonyResultSuccessView: Success, ColonyResultFailView: Fail, ColonyProgressView: Progress, ColonyToolView: Tools,
+    ColonyResultSuccessView: Success, ColonyResultFailView: Fail, ColonyProgressView: Progress, ColonyLeaderboardView: Leaderboard, ColonyToolView: Tools,
     ColonyTestBridge: { clear() { calls.push('bridge'); } },
   });
   root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {},
@@ -43,19 +43,19 @@ test('actual Ant cleanup stops before unregister when an active popup close fail
   let unregister = 0, attempts = 0, fail = true;
   const Subject = methods('assets/Colony/scripts/bootstrap/colonySceneBootstrap.ts', 'ColonySceneBootstrap', ['close', 'closeModule'], {
     game: { off() {} }, Game: {}, mk: { uiManage: { unregis() { unregister++; } } },
-    ColonyResultSuccessView: class {}, ColonyResultFailView: class {}, ColonyProgressView: class {}, ColonyToolView: class {}, ColonyTestBridge: { clear() {} },
+    ColonyResultSuccessView: class {}, ColonyResultFailView: class {}, ColonyProgressView: class {}, ColonyLeaderboardView: class {}, ColonyToolView: class {}, ColonyTestBridge: { clear() {} },
   });
   const root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {}, unschedule() {},
     progressPopup: { forceClose() { attempts++; if (fail) throw Error('popup close'); } }, StateMachine: { releaseAllStates() {} } });
   await assert.rejects(root.close('switch'), /cleanup did not complete/); assert.equal(unregister, 0);
-  fail = false; await root.close('switch'); assert.equal(attempts, 2); assert.equal(unregister, 4);
+  fail = false; await root.close('switch'); assert.equal(attempts, 2); assert.equal(unregister, 5);
 });
 
 test('actual popup closed callback preserves destroyed input fence and never clears a newer control', () => {
   let navigation, refreshed = 0, callback = 0;
   class Control { constructor(_, nav) { navigation = nav; } }
-  const Subject = methods('assets/Colony/scripts/presentation/progressPresentation.ts', 'ProgressPresentation', ['createControl'], {
-    ProgressControl: Control, ToolControl: Control,
+  const Subject = methods('assets/Colony/scripts/presentation/progressPresentation.ts', 'ProgressPresentation', ['createControl', 'progressViewType'], {
+    ProgressControl: Control, ToolControl: Control, ColonyProgressView: class {}, ColonyLeaderboardView: class {},
   });
   const context = { destroyed: true, popupRoot: {}, ads: {}, inputLocked: true,
     play: { snapshot: () => ({ result: 'PLAYING' }) }, homeView: { refresh() { refreshed++; } },
@@ -65,4 +65,29 @@ test('actual popup closed callback preserves destroyed input fence and never cle
   navigation.closed(); assert.equal(context.progressPopup, null); assert.equal(context.inputLocked, true);
   assert.equal(refreshed, 0); assert.equal(callback, 0);
   const fresh = {}; context.progressPopup = fresh; navigation.closed(); assert.equal(context.progressPopup, fresh);
+});
+
+test('actual popup replacement is cancelled while its old close is pending', async () => {
+  let instances = 0, release;
+  const gate = new Promise(resolve => { release = resolve; });
+  class Control {
+    constructor(_, navigation, viewType) { instances++; this.navigation = navigation; this.viewType = viewType; }
+    close() { return gate; }
+  }
+  const Subject = methods('assets/Colony/scripts/presentation/progressPresentation.ts', 'ProgressPresentation',
+    ['createControl', 'progressViewType', 'switchControl'], {
+      ProgressControl: Control, ToolControl: Control, ColonyProgressView: class {}, ColonyLeaderboardView: class {},
+      swallowMkInterrupt: async value => { await value; },
+    });
+  const context = { generation: 4, destroyed: false, popupRoot: {}, progressPopup: null };
+  const popup = new Subject(); Object.assign(popup, { context, section: 'leaderboard', cancelled: false });
+  const old = popup.createControl(); popup.control = old; context.progressPopup = old;
+  popup.section = 'social';
+  const switching = popup.switchControl();
+  old.navigation.closing();
+  release(); await switching;
+  assert.equal(instances, 1); assert.equal(popup.control, old); assert.equal(context.progressPopup, old);
+  // A late notification from the cancelled owner cannot clear a fresh session's popup.
+  const fresh = {}; popup.control = fresh; context.progressPopup = fresh;
+  old.navigation.closed(); assert.equal(popup.control, fresh); assert.equal(context.progressPopup, fresh);
 });
