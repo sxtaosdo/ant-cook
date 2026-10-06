@@ -82,6 +82,7 @@ function provider({ editor = true, realRelease = false } = {}) {
   mocks.settingsView = { ColonySettingsView: PopupView };
   mocks.confirmView = { ColonyConfirmView: PopupView };
   mocks.socialPopupView = { ColonySocialPopupView: PopupView };
+  mocks.shopView = { ColonyShopView: PopupView };
   mocks.colonyUtil = { ColonyUtil: { applyUiLayer() {} } };
   mocks.resultPopupNav = { swallowMkInterrupt: async value => { try { await value; } catch (cause) { if (cause !== '中断') throw cause; } } };
   const { ProgressControl } = load(fileURLToPath(new URL('../../assets/Colony/popups/progress/script/progressControl.ts', import.meta.url)));

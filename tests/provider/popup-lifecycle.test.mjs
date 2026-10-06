@@ -237,3 +237,24 @@ test('actual toolbar refresh maps existing free-use state to count/plus through 
   }
   assert.deepEqual(clicked,['trowel','trowel','trowel','trowel']);
 });
+
+
+test('actual shop list callback ignores Closing/model-reset and an older open while children remain active',()=>{
+  const f=fixture(), Class=f.load('assets/Colony/popups/shop/script/shopView.ts').ColonyShopView;
+  const view=new Class();view.node=new f.Node();
+  for(const key of ['titleLabel','summaryLabel','feedbackLabel'])view[key]=new f.Node(key).getComponent(f.Label);
+  view.closeButton=new f.Node('Close');view.backButton=new f.Node('Back');
+  view.list={renderItemFn:null,refreshList(){},scrollToTop(){}};
+  const model={page:{layout:'shop',title:'shop',summary:'',rows:[{action:'starter-diamonds',enabled:true}]},feedback:''};
+  view.init(model);view.open();
+  let renders=0;const action=new f.Node('Action');
+  const card={getComponent:()=>({actionButton:action,render(){renders++;}})};
+  const old=view.list.renderItemFn;old(card,0);assert.equal(renders,1);
+  assert.equal(view.node.activeInHierarchy,true);view.available=false;
+  view._model=new Proxy({}, {get(){throw Error('reset model must not be read');}});
+  assert.doesNotThrow(()=>old(card,0));assert.equal(renders,1);
+  view.close();view.available=true;view.init(model);view.open();
+  assert.doesNotThrow(()=>old(card,0));assert.equal(renders,1);
+  view.list.renderItemFn(card,0);assert.equal(renders,2);
+  view.close();assert.equal(action.owned(view),0);assert.equal(f.errors.length,0);
+});

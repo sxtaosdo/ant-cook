@@ -8,6 +8,7 @@ import { ColonyLeaderboardView } from '../../leaderboard/script/leaderboardView'
 import { ColonySettingsView } from '../../settings/script/settingsView';
 import { ColonyConfirmView } from '../../confirm/script/confirmView';
 import { ColonySocialPopupView } from '../../social/script/socialPopupView';
+import { ColonyShopView } from '../../shop/script/shopView';
 import { swallowMkInterrupt } from '../../resultPopupNav';
 
 export interface ProgressNavigation {
@@ -18,7 +19,7 @@ export interface ProgressNavigation {
   canClose?(): boolean;
 }
 
-export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView;
+export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView | typeof ColonyShopView;
 
 export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopupView> {
   private busy = false;

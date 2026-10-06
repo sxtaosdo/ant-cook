@@ -19,7 +19,6 @@ export class ColonyProgressView extends ColonyPopupView {
 
   @property(VirtualScrollView)
   public list: VirtualScrollView | null = null;
-  @property(VirtualScrollView) public shopList: VirtualScrollView | null = null;
 
   protected prepareOpen(): void {
     this.listTitle = '';
@@ -31,10 +30,8 @@ export class ColonyProgressView extends ColonyPopupView {
     const secondaryAction = panel.getChildByName('Row1')!.getChildByName('Action')!.getComponent(Sprite)!;
     this.primaryActionFrame ??= secondaryAction.spriteFrame;
     const { page, feedback } = this._model;
-    const list = page.layout === 'shop' ? this.shopList : this.list;
+    const list = this.list;
     if (!list) throw new Error('Progress list binding is missing');
-    this.shopList!.node.active = page.layout === 'shop';
-    this.list!.node.active = page.layout !== 'shop';
     const selector = panel.getChildByName('GmLevelSelector');
     if (selector) selector.active = page.layout === 'gm';
     for (const name of ['Title', 'Summary', 'Close', 'Back']) panel.getChildByName(name)!.active = true;
@@ -82,19 +79,16 @@ export class ColonyProgressView extends ColonyPopupView {
     panel.getChildByName('Feedback')!.getComponent(Label)!.string = feedback;
     for (const name of ['Row0', 'Row1']) panel.getChildByName(name)!.active = false;
     const template = panel.getChildByName('Row0')!;
-    const shop = page.layout === 'shop';
-    const listTemplate = shop ? panel.getChildByName('ShopCard')! : template;
-    list.node.getComponent(UITransform)!.setContentSize(shop ? 590 : 560, page.layout === 'gm' ? 540 : 640);
+    list.node.getComponent(UITransform)!.setContentSize(560, page.layout === 'gm' ? 540 : 640);
     if (page.rows[0]) {
-      if (shop) this.renderShopRow(listTemplate, page.rows[0]);
-      else this.renderRow(template, page.rows[0]);
+      this.renderRow(template, page.rows[0]);
     }
     list.node.setPosition(0, height / 2 - (hasSummary ? hasTabs ? 350 : 270 : hasTabs ? 290 : 210), 0);
     if (selector?.active) {
       selector.setPosition(0, height / 2 - 295, 0);
       list.node.setPosition(0, height / 2 - 355, 0);
     }
-    list.renderItemFn = (card, index) => shop ? this.renderShopRow(card, this._model.page.rows[index]!) : this.renderRow(card, this._model.page.rows[index]!);
+    list.renderItemFn = (card, index) => this.renderRow(card, this._model.page.rows[index]!);
     list.refreshList(page.rows.length);
     if (this.listTitle !== page.title) list.scrollToTop(false);
     this.listTitle = page.title;
@@ -202,23 +196,4 @@ export class ColonyProgressView extends ColonyPopupView {
     });
     button.getChildByName('Text')!.getComponent(Label)!.string = row.button;
   }
-  private renderShopRow(card: Node, row: ProgressRow): void {
-    const revision = this.revision;
-    this.renderedRows.set(card, row);
-    const product = row.shopProduct!;
-    card.getComponent(UITransform)!.setContentSize(550, 224);
-    card.getChildByName('Quantity')!.getComponent(Label)!.string = `${product.diamonds} 钻石`;
-    card.getChildByName('Name')!.getComponent(Label)!.string = product.priceYuan === undefined ? '新老玩家体验礼包' : '钻石补给';
-    card.getChildByName('Status')!.getComponent(Label)!.string = product.priceYuan === undefined ? product.claimed ? '已领取' : '一次性免费领取' : '充值暂未开放';
-    const image = card.getChildByName('Product')!.getComponent(Sprite)!;
-    image.spriteFrame = null;
-    void mk.asset.get(`db://assets/Colony/art/toy-market/ui/r07/${product.image}.png`, SpriteFrame, this.node)
-      .then(frame => { if (revision === this.revision && this.isAvailable() && frame && image.isValid && this.renderedRows.get(card) === row) image.spriteFrame = frame; })
-      .catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load shop icon', cause); });
-    const action = card.getChildByName('Action')!;
-    action.getChildByName('Text')!.getComponent(Label)!.string = row.button;
-    action.getComponent(Sprite)!.color = new Color(product.priceYuan === undefined && !product.claimed ? '#FFFFFF' : '#CBD2DE');
-    this.bind(action, row.enabled, () => this.event.emit('action', row.action));
-  }
-
 }

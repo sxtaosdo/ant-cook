@@ -10,6 +10,7 @@ import { ColonyProgressView } from '../../popups/progress/script/progressView';
 import { ColonyPopupView } from '../../popups/progress/script/popupView';
 import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
 import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
+import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { colonyTestLevelTrace } from './colonyTestTraces';
 import { ProgressPresentation, type ProgressSection } from '../presentation/progressPresentation';
 import { createProgressPreviewFixture, createProgressPreviewSession } from './progressPreviewFixture';
@@ -332,7 +333,7 @@ export class ColonyTestBridge {
     const ranking = leaderboard?.leaderboardList;
     const self = leaderboard?.leaderboardSelf?.node;
     const social = popup instanceof ColonySocialPopupView && popup.socialView?.node.activeInHierarchy ? popup.socialView : null;
-    const list = ranking ?? (social?.list?.node.activeInHierarchy ? social.list : progress?.list);
+    const list = ranking ?? (social?.list?.node.activeInHierarchy ? social.list : popup instanceof ColonyShopView ? popup.list : progress?.list);
     const construction = this.ctx.constructionView;
     return {
       progressList: list ? { totalCount: list.totalCount, pooledNodes: list.content?.children.length,

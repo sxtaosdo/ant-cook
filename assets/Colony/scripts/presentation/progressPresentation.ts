@@ -7,6 +7,7 @@ import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboa
 import { ColonySettingsView } from '../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
 import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
+import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import type { ProgressPage, ProgressRow } from '../../popups/progress/script/progressModel';
@@ -109,6 +110,7 @@ export class ProgressPresentation {
     if (this.section === 'leaderboard') return ColonyLeaderboardView;
     if (this.section === 'settings') return ColonySettingsView;
     if (this.section === 'social') return ColonySocialPopupView;
+    if (this.section === 'shop') return ColonyShopView;
     if (this.section.startsWith('confirm-')) return ColonyConfirmView;
     return ColonyProgressView;
   }
