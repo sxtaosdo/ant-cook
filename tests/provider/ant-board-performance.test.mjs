@@ -53,3 +53,69 @@ test('slot counters retain tokens through COUNT, replace ownership on RELEASE an
   for (const index of [0, 1, 5]) { assert.equal(slots[index].children.length, 1); assert.equal(slots[index].children[0].frame, replacement); }
   assert.equal(a.getComponentInChildren(Label).isValid, true);
 });
+
+test('queue visibility never reactivates offscreen stacks and preserves moving/reflow behavior', () => {
+  class Label {}
+  class Sprite {}
+  class Button { static Transition = { SCALE: 1, NONE: 0 }; }
+  class Vec3 {
+    static ONE = { x: 1, y: 1, z: 1 };
+    constructor(x, y, z) { Object.assign(this, { x, y, z }); }
+    static distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z); }
+  }
+  const animations = [], stops = [];
+  const geometry = load('boardGeometry', {});
+  const { BoardPresentation } = load('boardPresentation', {
+    cc: { Label, Sprite, Button, Vec3, Tween: { stopAllByTarget: n => stops.push(n) }, tween: node => ({
+      to(duration, properties, options) { animations.push({ node, duration, properties, options }); return this; },
+      start() { return this; },
+    }) },
+    './boardGeometry': geometry,
+    './colonyColors': { colonyColor: color => color },
+    './nodeFactory': { NodeFactory: class { pool() { return {}; } } },
+  });
+  const board = new BoardPresentation({}, {}, [], {}, {}, {}, () => {});
+  const label = { string: '' }, button = {}, sprite = {}, hint = { active: false }, transitions = [];
+  let active = false;
+  const node = {
+    position: { x: 0, y: -416, z: 0 }, angle: 12,
+    get active() { return active; },
+    set active(value) { if (active !== value) transitions.push([active, value]); active = value; },
+    getComponent(kind) { return kind === Button ? button : kind === Sprite ? sprite : null; },
+    getComponentInChildren(kind) { return kind === Label ? label : null; },
+    getChildByName(name) { return name === 'UnlockHint' ? hint : null; },
+    setPosition(value) { this.position = value; },
+    setScale(value) { this.scale = value; },
+  };
+  const head = { id: 'head', pile: 0, depth: 0, selected: false, count: 3, color: 'leaf', accessible: true };
+  const tail = { ...head, id: 'tail', depth: 4, accessible: false };
+  const read = { snapshot: { stacks: [head, tail] } };
+  board.stackTile = {}; board.stackNodes.set(tail.id, node);
+  for (let i = 0; i < 4; i++) board.renderStacks(read);
+  assert.equal(active, false); assert.deepEqual(transitions, []);
+  assert.equal(node.position.y, -416); assert.equal(label.string, '3'); assert.equal(hint.active, true);
+  for (const [offset, visible] of [[156, true], [156, true], [480, true], [481, false], [481, false]]) {
+    board.queueOffset = offset; board.renderStacks(read); assert.equal(active, visible);
+  }
+  assert.deepEqual(transitions, [[false, true], [true, false]]);
+  board.stackTile = null; transitions.length = 0;
+  for (const [offset, visible] of [[304, true], [528, true], [529, false], [303, false]]) {
+    board.queueOffset = offset; board.renderStacks(read); assert.equal(active, visible);
+  }
+  assert.deepEqual(transitions, [[false, true], [true, false]]);
+  board.queueOffset = 0; board.stackTile = {}; tail.selected = true;
+  node.active = true; transitions.length = 0; board.moving.add(tail.id);
+  const positionBefore = node.position;
+  board.renderStacks(read, true);
+  assert.equal(active, true); assert.deepEqual(transitions, []);
+  assert.equal(button.interactable, false); assert.equal(node.position, positionBefore); assert.equal(animations.length, 0);
+  board.moving.delete(tail.id); board.renderStacks(read); board.renderStacks(read);
+  assert.equal(active, false); assert.deepEqual(transitions, [[true, false]]);
+  tail.selected = false; head.selected = true; transitions.length = 0;
+  board.renderStacks(read, true);
+  assert.equal(active, true); assert.deepEqual(transitions, [[false, true]]);
+  assert.equal(animations.length, 1); assert.equal(animations[0].duration, 0.26);
+  assert.equal(animations[0].properties.position.y, 0); assert.equal(animations[0].options.easing, 'quadOut');
+  assert.equal(stops.length, 1); assert.equal(node.angle, 0); assert.equal(node.scale, Vec3.ONE);
+  board.renderStacks(read); assert.equal(node.position.y, 0); assert.equal(animations.length, 1);
+});

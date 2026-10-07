@@ -41,6 +41,18 @@ test('tool success records before settlement, deduplicates, and failed primary w
   f.fail(false); f.p.recordDailyTool(r.id, 'slot'); f.p.recordDailyTool(r.id, 'slot'); f.restart();
   assert.equal(f.p.snapshot().daily.tasks.tools, 1); assert.throws(() => f.p.recordDailyTool(r.id, 'unknown'));
 });
+test('successful tools persist in their round before settlement even after the daily task is full', () => {
+  const f = fixture(), r = f.p.startRound(1);
+  f.p.recordDailyTool(r.id, 'slot'); f.p.recordDailyTool(r.id, 'trowel'); f.p.recordDailyTool(r.id, 'slot');
+  f.fail(true); assert.throws(() => f.p.recordDailyTool(r.id, 'compass'));
+  assert.deepEqual(f.p.snapshot().rounds[r.id]!.toolsUsed, ['slot', 'trowel']);
+  f.fail(false); f.p.recordDailyTool(r.id, 'compass'); f.restart();
+  assert.deepEqual(f.p.snapshot().rounds[r.id]!.toolsUsed, ['slot', 'trowel', 'compass']);
+  assert.equal(f.p.snapshot().daily.tasks.tools, 1);
+  f.p.settleRound(r.id, 'FAIL', 0); f.restart();
+  assert.deepEqual(f.p.snapshot().rounds[r.id]!.toolsUsed, ['slot', 'trowel', 'compass']);
+  assert.deepEqual(f.p.startRound(1).toolsUsed, [], 'a new board receives a new tool record');
+});
 test('actual milliseconds persist once, rollover counts current-day overlap and rollback earns no time', () => {
   const f = fixture(), start = f.now(); f.time(start + 30000);
   const receipt = { sequence: 1, startAt: start, endAt: f.now(), onlineMs: 30000, boostMs: 9000 };

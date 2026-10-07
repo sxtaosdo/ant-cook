@@ -259,7 +259,7 @@ export class PlayerProgress {
       if (round.settled) return { duplicate: true, firstClear: false, coins: 0, stars: 0 };
       if (round.contentVersion !== PROGRESS_CONTENT_VERSION) throw new Error('对局内容版本不匹配，已保留待结算记录');
       if (!integer(transported) || !['SUCCESS', 'FAIL'].includes(result)) throw new Error('无效结算');
-      round.settled = true; round.result = result; round.toolsUsed = toolsUsed.slice(); round.completedAt = Math.max(this.now(), round.startedAt);
+      round.settled = true; round.result = result; round.toolsUsed = [...new Set([...round.toolsUsed, ...toolsUsed])]; round.completedAt = Math.max(this.now(), round.startedAt);
       s.totals.transported += transported;
       if (round.day === s.daily.day && !s.clockRolledBack) this.orderProgress(s, 'transport', transported);
       if (result === 'FAIL') { s.totals.failures++; if (round.mode === 'main') s.streak = 0; return { duplicate: false, firstClear: false, coins: 0, stars: 0 }; }
@@ -315,7 +315,14 @@ export class PlayerProgress {
       return reward;
     });
   }
-  public recordDailyTool(roundId: string, tool: string, occurredAt = this.now()): void { this.change(s => { recordDailyTool(s, roundId, tool, occurredAt); completeDailyTasks(s, periods(s.maxTime).season); }); }
+  public recordDailyTool(roundId: string, tool: string, occurredAt = this.now()): void {
+    this.change(s => {
+      recordDailyTool(s, roundId, tool, occurredAt);
+      const round = s.rounds[roundId]!;
+      if (occurredAt >= round.startedAt && !round.toolsUsed.includes(tool)) round.toolsUsed.push(tool);
+      completeDailyTasks(s, periods(s.maxTime).season);
+    });
+  }
   public recordDailyTime(receipt: DailyTimeReceipt): void { this.change(s => { recordDailyTime(s, receipt); completeDailyTasks(s, periods(s.maxTime).season); }); }
   public claimDailyTask(id: string): void { this.change(s => claimDailyTask(s, id, periods(s.maxTime).season)); }
   public newcomerProgress(index: number): { name: string; progress: number; target: number } {

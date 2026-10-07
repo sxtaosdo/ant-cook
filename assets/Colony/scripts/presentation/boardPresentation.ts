@@ -396,11 +396,14 @@ export class BoardPresentation {
         if (button) button.interactable = false;
         continue;
       }
-      node.active = !stack.selected;
-      if (stack.selected) continue;
+      if (stack.selected) {
+        if (node.active) node.active = false;
+        continue;
+      }
       const position = stackPilePosition(stack, readModel.snapshot.stacks, heads);
       const y = position.y + this.queueOffset;
-      node.active = this.stackTile ? y >= -260 && y <= 64 : y >= -112 && y <= 112;
+      const visible = this.stackTile ? y >= -260 && y <= 64 : y >= -112 && y <= 112;
+      if (node.active !== visible) node.active = visible;
       const target = new Vec3(position.x, y, 0);
       if (animateReflow && Vec3.distance(node.position, target) > 1) {
         Tween.stopAllByTarget(node);
