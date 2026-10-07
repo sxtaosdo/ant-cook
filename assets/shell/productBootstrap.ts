@@ -1,11 +1,12 @@
-import { _decorator, BlockInputEvents, Camera, Canvas, Color, Component, director, Director, Graphics, Label, Layers, Node, ResolutionPolicy, sys, UITransform, view } from 'cc';
+import { _decorator, Camera, Canvas, Component, director, Director, Label, Layers, Node, ResolutionPolicy, sys, UITransform, view } from 'cc';
 import { StateMachine, type IState } from 'db://shidai3/index';
 import mk from 'mk';
 import { BUILD_MODES } from './buildModes';
 import { ModuleEntryGate, type ModeId, type SceneDriver } from './contracts';
 import { SwitchCoordinator } from './switchCoordinator';
+import { ProductNavigationView } from './productNavigationView';
 
-const { ccclass } = _decorator;
+const { ccclass, property } = _decorator;
 const SHELL_LAYER = 1 << 19;
 
 abstract class ShellState implements IState<ProductBootstrap> {
@@ -22,6 +23,9 @@ export class ShellRecoverState extends ShellState { enter() { this.context.setSt
 /** The one persistent product entry. Gameplay scenes retain their own page StateMachine. */
 @ccclass('ProductBootstrap')
 export class ProductBootstrap extends Component {
+  @property(ProductNavigationView) public navigationView: ProductNavigationView | null = null;
+  @property(Camera) public shellCamera: Camera | null = null;
+  @property(Canvas) public shellCanvas: Canvas | null = null;
   readonly StateMachine = new StateMachine<ProductBootstrap>(this);
   private coordinator: SwitchCoordinator | null = null;
   private status: Label | null = null;
@@ -37,7 +41,7 @@ export class ProductBootstrap extends Component {
     this.node.layer = SHELL_LAYER;
     director.addPersistRootNode(this.node);
     view.setDesignResolutionSize(750, 1334, ResolutionPolicy.FIXED_WIDTH);
-    this.createNavigation();
+    this.initializeNavigation();
     await this.StateMachine.changeState(ShellBootState);
     const driver: SceneDriver = {
       preflight: async descriptor => {
@@ -111,18 +115,12 @@ export class ProductBootstrap extends Component {
     const root = this.navigationRoot;
     if (!root) return;
     const size = view.getVisibleSize(), safe = sys.getSafeAreaRect(false);
-    root.getComponent(UITransform)!.setContentSize(size.width, size.height);
-    const backdrop = root.getComponent(Graphics)!; backdrop.clear();
-    backdrop.rect(-size.width / 2, -size.height / 2, size.width, size.height); backdrop.fill();
-    root.getChildByName('NavigationPanel')!.setPosition(safe.x + safe.width / 2 - size.width / 2, safe.y + safe.height / 2 - size.height / 2);
-    const panel = root.getChildByName('NavigationPanel')!;
-    panel.getChildByName('ContinueCurrent')!.active = this.StateMachine.is(ShellRunningState);
-    const retry = panel.getChildByName('RetrySave')!;
-    retry.active = this.StateMachine.is(ShellRecoverState) || !!this.coordinator?.hasPendingMetadata;
-    retry.getComponentInChildren(Label)!.string = this.StateMachine.is(ShellRunningState) ? '重试入口记录' : '重试保存与恢复';
-    BUILD_MODES.forEach(mode => { panel.getChildByName(`Switch_${mode.id}`)!.getComponentInChildren(Label)!.string = `${mode.id === 'ant' ? '蚂蚁搬搬搬' : '星际美食家'}${this.coordinator?.currentMode === mode.id ? '（当前）' : ''}`; });
-    this.node.getChildByName('ShellCamera')!.getComponent(Camera)!.orthoHeight = size.height / 2;
-    root.active = true;
+    const running = this.StateMachine.is(ShellRunningState);
+    this.navigationView!.reveal(BUILD_MODES.map(mode => mode.id), this.coordinator?.currentMode ?? null,
+      running, this.StateMachine.is(ShellRecoverState) || !!this.coordinator?.hasPendingMetadata,
+      running ? '重试入口记录' : '重试保存与恢复', size.width, size.height,
+      safe.x + safe.width / 2 - size.width / 2, safe.y + safe.height / 2 - size.height / 2);
+    this.shellCamera!.orthoHeight = size.height / 2;
   }
 
   public hideNavigation(): void {
@@ -134,40 +132,19 @@ export class ProductBootstrap extends Component {
     });
   }
 
-  private createNavigation(): void {
-    const canvas = this.node.getComponent(Canvas) ?? this.node.addComponent(Canvas);
-    const cameraNode = new Node('ShellCamera'); cameraNode.layer = SHELL_LAYER; this.node.addChild(cameraNode);
-    const camera = cameraNode.addComponent(Camera); camera.projection = Camera.ProjectionType.ORTHO;
-    camera.visibility = SHELL_LAYER; camera.priority = 100; camera.clearFlags = Camera.ClearFlag.DEPTH_ONLY;
-    cameraNode.setPosition(0, 0, 1000); canvas.cameraComponent = camera;
-    const size = view.getVisibleSize(); this.node.getComponent(UITransform)?.setContentSize(size.width, size.height);
-    camera.orthoHeight = size.height / 2;
-    const root = this.navigationRoot = new Node('ProductNavigation'); root.layer = SHELL_LAYER; this.node.addChild(root);
-    root.addComponent(UITransform).setContentSize(size.width, size.height); root.addComponent(BlockInputEvents);
-    const backdrop = root.addComponent(Graphics); backdrop.fillColor = new Color(0, 0, 0, 185);
-    backdrop.rect(-size.width / 2, -size.height / 2, size.width, size.height); backdrop.fill();
-    const panel = new Node('NavigationPanel'); panel.layer = SHELL_LAYER; root.addChild(panel);
-    panel.addComponent(UITransform).setContentSize(650, 740);
-    const paper = panel.addComponent(Graphics); paper.fillColor = new Color(24, 40, 52, 255);
-    paper.roundRect(-325, -370, 650, 740, 24); paper.fill();
-    const makeLabel = (name: string, text: string, y: number, height: number, action?: () => void): Label => {
-      const node = new Node(name); node.layer = SHELL_LAYER; panel.addChild(node); node.setPosition(0, y);
-      node.addComponent(UITransform).setContentSize(570, height);
-      if (action) { const plate = node.addComponent(Graphics); plate.fillColor = new Color(40, 84, 95, 255); plate.roundRect(-285, -height / 2, 570, height, 14); plate.fill(); }
-      const textNode = action ? new Node(`${name}Text`) : node;
-      if (action) { textNode.layer = SHELL_LAYER; node.addChild(textNode); textNode.addComponent(UITransform).setContentSize(540, height - 12); }
-      const label = textNode.addComponent(Label); label.string = text; label.fontSize = action ? 36 : 28; label.lineHeight = 44;
-      label.color = Color.WHITE; label.overflow = Label.Overflow.CLAMP;
-      if (action) node.on(Node.EventType.TOUCH_END, action, this);
-      return label;
-    };
-    const safe = sys.getSafeAreaRect(false);
-    panel.setPosition(safe.x + safe.width / 2 - size.width / 2, safe.y + safe.height / 2 - size.height / 2);
-    makeLabel('NavigationTitle', '选择玩法 · 进度独立保存', 290, 70);
-    BUILD_MODES.forEach((mode, index) => makeLabel(`Switch_${mode.id}`, mode.id === 'ant' ? '蚂蚁搬搬搬' : '星际美食家', 170 - index * 120, 100,
-      () => { void this.openMode(mode.id); }));
-    makeLabel('ContinueCurrent', '继续当前玩法', -70, 100, () => { if (!this.transitioning && this.StateMachine.is(ShellRunningState)) this.hideNavigation(); });
-    makeLabel('RetrySave', '重试保存', -190, 100, () => this.retrySave());
-    this.status = makeLabel('ShellStatus', '', -290, 90);
+  private initializeNavigation(): void {
+    if (!this.navigationView || !this.shellCamera || !this.shellCanvas) throw new Error('Bootstrap UI bindings are incomplete');
+    this.navigationRoot = this.navigationView.node;
+    this.status = this.navigationView.statusLabel;
+    this.shellCanvas.cameraComponent = this.shellCamera;
+    const size = view.getVisibleSize();
+    this.node.getComponent(UITransform)?.setContentSize(size.width, size.height);
+    this.shellCamera.orthoHeight = size.height / 2;
+    this.navigationView.configure({
+      enter: mode => { void this.openMode(mode); },
+      continueCurrent: () => { if (!this.transitioning && this.StateMachine.is(ShellRunningState)) this.hideNavigation(); },
+      retry: () => this.retrySave(),
+    });
+    this.revealNavigation();
   }
 }

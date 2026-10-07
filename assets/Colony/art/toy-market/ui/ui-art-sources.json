@@ -24,7 +24,8 @@
       "width": 2172,
       "height": 724,
       "uuid": "f116dcbd-c182-4f30-92fe-7a4d44b80e8a",
-      "spriteFrameUuid": "f116dcbd-c182-4f30-92fe-7a4d44b80e8a@f9941"
+      "spriteFrameUuid": "f116dcbd-c182-4f30-92fe-7a4d44b80e8a@f9941",
+      "bytes": 1253694
     },
     {
       "file": "speed-green-pill-v1.png",
@@ -35,7 +36,8 @@
       "width": 1918,
       "height": 820,
       "uuid": "c0d49b0a-fb35-43b7-8218-ec9785715d35",
-      "spriteFrameUuid": "c0d49b0a-fb35-43b7-8218-ec9785715d35@f9941"
+      "spriteFrameUuid": "c0d49b0a-fb35-43b7-8218-ec9785715d35@f9941",
+      "bytes": 1285373
     },
     {
       "file": "coins-stack-v1.png",
@@ -46,7 +48,8 @@
       "width": 1254,
       "height": 1254,
       "uuid": "ad8d8396-550e-4e59-966d-40acc7802c47",
-      "spriteFrameUuid": "ad8d8396-550e-4e59-966d-40acc7802c47@f9941"
+      "spriteFrameUuid": "ad8d8396-550e-4e59-966d-40acc7802c47@f9941",
+      "bytes": 1252502
     },
     {
       "file": "shop-chest-v1.png",
@@ -57,7 +60,20 @@
       "width": 1254,
       "height": 1254,
       "uuid": "39ed17e4-c9dd-4cf8-8459-16b9ca32ed65",
-      "spriteFrameUuid": "39ed17e4-c9dd-4cf8-8459-16b9ca32ed65@f9941"
+      "spriteFrameUuid": "39ed17e4-c9dd-4cf8-8459-16b9ca32ed65@f9941",
+      "bytes": 1442737
     }
-  ]
+  ],
+  "sizeAccounting": {
+    "source": "Observed file lengths plus v0.3.0.14/v0.3.0.16 frozen raw web-mobile package receipts",
+    "rawPngBytes": 5234306,
+    "rawAntAndBothArtifactDeltaBytes": 5324569,
+    "nonPngRawArtifactDeltaBytes": 90263,
+    "cookRawArtifactDeltaBytes": 0,
+    "isFirstDownloadMeasurement": false,
+    "notes": [
+      "Shop sprite is reused by Home and HUD with one UUID; no separate duplicate image was introduced.",
+      "No PNG dimensions, pixels, quality, compression settings or toolchain changed in this accounting step."
+    ]
+  }
 }
