@@ -368,7 +368,7 @@ export class ProgressPresentation {
     if (kind === 'community-tab') {
       if (value !== 'leaderboard' && value !== 'social') throw new Error('社区页面不存在');
       if (value === 'social' && !p.socialAvailable()) return '第3关后开放虚拟伙伴';
-      if (value === 'social') p.advanceSocial();
+      if (value === 'social') { p.advanceSocial(); this.socialPresentation().act('tab:partners'); }
       this.returnSection = null; this.section = value; return '';
     }
     if (this.section === 'social') {

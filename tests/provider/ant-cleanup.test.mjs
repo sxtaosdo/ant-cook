@@ -93,3 +93,18 @@ test('actual popup replacement is cancelled while its old close is pending', asy
   const fresh = {}; popup.control = fresh; context.progressPopup = fresh;
   old.navigation.closed(); assert.equal(popup.control, fresh); assert.equal(context.progressPopup, fresh);
 });
+
+test('outer partner tab resets a visited profile to its list and preserves the unlock gate', async () => {
+  const Social = methods('assets/Colony/scripts/presentation/social/socialPresentation.ts', 'SocialPresentation', ['isProfile', 'act'], {});
+  const social = new Social(); social.tab = 'profile';
+  const Subject = methods('assets/Colony/scripts/presentation/progressPresentation.ts', 'ProgressPresentation', ['act'], {});
+  const popup = new Subject(); let available = true, advances = 0;
+  Object.assign(popup, { context: { progress: { socialAvailable: () => available, advanceSocial() { advances++; } } },
+    section: 'leaderboard', returnSection: 'leaderboard', socialPresentation: () => social });
+  await popup.act('community-tab:social');
+  assert.equal(social.tab, 'partners'); assert.equal(popup.section, 'social'); assert.equal(popup.returnSection, null); assert.equal(advances, 1);
+  social.tab = 'profile'; await popup.act('community-tab:leaderboard');
+  assert.equal(social.tab, 'profile'); assert.equal(popup.section, 'leaderboard');
+  available = false; const feedback = await popup.act('community-tab:social');
+  assert.ok(feedback.includes('第3关')); assert.equal(social.tab, 'profile'); assert.equal(popup.section, 'leaderboard'); assert.equal(advances, 1);
+});
