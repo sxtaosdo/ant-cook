@@ -157,7 +157,7 @@ export class ColonyTestBridge {
   }
   public clickSpeedPreview(): void {
     if (!PREVIEW) throw new Error('Preview only');
-    this.ctx.hudView?.node.getChildByName('SpeedButton')!.emit(Button.EventType.CLICK);
+    this.ctx.hudView?.node.getChildByName('TopBarRoot')!.getChildByName('SpeedButton')!.emit(Button.EventType.CLICK);
   }
   public backgroundSpeedPreview(hidden: boolean): void {
     if (!PREVIEW || !this.leaderboardPreview) throw new Error('Isolated speed Preview required');
@@ -293,8 +293,8 @@ export class ColonyTestBridge {
       inputLocked: this.ctx.inputLocked,
       settings: this.ctx.settings?.snapshot(),
       speed: { remainingMs: this.ctx.progress?.readSpeedBoost().remainingMs,
-        labels: this.ctx.hudView?.node.getChildByName('SpeedButton')!.getComponentsInChildren(Label).map(label => ({ name: label.node.name, text: label.string, active: label.node.activeInHierarchy })),
-        position: this.ctx.hudView?.node.getChildByName('SpeedButton')!.worldPosition },
+        labels: this.ctx.hudView?.node.getChildByName('TopBarRoot')!.getChildByName('SpeedButton')!.getComponentsInChildren(Label).map(label => ({ name: label.node.name, text: label.string, active: label.node.activeInHierarchy })),
+        position: this.ctx.hudView?.node.getChildByName('TopBarRoot')!.getChildByName('SpeedButton')!.worldPosition },
       transportEvidence: this.evidence(),
       progression: this.ctx.progress?.snapshot(),
       progressPanelFeedback: this.ctx.progressPopup?.model?.feedback ?? '',

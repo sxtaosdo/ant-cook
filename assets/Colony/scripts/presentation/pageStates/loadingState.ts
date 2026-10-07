@@ -9,10 +9,9 @@ import { ColonyResultFailView } from '../../../popups/resultFail/script/resultFa
 import { ColonyResultSuccessView } from '../../../popups/resultSuccess/script/resultSuccessView';
 import { createOperationalCatalog } from '../../application/operationalLevels';
 import { ColonyProgressView } from '../../../popups/progress/script/progressView';
-import { ColonyLeaderboardView } from '../../../popups/leaderboard/script/leaderboardView';
+import { ColonyCommunityView } from '../../../popups/progress/script/communityView';
 import { ColonySettingsView } from '../../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../../popups/confirm/script/confirmView';
-import { ColonySocialPopupView } from '../../../popups/social/script/socialPopupView';
 import { ColonyShopView } from '../../../popups/shop/script/shopView';
 import { ColonyToolView } from '../../../popups/tool/script/toolView';
 import type { ColonySceneBootstrap } from '../../bootstrap/colonySceneBootstrap';
@@ -93,10 +92,9 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       mk.uiManage.regis(ColonyResultSuccessView, 'popups/resultSuccess/prefab/resultSuccess', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyResultFailView, 'popups/resultFail/prefab/resultFail', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyProgressView, 'popups/progress/progress', session.popupRoot!, colonyLoad),
-      mk.uiManage.regis(ColonyLeaderboardView, 'popups/leaderboard/prefab/leaderboard', session.popupRoot!, colonyLoad),
+      mk.uiManage.regis(ColonyCommunityView, 'popups/progress/community', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonySettingsView, 'popups/settings/prefab/settings', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyConfirmView, 'popups/confirm/prefab/confirm', session.popupRoot!, colonyLoad),
-      mk.uiManage.regis(ColonySocialPopupView, 'popups/social/prefab/social', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyShopView, 'popups/shop/prefab/shop', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyToolView, 'popups/tool/tool', session.popupRoot!, colonyLoad),
     ]);

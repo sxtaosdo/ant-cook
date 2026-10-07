@@ -20,7 +20,7 @@ export class ColonyHomeView extends mk.StaticViewBase {
     const startButton = this.requireStartButton();
     startButton.node.targetOff(this);
     startButton.node.on(Button.EventType.CLICK, onStart, this);
-    for (const [name, section] of [['NightMarketButton', 'market'], ['DailyButton', 'tasks'], ['CollectionButton', 'collection'], ['EventsButton', 'events'], ['ShopButton', 'shop'], ['SettingsButton', 'settings'], ['LeaderboardButton', 'leaderboard'], ['SocialButton', 'social']] as const) {
+    for (const [name, section] of [['NightMarketButton', 'market'], ['DailyButton', 'tasks'], ['CollectionButton', 'collection'], ['EventsButton', 'events'], ['ShopButton', 'shop'], ['SettingsButton', 'settings'], ['LeaderboardButton', 'leaderboard']] as const) {
       const node = this.node.getChildByName(name);
       node?.targetOff(this);
       node?.on(Button.EventType.CLICK, () => onOpen?.(section), this);
@@ -32,9 +32,10 @@ export class ColonyHomeView extends mk.StaticViewBase {
     const unlock = progress.availability();
     const socialButton = this.node.getChildByName('SocialButton');
     if (socialButton) {
-      socialButton.active = progress.socialAvailable();
-      socialButton.getChildByName('Notice')!.active = progress.readSocial().unread > 0;
+      socialButton.active = false;
     }
+    const notice = this.node.getChildByName('LeaderboardButton')?.getChildByName('Notice');
+    if (notice) notice.active = progress.socialAvailable() && progress.readSocial().unread > 0;
     const names = { NightMarketButton: true, DailyButton: true, CollectionButton: unlock.collection, EventsButton: unlock.events };
     for (const [name, visible] of Object.entries(names)) {
       const node = this.node.getChildByName(name);

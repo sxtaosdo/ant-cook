@@ -17,6 +17,11 @@ export class SpeedBoostPresentation {
       () => { void ProgressPresentation.open(context, 'settings'); },
       () => { void ProgressPresentation.open(context, 'shop'); },
       () => { void ProgressPresentation.open(context, 'leaderboard'); },
+      () => {
+        if (!context.gm?.available || context.destroyed || context.navigating || context.inputLocked || context.progressPopup) return;
+        void ProgressPresentation.open(context, 'gm');
+      },
+      Boolean(context.gm?.available),
     );
     director.on(Director.EVENT_BEFORE_UPDATE, this.update, this);
     game.on(Game.EVENT_HIDE, this.hide, this);

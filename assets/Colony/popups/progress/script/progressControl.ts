@@ -10,6 +10,7 @@ import { ColonyConfirmView } from '../../confirm/script/confirmView';
 import { ColonySocialPopupView } from '../../social/script/socialPopupView';
 import { ColonyShopView } from '../../shop/script/shopView';
 import { swallowMkInterrupt } from '../../resultPopupNav';
+import { ColonyCommunityView } from './communityView';
 
 export interface ProgressNavigation {
   read(): ProgressPage;
@@ -19,7 +20,7 @@ export interface ProgressNavigation {
   canClose?(): boolean;
 }
 
-export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView | typeof ColonyShopView;
+export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView | typeof ColonyShopView | typeof ColonyCommunityView;
 
 export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopupView> {
   private busy = false;
@@ -61,6 +62,7 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
   public refresh(): void {
     if (!this.isClosing && !this.busy && this._view?.isAvailable()) { this._model.page = this.navigation.read(); this._view.render(); }
   }
+  public suspend(): void { this._view?.suspend(); }
 
   private async dismiss(): Promise<void> {
     if (this.busy || this.isClosing) return;

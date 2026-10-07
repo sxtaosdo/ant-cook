@@ -3,10 +3,10 @@ import { ModuleEntryGate } from '../../../shell/contracts';
 import { ProgressControl } from '../../popups/progress/script/progressControl';
 import type { ProgressNavigation, ProgressViewType } from '../../popups/progress/script/progressControl';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
-import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
+import { ColonyCommunityView } from '../../popups/progress/script/communityView';
+import { CommunityControl } from '../../popups/progress/script/communityControl';
 import { ColonySettingsView } from '../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
-import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
@@ -30,7 +30,7 @@ const date = (time: number): string => new Date(time + 8 * 3600000).toISOString(
 /** 导航与命令留在表现协调层；MK 弹窗只接收投影。 */
 export class ProgressPresentation {
   private themeIndex = 0;
-  private control: ProgressControl | ToolControl | null = null;
+  private control: ProgressControl | ToolControl | CommunityControl | null = null;
   private returnSection: ProgressSection | null = null;
   private social: SocialPresentation | null = null;
   private pendingGm: { action: string; level: number } | null = null;
@@ -70,13 +70,13 @@ export class ProgressPresentation {
     }
   }
 
-  private createControl(): ProgressControl | ToolControl {
-    let owner: ProgressControl | ToolControl;
+  private createControl(): ProgressControl | ToolControl | CommunityControl {
+    let owner: ProgressControl | ToolControl | CommunityControl;
     const navigation: ProgressNavigation = {
       read: () => this.read(), act: async action => {
         const owner = this.control;
         const result = await this.act(action);
-        if (owner && owner === this.control && this.context.progressPopup === owner && owner instanceof ProgressControl
+        if (owner && owner === this.control && this.context.progressPopup === owner && (owner instanceof ProgressControl || owner instanceof CommunityControl)
           && owner.viewType !== this.progressViewType()) await this.switchControl();
         return result;
       },
@@ -102,14 +102,15 @@ export class ProgressPresentation {
     };
     owner = this.section.startsWith('tool-')
       ? new ToolControl(this.context.popupRoot!, navigation)
+      : this.section === 'leaderboard' || this.section === 'social'
+      ? new CommunityControl(this.context.popupRoot!, navigation)
       : new ProgressControl(this.context.popupRoot!, navigation, this.progressViewType());
     return owner;
   }
 
   private progressViewType(): ProgressViewType {
-    if (this.section === 'leaderboard') return ColonyLeaderboardView;
+    if (this.section === 'leaderboard' || this.section === 'social') return ColonyCommunityView;
     if (this.section === 'settings') return ColonySettingsView;
-    if (this.section === 'social') return ColonySocialPopupView;
     if (this.section === 'shop') return ColonyShopView;
     if (this.section.startsWith('confirm-')) return ColonyConfirmView;
     return ColonyProgressView;
@@ -363,6 +364,12 @@ export class ProgressPresentation {
     if (kind === 'partner') {
       if (!p.socialAvailable()) return '第3关后开放虚拟伙伴';
       this.socialPresentation().openPartner(value); this.returnSection = 'leaderboard'; this.section = 'social'; return '';
+    }
+    if (kind === 'community-tab') {
+      if (value !== 'leaderboard' && value !== 'social') throw new Error('社区页面不存在');
+      if (value === 'social' && !p.socialAvailable()) return '第3关后开放虚拟伙伴';
+      if (value === 'social') p.advanceSocial();
+      this.returnSection = null; this.section = value; return '';
     }
     if (this.section === 'social') {
       if (kind === 'back' && this.returnSection === 'leaderboard' && this.socialPresentation().isProfile()) {

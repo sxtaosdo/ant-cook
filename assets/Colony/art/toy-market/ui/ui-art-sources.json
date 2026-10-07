@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "workItem": "4060 ant-cook UI continuation",
+  "ownership": "New project artwork; original Owner assets were not modified by this task",
+  "designReferences": [
+    {
+      "fileName": "微信图片_20261006160628_93_21.jpg",
+      "purpose": "Hard entrance visual reference supplied by Owner",
+      "sha256": "040760185c20d564a31df014fd1d6efa8d1154cd6fb5aa7c17f7dcf5bf25bf49"
+    },
+    {
+      "fileName": "5f47309fde72f41e3ddc1d5e1495cc6b.jpg",
+      "purpose": "Speed button visual reference supplied by Owner",
+      "sha256": "0867e82ac24a071ce42a676453e5a7033b949d777a70ca397731dce06a76335d"
+    }
+  ],
+  "assets": [
+    {
+      "file": "hard-level-ribbon-v1.png",
+      "origin": "image_gen.imagegen text-only transparent sprite generation",
+      "createdAt": "2026-10-07",
+      "purpose": "Hard level entrance purple ribbon; separate editable title Label",
+      "sha256": "e9a468388f7d7e86a4e0a0e9226373e98f08359901758bdcde1cb9d2bfbe6cc4",
+      "width": 2172,
+      "height": 724,
+      "uuid": "f116dcbd-c182-4f30-92fe-7a4d44b80e8a",
+      "spriteFrameUuid": "f116dcbd-c182-4f30-92fe-7a4d44b80e8a@f9941"
+    },
+    {
+      "file": "speed-green-pill-v1.png",
+      "origin": "image_gen.imagegen text-only transparent sprite generation",
+      "createdAt": "2026-10-07",
+      "purpose": "Green speed button plate; arrows, multiplier and timer stay editable UI",
+      "sha256": "f8feb1c56d7f68062a04aa74964111335652b34918dfa867977078fd412eb84b",
+      "width": 1918,
+      "height": 820,
+      "uuid": "c0d49b0a-fb35-43b7-8218-ec9785715d35",
+      "spriteFrameUuid": "c0d49b0a-fb35-43b7-8218-ec9785715d35@f9941"
+    },
+    {
+      "file": "coins-stack-v1.png",
+      "origin": "image_gen.imagegen text-only transparent sprite generation",
+      "createdAt": "2026-10-07",
+      "purpose": "Coin icon for the gameplay resources area",
+      "sha256": "a499a18e23cddda1e4a5f27a270393d1392dfb7441343faab899a6df92e9c918",
+      "width": 1254,
+      "height": 1254,
+      "uuid": "ad8d8396-550e-4e59-966d-40acc7802c47",
+      "spriteFrameUuid": "ad8d8396-550e-4e59-966d-40acc7802c47@f9941"
+    },
+    {
+      "file": "shop-chest-v1.png",
+      "origin": "image_gen.imagegen text-only transparent sprite generation",
+      "createdAt": "2026-10-07",
+      "purpose": "Independent shop entrance icon on Home and HUD",
+      "sha256": "41be221d83f8e229fc7dee2065eb8e85817770488d82668706bb222429dbc60b",
+      "width": 1254,
+      "height": 1254,
+      "uuid": "39ed17e4-c9dd-4cf8-8459-16b9ca32ed65",
+      "spriteFrameUuid": "39ed17e4-c9dd-4cf8-8459-16b9ca32ed65@f9941"
+    }
+  ]
+}

@@ -17,17 +17,18 @@ export class ColonyLeaderboardView extends ColonyPopupView {
   @property(Node) public hint: Node | null = null;
   @property public maximumHeight = 1200;
   @property public viewportMargin = 120;
+  @property public embeddedMode = false;
 
   public render(): void {
     const board = this._model.page.leaderboard;
-    if (!board || !this.panel || !this.title || !this.summary || !this.closeButton || !this.leaderboardList || !this.leaderboardSelf || !this.hint) {
+    if (!board || !this.panel || !this.title || !this.summary || (!this.embeddedMode && !this.closeButton) || !this.leaderboardList || !this.leaderboardSelf || !this.hint) {
       throw new Error('Leaderboard popup binding is missing');
     }
     // Only the available viewport changes; fixed positions and margins belong to Widgets in the Prefab.
-    this.panel.getComponent(UITransform)!.height = Math.min(this.maximumHeight, view.getVisibleSize().height - this.viewportMargin);
+    if (!this.embeddedMode) this.panel.getComponent(UITransform)!.height = Math.min(this.maximumHeight, view.getVisibleSize().height - this.viewportMargin);
     this.title.string = this._model.page.title;
     this.summary.string = this._model.page.summary;
-    this.bind(this.closeButton, true, () => this.event.emit('close'));
+    if (!this.embeddedMode) this.bind(this.closeButton!, true, () => this.event.emit('close'));
     this.leaderboardList.renderItemFn = (card, index) => this.renderRow(card.getComponent(ColonyLeaderboardRow)!, board.entries[index]!);
     this.leaderboardList.refreshList(board.entries.length);
     this.leaderboardList.scrollToTop(false);

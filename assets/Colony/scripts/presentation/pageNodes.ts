@@ -66,4 +66,5 @@ export function layoutPlay(session: ColonySceneBootstrap): void {
   move(session.stackRoot!, -160 - extra - compact);
   move(session.toolBarView!.node, -535 - extra);
   move(session.hudView!.node, 555 + extra);
+  session.hudView!.fitSafeArea();
 }

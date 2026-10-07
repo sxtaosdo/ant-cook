@@ -39,6 +39,7 @@ export class ColonySocialView extends Component {
   @property([Label]) public profileButtonLabels: Label[] = [];
   @property public maximumHeight = 1200;
   @property public viewportMargin = 120;
+  @property public embeddedMode = false;
   @property public listSummaryTop = 260;
   @property public profileSummaryTop = 190;
   private ownerAvailable: () => boolean = () => false;
@@ -53,9 +54,9 @@ export class ColonySocialView extends Component {
     this.node.active = true;
     const revision = ++this.revision;
     if (!this.rootWidget || !this.listWidget || !this.panel || !this.titleLabel || !this.summaryLabel || !this.summaryWidget || !this.footerLabel
-      || !this.closeButton || !this.backButton || !this.tabsRoot || this.tabButtons.length !== 3
+      || (!this.embeddedMode && !this.closeButton) || !this.backButton || !this.tabsRoot || this.tabButtons.length !== 3
       || !this.profileRoot || !this.list) throw new Error('Social popup binding is missing');
-    this.panel.height = Math.min(this.maximumHeight, view.getVisibleSize().height - this.viewportMargin);
+    if (!this.embeddedMode) this.panel.height = Math.min(this.maximumHeight, view.getVisibleSize().height - this.viewportMargin);
     this.rootWidget.updateAlignment();
     this.listWidget.updateAlignment();
     this.titleLabel.string = title;
@@ -63,7 +64,7 @@ export class ColonySocialView extends Component {
     this.summaryWidget.top = page.tab === 'profile' ? this.profileSummaryTop : this.listSummaryTop;
     this.summaryWidget.updateAlignment();
     this.footerLabel.string = feedback || page.footer;
-    this.bind(this.closeButton, true, close);
+    if (!this.embeddedMode) this.bind(this.closeButton!, true, close);
     this.backButton.active = page.tab === 'profile' || page.tab === 'messages';
     this.bind(this.backButton, true, () => action('back'));
     this.tabsRoot.active = !this.backButton.active;

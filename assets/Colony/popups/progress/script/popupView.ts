@@ -45,6 +45,7 @@ export abstract class ColonyPopupView extends mk.MVCViewBase<ProgressModel> {
     this.boundNodes.clear();
   }
   public close(): void { this.clearBindings(); }
+  public suspend(): void { this.clearBindings(); if (this.node?.isValid) this.node.active = false; }
   protected onDisable(): void { this.clearBindings(); }
   protected onDestroy(): void { this.clearBindings(); }
 }

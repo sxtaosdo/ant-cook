@@ -1,7 +1,8 @@
-import { _decorator, Button, Color, instantiate, Label, Node, Prefab, Sprite, SpriteFrame, UITransform, Vec3, Widget } from 'cc';
+import { _decorator, Button, Color, instantiate, Label, Node, Prefab, Sprite, SpriteFrame, sys, UITransform, Vec3, view, Widget } from 'cc';
 import mk from 'mk';
 import { LevelRailView } from './levelRailView';
 import type { ThemeBasketProgress } from '../application/playerProgress';
+import { ColonyGmButtonView } from './gmButtonView';
 
 const { ccclass, property } = _decorator;
 
@@ -16,6 +17,18 @@ export class ColonyHudView extends mk.StaticViewBase {
   private readonly railOriginalPositions = new Map<string, number>();
   private readonly railOriginalHorizontal = new Map<string, number>();
   private feedbackColor: Color | null = null;
+  private readonly boundNodes = new Set<Node>();
+  @property(Node) private topBarRoot: Node | null = null;
+  @property(Node) private levelRailMount: Node | null = null;
+  @property(Button) private settingsButton: Button | null = null;
+  @property(Button) private shopButton: Button | null = null;
+  @property(Button) private leaderboardButton: Button | null = null;
+  @property(Label) private coinLabel: Label | null = null;
+  @property(Label) private diamondLabel: Label | null = null;
+  @property(Label) private speedText: Label | null = null;
+  @property(Label) private speedTime: Label | null = null;
+  @property(Node) private speedTimePlate: Node | null = null;
+  @property(ColonyGmButtonView) private gmButton: ColonyGmButtonView | null = null;
   @property(Button)
   private speedButton: Button | null = null;
 
@@ -26,34 +39,39 @@ export class ColonyHudView extends mk.StaticViewBase {
   private feedbackLabel: Label | null = null;
 
   protected onLoad(): void {
-    if (!this.speedButton || !this.levelLabel || !this.feedbackLabel) {
+    if (!this.speedButton || !this.levelLabel || !this.feedbackLabel || !this.topBarRoot || !this.levelRailMount
+      || !this.settingsButton || !this.shopButton || !this.leaderboardButton || !this.coinLabel || !this.diamondLabel
+      || !this.speedText || !this.speedTime || !this.speedTimePlate || !this.gmButton) {
       throw new Error('HUD Prefab is missing required editor bindings');
     }
     this.feedbackColor = this.feedbackLabel.color.clone();
+    view.on('canvas-resize', this.fitSafeArea, this);
   }
 
   /** 绑定倍速及功能入口。 */
-  public bind(onSpeed: () => void, onSettings?: () => void, onShop?: () => void, onLeaderboard?: () => void): void {
+  public bind(onSpeed: () => void, onSettings?: () => void, onShop?: () => void, onLeaderboard?: () => void, onGm?: () => void, gmAvailable = false): void {
     const speedButton = this.requireSpeedButton();
-    const shopLabel = this.node.getChildByName('ShopButton')?.getChildByName('Text')?.getComponent(Label);
-    if (shopLabel) shopLabel.string = '商城';
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
+    this.boundNodes.add(speedButton.node);
     speedButton.node.targetOff(this);
     speedButton.node.on(Button.EventType.CLICK, onSpeed, this);
-    for (const [name, action] of [['SettingsButton', onSettings], ['ShopButton', onShop], ['LeaderboardButton', onLeaderboard]] as const) {
-      const node = this.node.getChildByName(name);
-      node?.targetOff(this);
-      if (action) node?.on(Button.EventType.CLICK, action, this);
+    for (const [button, action] of [[this.settingsButton, onSettings], [this.shopButton, onShop], [this.leaderboardButton, onLeaderboard]] as const) {
+      const node = button!.node;
+      this.boundNodes.add(node);
+      node.targetOff(this);
+      if (action) node.on(Button.EventType.CLICK, action, this);
     }
+    this.gmButton!.bind(gmAvailable, () => onGm?.());
   }
   public setSpeedBoost(multiplier: 1 | 2 | 3, remainingMs: number, source: 'manual' | 'freeFinish' = 'manual'): void {
-    const button = this.requireSpeedButton().node;
-    const text = button.getChildByName('Text')!.getComponent(Label)!;
-    const time = button.getChildByName('Time')!.getComponent(Label)!;
+    const text = this.speedText!;
+    const time = this.speedTime!;
     const seconds = Math.ceil(remainingMs / 1000);
-    const caption = source === 'freeFinish' ? '免费收尾' : `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+    const caption = source === 'freeFinish' ? '免费收尾' : `${Math.floor(seconds / 60)}m:${(seconds % 60).toString().padStart(2, '0')}s`;
     if (text.string !== `${multiplier}×`) text.string = `${multiplier}×`;
     if (time.string !== caption) time.string = caption;
-    time.node.active = multiplier > 1;
+    this.speedTimePlate!.active = multiplier > 1;
   }
 
   /** 更新关卡标题。 */
@@ -73,10 +91,8 @@ export class ColonyHudView extends mk.StaticViewBase {
   }
 
   public setResources(coins: number, diamonds: number): void {
-    const diamond = this.node.getChildByName('DiamondLabel')?.getComponent(Label);
-    const coin = this.node.getChildByName('CoinLabel')?.getComponent(Label);
-    if (diamond) diamond.string = String(diamonds);
-    if (coin) coin.string = `金币 ${coins}`;
+    this.diamondLabel!.string = String(diamonds);
+    this.coinLabel!.string = String(coins);
   }
 
   /** Main levels are a read-only horizontal track; progress changes only after cargo clears. */
@@ -92,7 +108,7 @@ export class ColonyHudView extends mk.StaticViewBase {
         if (!prefab) throw new Error('LevelRail Prefab could not be loaded');
         if (request !== this.railRequest || !this.node.isValid || !isCurrent()) return;
         const node = instantiate(prefab);
-        node.parent = this.node;
+        node.parent = this.levelRailMount!;
         node.setSiblingIndex(0);
         this.railView = new LevelRailView(node);
       }
@@ -140,32 +156,15 @@ export class ColonyHudView extends mk.StaticViewBase {
       this.node.getChildByName(name)?.setPosition(x, y, 0);
     };
     if (enabled) {
-      this.railView?.node.setPosition(-60, 40, 0);
       move('HeaderPlaque', -65, 32);
       this.levelLabel!.node.active = false;
       this.levelLabel!.string = `第 ${level} 关`;
       move('LevelLabel', -100, 47);
       this.levelLabel!.node.getComponent(UITransform)!.setContentSize(130, 36);
       move('HeaderSubtitle', -65, 15);
-      move('SpeedButton', -305, 32);
-      move('SettingsButton', 320, 32);
-      move('LeaderboardButton', 320, -58);
-      move('ShopButton', 170, 32);
-      this.node.getChildByName('ShopButton')!.getComponent(UITransform)!.setContentSize(200, 153);
-      move('CoinLabel', 170, 64);
-      move('DiamondLabel', 185, 16);
-      move('DiamondIcon', 100, 16);
-      this.node.getChildByName('ShopButton')!.getComponent(Sprite)!.enabled = false;
-      this.node.getChildByName('ShopButton')!.getChildByName('Text')!.active = false;
-      const resource = this.node.getChildByName('ShopButton')!.getChildByName('ResourceCard')!;
-      resource.getComponent(Sprite)!.sizeMode = Sprite.SizeMode.CUSTOM;
-      resource.getComponent(UITransform)!.setContentSize(200, 153);
-      resource.active = true;
-      this.node.getChildByName('DiamondLabel')!.setSiblingIndex(this.node.children.length - 1);
       move('ThemeTargetIcon', -10, 47);
       this.node.getChildByName('ThemeTargetIcon')!.getComponent(UITransform)!.setContentSize(48, 48);
       move('FeedbackLabel', -150, -170);
-      this.node.getChildByName('CoinLabel')!.active = true;
       for (const name of ['HeaderPlaque', 'HeaderSubtitle', 'ThemeTargetIcon']) this.node.getChildByName(name)!.active = false;
       for (const name of ['BoardTitle', 'BoardCount']) this.node.getChildByName(name)!.active = false;
       this.feedbackLabel!.color = new Color(95, 58, 31);
@@ -174,22 +173,16 @@ export class ColonyHudView extends mk.StaticViewBase {
         this.node.getChildByName(name)!.active = false;
       }
     } else {
-      move('DiamondIcon', 163, -40);
-      this.railView?.node.setPosition(0, 50, 0);
       move('HeaderPlaque', -5, 32);
       this.node.getChildByName('ThemeTargetIcon')!.getComponent(UITransform)!.setContentSize(90, 90);
-      this.node.getChildByName('ShopButton')!.getComponent(Sprite)!.enabled = true;
-      this.node.getChildByName('ShopButton')!.getComponent(UITransform)!.setContentSize(90, 66);
-      this.node.getChildByName('ShopButton')!.getChildByName('Text')!.active = true;
-      this.node.getChildByName('ShopButton')!.getChildByName('ResourceCard')!.active = false;
-      for (const name of ['HeaderSubtitle', 'CoinLabel', 'BoardTitle', 'BoardCount']) this.node.getChildByName(name)!.active = false;
+      for (const name of ['HeaderSubtitle', 'BoardTitle', 'BoardCount']) this.node.getChildByName(name)!.active = false;
       this.feedbackLabel!.color = this.feedbackColor ?? Color.WHITE;
       this.node.getChildByName('FeedbackPill')!.active = true;
     }
   }
 
   private setRailLayout(visible: boolean): void {
-    for (const name of ['SpeedButton', 'LevelLabel', 'ShopButton', 'SettingsButton', 'ThemeTargetIcon', 'FeedbackLabel', 'FeedbackPill', 'DiamondLabel', 'DiamondIcon', 'BasketIcon0', 'BasketIcon1', 'BasketIcon2', 'BasketIcon3', 'BasketProgressLabel']) {
+    for (const name of ['LevelLabel', 'ThemeTargetIcon', 'FeedbackLabel', 'FeedbackPill', 'BasketIcon0', 'BasketIcon1', 'BasketIcon2', 'BasketIcon3', 'BasketProgressLabel']) {
       const node = this.node.getChildByName(name);
       if (!node) continue;
       const widget = node.getComponent(Widget);
@@ -197,9 +190,24 @@ export class ColonyHudView extends mk.StaticViewBase {
       if (!this.railOriginalPositions.has(name)) this.railOriginalPositions.set(name, node.position.y);
       if (!this.railOriginalHorizontal.has(name)) this.railOriginalHorizontal.set(name, node.position.x);
       const feedback = name === 'FeedbackLabel' || name === 'FeedbackPill';
-      const shift = name.startsWith('Basket') ? 65 : name === 'SpeedButton' ? 140 : feedback ? 235 : 100;
+      const shift = name.startsWith('Basket') ? 65 : feedback ? 235 : 100;
       node.setPosition(this.railOriginalHorizontal.get(name)! - (visible && feedback ? 60 : 0), this.railOriginalPositions.get(name)! - (visible ? shift : 0), 0);
     }
+  }
+
+  /** Fixed Prefab geometry stays intact; only the platform safe top can offset the header. */
+  public fitSafeArea(): void {
+    if (!this.topBarRoot?.isValid) return;
+    const transform = this.topBarRoot.getComponent(UITransform)!;
+    this.topBarRoot.setPosition(0, 0, 0);
+    const top = transform.convertToWorldSpaceAR(new Vec3(0, transform.height * (1 - transform.anchorY), 0)).y;
+    const area = sys.getSafeAreaRect(false);
+    const worldOffset = Math.min(0, area.y + area.height - top);
+    const parent = this.topBarRoot.parent!.getComponent(UITransform)!;
+    const origin = parent.convertToNodeSpaceAR(new Vec3(0, top, 0));
+    const safe = parent.convertToNodeSpaceAR(new Vec3(0, top + worldOffset, 0));
+    this.topBarRoot.setPosition(safe.x - origin.x, safe.y - origin.y, 0);
+    this.gmButton?.clampToSafeArea();
   }
 
   /** Show the collection target, produce counts and total stall progress. */
@@ -266,7 +274,9 @@ export class ColonyHudView extends mk.StaticViewBase {
     this.railRequest += 1;
     this.railView?.dispose();
     this.railView = null;
-    this.speedButton?.node?.targetOff(this);
+    view.off('canvas-resize', this.fitSafeArea, this);
+    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
+    this.boundNodes.clear();
   }
 
   private requireSpeedButton(): Button {
