@@ -47,7 +47,8 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
     panel.getChildByName('Title')!.getComponent(Label)!.string = page.title;
     panel.getChildByName('Description')!.getComponent(Label)!.string = page.rows[0]?.detail ?? '';
     const used = !page.rows.some((item) => item.action.startsWith('free-tool:'));
-    panel.getChildByName('Status')!.getComponent(Label)!.string = feedback || (used
+    const statusDetail = page.rows[1]?.action === 'noop' ? page.rows[1].detail : '';
+    panel.getChildByName('Status')!.getComponent(Label)!.string = feedback || statusDetail || (used
       ? '本局免费次数已用完 · 额外补给最多一次'
       : page.rows[1]?.detail ?? '确认后才会使用道具');
     const icon = panel.getChildByName('Icon')!;
