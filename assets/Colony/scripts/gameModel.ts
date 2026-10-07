@@ -55,11 +55,14 @@ type LevelDefinition = {
   readonly shape: BoardShape;
   readonly board: readonly Readonly<BoardCellState>[];
   readonly stacks: readonly StackDefinition[];
+  readonly initialSlots: 5 | 6;
 };
 export const TRANSPORT_DISPATCH_INTERVAL_MS = 180;
 
 /** 将开发关卡配置冻结为关卡定义。 */
 function createDevelopmentLevel(config: DevelopmentLevelConfig): LevelDefinition {
+  const initialSlots = config.initialSlots ?? 5;
+  if (initialSlots !== 5 && initialSlots !== 6) throw new Error(`Level ${config.level} initialSlots must be 5 or 6`);
   const cells = config.cells.map((cell) => Object.freeze({
     id: cell.id,
     row: cell.row,
@@ -70,6 +73,7 @@ function createDevelopmentLevel(config: DevelopmentLevelConfig): LevelDefinition
   return Object.freeze({
     level: config.level,
     shape: config.shape,
+    initialSlots,
     board: Object.freeze(cells),
     stacks: Object.freeze(config.groups.map((group) => Object.freeze({
       id: group.id,
@@ -133,7 +137,7 @@ export class ColonyFlowModel {
     this.activeCoordinates = new Set(this.board.map(cell => `${cell.row}:${cell.column}`));
     this.exposedCache = null;
     this.bounds = { minRow: Math.min(...this.board.map(cell => cell.row)), maxRow: Math.max(...this.board.map(cell => cell.row)), minColumn: Math.min(...this.board.map(cell => cell.column)), maxColumn: Math.max(...this.board.map(cell => cell.column)) };
-    this.slots = Array.from({ length: 5 }, () => null);
+    this.slots = Array.from({ length: definition.initialSlots }, () => null);
     this.stacks = definition.stacks.map((stack) => ({ ...stack, selected: false, accessible: stack.depth === 0 }));
     this.transported = 0;
     this.reservations.clear();

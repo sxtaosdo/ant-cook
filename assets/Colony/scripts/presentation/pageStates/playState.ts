@@ -177,7 +177,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     const themeTarget = session.round?.mode === 'main' ? themeForLevel(read.currentLevel) : null;
     slotView.setFirstLevelSkin(null);
     toolBarView.setFirstLevelSkin(false);
-    toolBarView.setUsed(read.usedTools);
+    toolBarView.setUsed(read.usedTools, read.snapshot.slots.length);
     this.speedBoost = new SpeedBoostPresentation(session, this.transport);
     toolBarView.bind((tool) => {
       if (session.inputLocked) return;
@@ -189,6 +189,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     if (this.board !== board || session.destroyed) return;
     const hard = session.round?.mode === 'main' && session.difficultyKinds.get(read.currentLevel) === 'H';
     hudView.setDifficulty(hard);
+    if (read.snapshot.slots.length === 6 && !read.usedTools.includes('slot')) hudView.setFeedback('补给关：开局已有6槽，扩槽无需再使用');
     if (hard) {
       session.inputLocked = true;
       await this.hardNotice.show(session.node, session.popupRoot!, () => this.board === board && !session.destroyed);
@@ -268,7 +269,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     }
     const generation = session.generation;
     read = PlayState.read(session); if (session.round) session.dailyActivity?.tool(session.round.id, tool);
-    session.toolBarView!.setUsed(read.usedTools);
+    session.toolBarView!.setUsed(read.usedTools, read.snapshot.slots.length);
     void this.playSound('click');
     if (tool === 'slot') {
       board.addExtraSlot(read);

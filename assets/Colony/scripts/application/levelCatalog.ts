@@ -17,6 +17,7 @@ export interface DevelopmentLevelConfig {
   readonly rows: number;
   readonly cells: readonly DevelopmentLevelCell[];
   readonly groups: readonly DevelopmentLevelGroup[];
+  readonly initialSlots?: 5 | 6;
 }
 
 /** 棋盘单元格配置。 */
@@ -68,6 +69,8 @@ function parseLevel(raw: unknown, expectedLevel: number): DevelopmentLevelConfig
   if ((value.themeId === undefined) !== (value.targetItemId === undefined)) throw new Error(`Level ${level} theme and target must be paired`);
   const themeId = value.themeId === undefined ? undefined : text(value.themeId, `level ${level}.themeId`);
   const targetItemId = value.targetItemId === undefined ? undefined : text(value.targetItemId, `level ${level}.targetItemId`);
+  const initialSlots = value.initialSlots;
+  if (initialSlots !== undefined && initialSlots !== 5 && initialSlots !== 6) throw new Error(`Level ${level} initialSlots must be 5 or 6`);
   const columns = integer(value.columns, `level ${level}.columns`, 1);
   const rows = integer(value.rows, `level ${level}.rows`, 1);
   const cells = array(value.cells, `level ${level}.cells`).map((cell) => parseCell(cell, level, columns, rows));
@@ -88,6 +91,7 @@ function parseLevel(raw: unknown, expectedLevel: number): DevelopmentLevelConfig
     sourceId,
     shape: shape as BoardShape,
     ...(themeId ? { themeId, targetItemId } : {}),
+    ...(initialSlots === undefined ? {} : { initialSlots }),
     columns,
     rows,
     cells: Object.freeze(cells),

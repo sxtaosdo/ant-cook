@@ -23,7 +23,7 @@ import { PlayState } from './pageStates/playState';
 import { ConstructionState } from './pageStates/constructionState';
 import { SocialPresentation } from './social/socialPresentation';
 
-export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'daily' | 'orders' | 'newcomer' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}`;
+export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'daily' | 'orders' | 'newcomer' | 'stages' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}`;
 const row = (title: string, detail: string, action: string, button: string, enabled = true): ProgressRow => ({ title, detail, action, button, enabled });
 const date = (time: number): string => new Date(time + 8 * 3600000).toISOString().slice(0, 10);
 
@@ -212,6 +212,15 @@ export class ProgressPresentation {
         });
         break;
       }
+      case 'stages':
+        title = '主线阶段目标';
+        summary = '主线首通累计 · 每份奖励只领一次\n跨天保留，重玩与每日挑战不重复推进';
+        rows = p.readStageGoals().map(goal => {
+          const ready = goal.progress >= goal.target;
+          return row(goal.name, `首次通关 ${goal.progress}/${goal.target} 关 · ${goal.coins}金币`, `stage-goal:${goal.id}`,
+            goal.claimed ? '已领取' : ready ? '领取' : '进行中', ready && !goal.claimed);
+        });
+        break;
       case 'newcomer':
         title = '七组新手目标';
         summary = unlock.daily ? '长期累计，不会每日重置\n每组完成后领取50金币' : '长期累计，不会每日重置\n完成第3关后开放领奖';
@@ -227,6 +236,11 @@ export class ProgressPresentation {
         title = '成就 · 长期目标';
         summary = '长期累计，不会每日重置\n完成目标后领取金币奖励';
         rows = ACHIEVEMENTS.map(item => row(item.name, `${{ wins: '完成主线配送', builds: '历史建设记录', transported: '搬运货物', challenges: '完成每日挑战' }[item.kind]} ${Math.min(s.totals[item.kind], item.target)}/${item.target} · 奖励 ${item.coins}金币`, `achievement:${item.id}`, s.achievements.includes(item.id) ? '已领取' : s.totals[item.kind] >= item.target ? '领取' : '进行中', !s.achievements.includes(item.id) && s.totals[item.kind] >= item.target));
+        const stages = p.readStageGoals();
+        const readyStages = stages.filter(goal => goal.progress >= goal.target && !goal.claimed).length;
+        const nextStage = stages.find(goal => goal.progress < goal.target);
+        rows.unshift(row('主线阶段目标', readyStages > 0 ? `${readyStages}份阶段奖励可领取 · 永久保留`
+          : nextStage ? `下一站第${nextStage.target}关 · 首通累计，不按日重置` : '本期阶段目标全部完成 · 奖励只领一次', 'section:stages', '查看'));
         if (this.section === 'task-achievements') rows.unshift(row('七组新手目标', `已领取 ${s.newcomer.length}/7 组 · 长期累计，不限连续登录`, 'section:newcomer', '查看'));
         break;
       case 'events': {
@@ -309,11 +323,14 @@ export class ProgressPresentation {
       case 'tool-slot': {
         const tool = this.section.slice(5) as SupplyTool | 'slot';
         const used = Boolean(this.context.play?.usedToolList().includes(tool));
+        const startingSupply = tool === 'slot' && !used && this.context.play?.snapshot().slots.length === 6;
         const names = { trowel: '小铲子', compass: '指南针', slot: '扩充槽位' };
         const details = { trowel: '清除一个当前暴露的货物格。没有暴露货物时不会消耗。', compass: '提示并选取一个当前可用、颜色匹配的数字块；不保证必胜。', slot: '本局由5个槽位增加到6个，最多只扩充一次。' };
+        if (startingSupply) details.slot = '本局为补给关，开局已有6槽；不会消耗扩槽道具，也不能增加第7槽。';
         title = names[tool];
         rows.push(row('道具作用', details[tool], 'noop', '说明', false));
-        if (!used) {
+        if (startingSupply) rows.push(row('开局补给', '已获得6槽容量，不需要购买或观看广告', 'noop', '已获得', false));
+        else if (!used) {
           const can = Boolean(this.context.play?.canUseTool(tool));
           rows.push(row('本局免费次数', can ? '确认后才使用，不会因打开弹窗而消耗' : '当前没有可生效的目标，不会消耗免费次数', `free-tool:${tool}`, can ? '免费使用' : '当前不可用', can));
         }
@@ -389,7 +406,7 @@ export class ProgressPresentation {
       else this.section = this.section === 'theme-levels' ? 'theme-detail'
           : this.section === 'theme-detail' ? 'themes'
           : this.section === 'orders' ? 'daily'
-          : this.section === 'newcomer' ? 'task-achievements'
+          : this.section === 'newcomer' || this.section === 'stages' ? 'task-achievements'
         : this.section === 'season' || this.section === 'weekend' || this.section === 'return' ? 'events'
           : this.section === 'achievements' ? 'collection' : 'market';
       if (this.section === 'market') { await this.close(); await ConstructionState.open(this.context); }
@@ -420,6 +437,7 @@ export class ProgressPresentation {
     }
     if (kind === 'signin') p.claimSignIn();
     else if (kind === 'daily-task') { p.claimDailyTask(value); return '奖励已领取'; }
+    else if (kind === 'stage-goal') { p.claimStageGoal(value); return '阶段奖励已领取'; }
     else if (kind === 'newcomer') p.claimNewcomer(Number(value));
     else if (kind === 'collection') p.redeemCollection(value);
     else if (kind === 'achievement') p.claimAchievement(value);

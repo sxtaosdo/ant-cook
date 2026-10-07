@@ -39,13 +39,13 @@ export class ColonyToolBarView extends mk.StaticViewBase {
   }
 
   /** 显示本局免费可用次数；耗尽时仍可打开原补给入口。 */
-  public setUsed(used: readonly ColonyTool[]): void {
+  public setUsed(used: readonly ColonyTool[], slotCount = 5): void {
     for (const tool of ['trowel', 'slot', 'compass'] as const) {
       const button = this.button(tool);
       button.node.active = true;
       button.interactable = true;
       const status = button.node.getChildByName('Status')?.getComponent(Label);
-      if (status) status.string = used.includes(tool) ? '＋' : '1';
+      if (status) status.string = tool === 'slot' && slotCount >= 6 && !used.includes(tool) ? '满' : used.includes(tool) ? '＋' : '1';
     }
   }
 

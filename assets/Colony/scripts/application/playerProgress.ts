@@ -46,6 +46,16 @@ export const MAIN_LEVEL_COUNT = 60;
 export const DAILY_CHALLENGE_COUNT = 30;
 export const SEASON_XP_PER_TIER = 100;
 export const STARTER_DIAMONDS = 30;
+/** Permanent campaign milestones; daily tasks, replays and elapsed time do not advance them. */
+export const STAGE_GOALS = [
+  { id: '6', name: '搬运起步', target: 6, coins: 20 },
+  { id: '18', name: '配送进阶', target: 18, coins: 30 },
+  { id: '30', name: '路线熟练', target: 30, coins: 40 },
+  { id: '42', name: '节奏掌握', target: 42, coins: 50 },
+  { id: '54', name: '夜市远行', target: 54, coins: 60 },
+  { id: '60', name: '本期完成', target: 60, coins: 80 },
+] as const;
+export interface StageGoalProgress { id: string; name: string; target: number; coins: number; progress: number; claimed: boolean }
 export const EXTRA_SUPPLY_DIAMOND_PRICE = 10;
 const DAY = 86400000;
 const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
@@ -325,6 +335,18 @@ export class PlayerProgress {
   }
   public recordDailyTime(receipt: DailyTimeReceipt): void { this.change(s => { recordDailyTime(s, receipt); completeDailyTasks(s, periods(s.maxTime).season); }); }
   public claimDailyTask(id: string): void { this.change(s => claimDailyTask(s, id, periods(s.maxTime).season)); }
+  public readStageGoals(): StageGoalProgress[] {
+    return STAGE_GOALS.map(goal => ({ ...goal, progress: Math.min(this.data.clearedLevels.length, goal.target),
+      claimed: this.data.rewardLedger.includes(`stage-goal:${goal.id}`) }));
+  }
+  public claimStageGoal(id: string): void {
+    this.change(s => {
+      const goal = STAGE_GOALS.find(item => item.id === id);
+      if (!goal || s.clearedLevels.length < goal.target || s.rewardLedger.includes(`stage-goal:${id}`)) throw new Error('阶段目标未完成或奖励已领取');
+      if (!Number.isSafeInteger(s.coins + goal.coins)) throw new Error('金币数量超出范围');
+      this.reward(s, `stage-goal:${id}`, { coins: goal.coins });
+    });
+  }
   public newcomerProgress(index: number): { name: string; progress: number; target: number } {
     const s = this.data;
     const entries = [

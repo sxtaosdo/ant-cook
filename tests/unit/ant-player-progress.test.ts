@@ -351,3 +351,57 @@ test('local baseline records cohort, active days, sessions and idempotent failur
   assert.equal(s.rounds[failed.id].completedAt, PROGRESS_CALENDAR_START);
 });
 
+
+
+test('stage goals advance from first main clears and persist independently of daily tasks', () => {
+  const env = setup();
+  clearThrough(env.progress, 5);
+  assert.equal(env.progress.readStageGoals()[0]!.progress, 5);
+  assert.throws(() => env.progress.claimStageGoal('6'), /未完成/);
+  clear(env.progress, 1);
+  assert.equal(env.progress.readStageGoals()[0]!.progress, 5);
+  clear(env.progress, 6);
+  const coins = env.progress.snapshot().coins;
+  env.progress.claimStageGoal('6');
+  assert.equal(env.progress.snapshot().coins, coins + 20);
+  assert.equal(env.progress.readStageGoals()[0]!.claimed, true);
+  assert.throws(() => env.progress.claimStageGoal('6'), /已领取/);
+  assert.throws(() => env.progress.claimStageGoal('unknown'), /未完成/);
+  env.advance(1);
+  env.restart();
+  assert.equal(env.progress.snapshot().daily.tasks.wins, 0);
+  assert.equal(env.progress.readStageGoals()[0]!.claimed, true);
+  clearThrough(env.progress, 10);
+  challenge(env.progress);
+  assert.equal(env.progress.readStageGoals()[1]!.progress, 10);
+});
+
+test('stage goal reward rolls back on failed primary save and remains retryable after restart', () => {
+  const env = setup();
+  clearThrough(env.progress, 6);
+  const before = env.progress.snapshot();
+  env.fail(true);
+  assert.throws(() => env.progress.claimStageGoal('6'), /disk full/);
+  assert.deepEqual(env.progress.snapshot(), before);
+  env.fail(false);
+  env.restart();
+  assert.equal(env.progress.readStageGoals()[0]!.claimed, false);
+  env.progress.claimStageGoal('6');
+  assert.equal(env.restart().snapshot().coins, before.coins + 20);
+  assert.equal(env.progress.snapshot().rewardLedger.filter(id => id === 'stage-goal:6').length, 1);
+});
+
+test('legacy completed campaigns can claim each stage once without schema or board migration', () => {
+  const env = setup();
+  clearThrough(env.progress, 60);
+  const before = env.progress.snapshot();
+  const ids = env.progress.readStageGoals().map(goal => goal.id);
+  for (const id of ids) env.progress.claimStageGoal(id);
+  const after = env.restart().snapshot();
+  assert.equal(after.version, 6);
+  assert.equal(after.coins, before.coins + 280);
+  assert.deepEqual(after.clearedLevels, before.clearedLevels);
+  assert.deepEqual(after.daily.tasks, before.daily.tasks);
+  assert.deepEqual(after.rounds, before.rounds);
+  assert.ok(env.progress.readStageGoals().every(goal => goal.claimed));
+});

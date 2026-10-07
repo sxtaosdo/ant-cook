@@ -4,6 +4,8 @@ import { DAILY_DIFFICULTY_GROUPS } from './dailyDifficultyGroups';
 
 export const OPERATIONAL_CONTENT_VERSION = 'night-market-1';
 export const THEME_BASKETS = OPERATIONAL_THEME_DATA.themes;
+/** Sparse relief rounds use the existing sixth slot; ordinary and daily rounds remain unchanged. */
+export const MAIN_SUPPLY_LEVELS = [8, 14, 20] as const;
 
 export function themeForLevel(levelId: number) {
   if (!Number.isInteger(levelId) || levelId < 1 || levelId > OPERATIONAL_THEME_DATA.levels.length) return null;
@@ -16,7 +18,8 @@ export function themeForLevel(levelId: number) {
 
 /** Main levels are generated from the five CSV files; daily challenges stay separate. */
 export function createOperationalCatalog(): DevelopmentLevelCatalog {
-  return { levels: OPERATIONAL_THEME_DATA.levels };
+  return { levels: OPERATIONAL_THEME_DATA.levels.map(level => MAIN_SUPPLY_LEVELS.some(id => id === level.level)
+    ? { ...level, initialSlots: 6 as const } : level) };
 }
 
 function buildChallenge(index: number, level: number) {
