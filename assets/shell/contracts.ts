@@ -1,3 +1,10 @@
+import type { FactIdentity, TelemetryEventName, TelemetryFields } from './observability/telemetrySchema';
+
+/** Synchronous best-effort facts; observers never control saves or scene readiness. */
+export interface ProductTelemetryPort {
+  track<K extends TelemetryEventName>(name: K, fields: TelemetryFields[K], identity: FactIdentity): unknown;
+}
+
 export type ModeId = 'ant' | 'cook';
 export type EntrySource = 'launch' | 'manual' | 'promotion' | 'recovery';
 export type LeaveStatus = 'ready' | 'playing' | 'adShowing' | 'rewardPending' | 'saveFailed';
