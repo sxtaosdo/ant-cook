@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.27`**
+**当前版本：`v0.3.0.28`**
 
 状态: Draft
 
@@ -19,3 +19,9 @@ P0002 以 `extensions/shidai3` Git submodule 消费，固定 `2384980aab0c2bb605
 Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存并回读；Bridge 0.3.118 已获批安装登记。Preview 已验证两个来源入口、双向往返、退出保存故障重试及持续就绪。四项蚂蚁界面调整通过 Creator 保存。正式构建使用工具生成的隔离输入，排除 P0002 的开发示例入口；运行、多尺寸和产物验收以对应源码 SHA 的本次任务回执为准，业务替身测试不能代替它们。广告单元、AppID、远程服务和推广阈值尚未配置。
 
 来源快照见 `MIGRATION_SOURCES.json`；功能状态见 `CHANGELOG.md`。
+
+## 棋盘编辑器
+
+Node 22 下，在本工程运行 `pnpm editor:board`，打开 <http://127.0.0.1:7468>；无需 Creator，终端 Ctrl+C 停止。编辑器已从原蚂蚁工程迁入，调色板只读取本工程配置。
+
+导出 JSON 保存到浏览器下载位置，不自动写入主题关卡。端口占用处理、编辑流程、CSV 接入及完整关卡生成边界见 [棋盘编辑器使用说明](BOARD_EDITOR.md)。
