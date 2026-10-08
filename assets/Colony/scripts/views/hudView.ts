@@ -67,11 +67,12 @@ export class ColonyHudView extends mk.StaticViewBase {
   public setSpeedBoost(multiplier: 1 | 2 | 3, remainingMs: number, source: 'manual' | 'freeFinish' = 'manual'): void {
     const text = this.speedText!;
     const time = this.speedTime!;
-    const seconds = Math.ceil(remainingMs / 1000);
-    const caption = source === 'freeFinish' ? '免费收尾' : `${Math.floor(seconds / 60)}m:${(seconds % 60).toString().padStart(2, '0')}s`;
+    const timed = multiplier > 1 && source === 'manual';
+    const seconds = Math.ceil(Math.max(0, remainingMs) / 1000);
+    const caption = timed ? `${Math.floor(seconds / 60)}m:${(seconds % 60).toString().padStart(2, '0')}s` : '';
     if (text.string !== `${multiplier}×`) text.string = `${multiplier}×`;
     if (time.string !== caption) time.string = caption;
-    this.speedTimePlate!.active = multiplier > 1;
+    this.speedTimePlate!.active = timed;
   }
 
   /** 更新关卡标题。 */

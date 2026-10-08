@@ -185,6 +185,15 @@ export class BoardPresentation {
     else this.moving.delete(stackId);
   }
 
+  /** Reuse locked feedback without selecting, moving or changing the model. */
+  public shakeStack(stackId: string): void {
+    const node = this.stackNodes.get(stackId);
+    if (!node?.isValid || this.moving.has(stackId)) return;
+    Tween.stopAllByTarget(node); node.angle = 0;
+    tween(node).to(0.04, { angle: -6 }).to(0.06, { angle: 6 })
+      .to(0.06, { angle: -4 }).to(0.08, { angle: 0 }).start();
+  }
+
   /** 将数字组节点缓动到目标暂存槽并回收。 */
   public async moveStackToSlot(stackId: string, slotIndex: number): Promise<void> {
     const stack = this.stackNodes.get(stackId);
@@ -313,8 +322,7 @@ export class BoardPresentation {
         if (Date.now() < this.suppressQueueClickUntil) return;
         const current = this.latestReadModel?.snapshot.stacks.find(value => value.id === stack.id);
         if (!current?.accessible) {
-          Tween.stopAllByTarget(node); node.angle = 0;
-          tween(node).to(0.04, { angle: -6 }).to(0.06, { angle: 6 }).to(0.06, { angle: -4 }).to(0.08, { angle: 0 }).start(); return;
+          this.shakeStack(stack.id); return;
         }
         this.selectStack(stack.id);
       });

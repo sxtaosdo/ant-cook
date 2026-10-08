@@ -179,10 +179,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     toolBarView.setFirstLevelSkin(false);
     toolBarView.setUsed(read.usedTools, read.snapshot.slots.length);
     this.speedBoost = new SpeedBoostPresentation(session, this.transport);
-    toolBarView.bind((tool) => {
-      if (session.inputLocked) return;
-      void ProgressPresentation.open(session, `tool-${tool}`);
-    });
+    toolBarView.bind(tool => { void this.tapTool(tool); });
     const board = this.board;
     const transport = this.transport;
     await prepareThemePresentation(session, board, transport, read, themeTarget, () => this.board === board && this.transport === transport);
@@ -219,6 +216,11 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     const board = this.board;
     const play = session.play;
     if (!board || !play || session.destroyed || session.inputLocked) return;
+    const beforeSelection = PlayState.read(session);
+    if (!beforeSelection.snapshot.slots.some(slot => slot === null)) {
+      board.shakeStack(stackId);
+      return;
+    }
     try {
       play.selectStack(stackId);
     } catch {
@@ -249,6 +251,14 @@ export class PlayState implements IState<ColonySceneBootstrap> {
       this.pendingSelections -= 1;
       if (generation === session.generation) this.checkFreeFinish();
     }
+  }
+
+  /** Read the current round inventory at the click boundary; the command checks it again. */
+  public async tapTool(tool: ColonyTool): Promise<void> {
+    const session = this.context;
+    if (session.destroyed || session.inputLocked || !session.play) return;
+    if (!PlayState.read(session).usedTools.includes(tool)) await this.usePowerUp(tool);
+    else await ProgressPresentation.open(session, `tool-${tool}`);
   }
 
   /** 使用一次性道具（扩槽 / 铲子 / 指南针）。 */
