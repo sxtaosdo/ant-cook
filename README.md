@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.36`**
+**当前版本：`v0.3.0.37`**
 
 状态: Draft
 
@@ -22,6 +22,6 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 
 ## 棋盘编辑器
 
-Node 22 下，在本工程运行 `pnpm editor:board`，打开 <http://127.0.0.1:7468>；无需 Creator，终端 Ctrl+C 停止。编辑器已从原蚂蚁工程迁入，调色板只读取本工程配置。
+Node 22 下，在本工程运行 `pnpm run editor:board`，打开 <http://127.0.0.1:7468>；无需 Creator，终端 Ctrl+C 停止。编辑器已从原蚂蚁工程迁入，调色板只读取本工程配置。
 
 导出 JSON 保存到浏览器下载位置，不自动写入主题关卡。端口占用处理、编辑流程、CSV 接入及完整关卡生成边界见 [棋盘编辑器使用说明](BOARD_EDITOR.md)。

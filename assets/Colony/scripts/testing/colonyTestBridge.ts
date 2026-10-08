@@ -383,6 +383,16 @@ export class ColonyTestBridge {
       background: this.ctx.playRoot?.getComponentsInChildren(Sprite).filter(sprite => sprite.node.name === 'BackgroundArt').map(sprite => ({ ...node(sprite.node) as object, frame: sprite.spriteFrame?.uuid, texture: Boolean(sprite.spriteFrame?.texture) })),
       resources: { pooled: this.playPage()?.pooledCount, workers: this.evidence(), antTexture: Boolean(this.ctx.antCourierFrame?.texture), cellTexture: Boolean(this.ctx.cellFrame?.texture) } };
   }
+  /** Presentation-only stress fixture. Does not create inventory or usable tools. */
+  public previewToolBadgeDigits(value: number | null): unknown {
+    if (!PREVIEW || !this.ctx.gm?.active) throw new Error('Isolated GM preview required');
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 999)) throw new Error('Expected zero to three digits');
+    if (value === null) this.ctx.toolBarView?.setUsed(this.ctx.play?.usedToolList() ?? [], this.ctx.play?.snapshot().slots.length ?? 5);
+    else for (const label of this.ctx.toolBarView?.node.getComponentsInChildren(Label) ?? []) {
+      if (label.node.name === 'Status') label.string = String(value);
+    }
+    return this.regressionUiEvidencePreview();
+  }
   public getFeedbackEvidence(): unknown {
     if (!this.ctx.hudView || !this.ctx.stackRoot || !this.ctx.slotView) return { mounted: false };
     const c = this.ctx, rail = c.hudView!.node.children.find(n => n.getChildByName('RailViewport'));
