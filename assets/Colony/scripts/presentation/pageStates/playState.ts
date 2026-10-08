@@ -193,6 +193,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
       await this.hardNotice.show(session.node, session.popupRoot!, () => this.board === board && !session.destroyed);
       if (this.board === board && !session.destroyed) session.inputLocked = false;
     }
+    if (this.board === board && !session.destroyed) ProgressPresentation.notifyPartnerUnlock(session);
   }
 
   /** 退出对局：回收表现、关闭结算弹窗。 */
@@ -402,6 +403,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
       return;
     }
     this.resultControl = control;
+    ProgressPresentation.notifyPartnerUnlock(session);
   }
 
   /** 等待当前搬运循环结束（测试用）。 */

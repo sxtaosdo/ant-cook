@@ -43,6 +43,8 @@ export const PROGRESS_SAVE_KEY = 'colony.player.v1';
 export const PROGRESS_BACKUP_KEY = `${PROGRESS_SAVE_KEY}.backup`;
 export const PROGRESS_CONTENT_VERSION = 'night-market-1';
 export const MAIN_LEVEL_COUNT = 60;
+const PARTNER_UNLOCK_FACT = 'notice:partner-unlock';
+const PARTNER_UNLOCK_MESSAGE = '伙伴已解锁，可从排行榜的伙伴页签查看';
 export const DAILY_CHALLENGE_COUNT = 30;
 export const SEASON_XP_PER_TIER = 100;
 export const STARTER_DIAMONDS = 30;
@@ -146,6 +148,8 @@ export class PlayerProgress {
     this.collectExpired(next, effective);
     if (!next.clockRolledBack && this.hasSocialUnlock(next)) advanceSocial(next.social, next.leaderboard, effective, this.socialConfig);
     const result = action(next);
+    // Quietly retain an already available feature; old archives receive no upgrade toast.
+    if (this.hasSocialUnlock(next) && !next.rewardLedger.includes(PARTNER_UNLOCK_FACT)) next.rewardLedger.push(PARTNER_UNLOCK_FACT);
     if (!next.clockRolledBack && this.hasSocialUnlock(next)) advanceSocial(next.social, next.leaderboard, effective, this.socialConfig);
     next.lastSeen = Math.max(next.lastSeen, now);
     const encoded = JSON.stringify(next);
@@ -215,7 +219,13 @@ export class PlayerProgress {
   public readLeaderboard(): LeaderboardEntry[] { return readLeaderboard(this.data.leaderboard, this.data.clearedLevels.length, this.leaderboardConfig); }
   /** Completed level IDs are authoritative; entering/unlocking a level never opens partners. */
   private hasSocialUnlock(state: PlayerProgressSnapshot): boolean {
-    return state.clearedLevels.some(level => level >= this.socialConfig.unlockClears);
+    return state.rewardLedger.some(id => id === PARTNER_UNLOCK_FACT || /^notice:partner-unlock:\d+$/.test(id))
+      || state.clearedLevels.some(level => level >= this.socialConfig.unlockClears);
+  }
+  /** Claim the durable notification before presentation; a failed write keeps it pending. */
+  public takePartnerUnlockNotice(): string | null {
+    if (!this.data.pendingMessages.includes(PARTNER_UNLOCK_MESSAGE)) return null;
+    return this.change(s => { s.pendingMessages = s.pendingMessages.filter(message => message !== PARTNER_UNLOCK_MESSAGE); return PARTNER_UNLOCK_MESSAGE; });
   }
   public socialAvailable(): boolean { return this.hasSocialUnlock(this.data); }
   public socialUnlockHint(): string { return `通关第${this.socialConfig.unlockClears}关后解锁伙伴`; }
@@ -294,8 +304,13 @@ export class PlayerProgress {
       let coins = 40;
       const stars = 0;
       if (round.mode === 'main') {
+        const wasUnlocked = this.hasSocialUnlock(s);
         recordLeaderboardFirstClear(s.leaderboard, s.clearedLevels.length, Math.max(round.completedAt!, s.maxTime), this.leaderboardConfig);
         s.clearedLevels.push(round.levelId); s.clearedLevels.sort((a, b) => a - b); s.totals.wins++;
+        if (!wasUnlocked && this.hasSocialUnlock(s) && !s.rewardLedger.includes(PARTNER_UNLOCK_FACT)) {
+          s.rewardLedger.push(PARTNER_UNLOCK_FACT);
+          s.pendingMessages.push(PARTNER_UNLOCK_MESSAGE);
+        }
         completeDailyTasks(s, periods(s.maxTime).season);
         if (round.levelId >= 6) { s.streak++; coins += ({ 3: 20, 5: 40, 8: 80 } as Record<number, number>)[s.streak] ?? 0; }
         if (round.levelId % 20 === 0) s.stamps += 3;

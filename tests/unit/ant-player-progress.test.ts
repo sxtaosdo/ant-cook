@@ -72,6 +72,53 @@ test('partner unlock threshold is validated configuration and supplies its own h
   clear(progress, 5); assert.equal(progress.socialAvailable(), true);
 });
 
+test('partner unlock notice is a saved transition, survives retry, and never repeats', () => {
+  const env = setup(); clearThrough(env.progress, 2);
+  const round = env.progress.startRound(3);
+  env.fail(true);
+  assert.throws(() => env.progress.settleRound(round.id, 'SUCCESS', 0), /disk full/);
+  assert.equal(env.progress.snapshot().rewardLedger.includes('notice:partner-unlock'), false);
+  env.fail(false);
+  env.progress.settleRound(round.id, 'SUCCESS', 0);
+  assert.equal(env.progress.snapshot().coins, 120);
+  env.restart().settleRound(round.id, 'SUCCESS', 0);
+  env.fail(true); assert.throws(() => env.progress.takePartnerUnlockNotice(), /disk full/);
+  env.fail(false); assert.match(env.restart().takePartnerUnlockNotice()!, /伙伴已解锁/);
+  assert.equal(env.restart().takePartnerUnlockNotice(), null);
+  clear(env.progress, 3); clear(env.progress, 4);
+  assert.equal(env.progress.takePartnerUnlockNotice(), null);
+  assert.equal(env.progress.snapshot().rewardLedger.filter(id => id === 'notice:partner-unlock').length, 1);
+});
+
+test('already unlocked legacy saves do not receive an upgrade unlock notice or reward', () => {
+  const env = setup(); clearThrough(env.progress, 3);
+  const saved = env.progress.snapshot();
+  saved.rewardLedger = saved.rewardLedger.filter(id => !id.startsWith('notice:partner-unlock'));
+  saved.pendingMessages = [];
+  env.values.set(PROGRESS_SAVE_KEY, JSON.stringify(saved));
+  env.restart();
+  assert.equal(env.progress.socialAvailable(), true);
+  clear(env.progress, 4);
+  assert.equal(env.progress.takePartnerUnlockNotice(), null);
+  assert.equal(env.progress.snapshot().coins, saved.coins + 40);
+});
+
+test('saved partner unlock stays available through threshold increases; threshold decreases do not invent an upgrade notice', () => {
+  const env = setup(); clearThrough(env.progress, 3); env.progress.takePartnerUnlockNotice();
+  const raised = new PlayerProgress(env.save, env.clock, leaderboardTestConfig, readSocialConfig({ ...socialTestConfig, unlockClears: 5 }));
+  assert.equal(raised.socialAvailable(), true);
+  clear(raised, 4); clear(raised, 5);
+  assert.equal(raised.takePartnerUnlockNotice(), null);
+  const old = raised.snapshot(); old.rewardLedger = old.rewardLedger.filter(id => !id.startsWith('notice:partner-unlock'));
+  old.rewardLedger.push('notice:partner-unlock:3'); env.values.set(PROGRESS_SAVE_KEY, JSON.stringify(old));
+  assert.equal(new PlayerProgress(env.save, env.clock, leaderboardTestConfig, readSocialConfig({ ...socialTestConfig, unlockClears: 6 })).socialAvailable(), true);
+  const another = setup(); clearThrough(another.progress, 2);
+  const higher = new PlayerProgress(another.save, another.clock, leaderboardTestConfig, readSocialConfig({ ...socialTestConfig, unlockClears: 5 }));
+  clear(higher, 3); assert.equal(higher.socialAvailable(), false);
+  const lower = new PlayerProgress(another.save, another.clock, leaderboardTestConfig, socialTestConfig);
+  assert.equal(lower.socialAvailable(), true); assert.equal(lower.takePartnerUnlockNotice(), null);
+});
+
 test('first clear is atomic and idempotent across callbacks, replay and restart', () => {
   const env = setup();
   const round = env.progress.startRound(1);

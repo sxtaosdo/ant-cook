@@ -36,6 +36,14 @@ export class ProgressPresentation {
   private pendingGm: { action: string; level: number } | null = null;
   private cancelled = false;
 
+  public static notifyPartnerUnlock(context: ColonySceneBootstrap): void {
+    if (context.destroyed || !context.progress) return;
+    try {
+      const message = context.progress.takePartnerUnlockNotice();
+      if (message) context.toast.show(message, 'feature-unlocked', 'social');
+    } catch { /* Retain the pending notice for the next safe page or settlement. */ }
+  }
+
   constructor(private readonly context: ColonySceneBootstrap, private section: ProgressSection, private readonly onClosed?: () => void) {
     if (this.section === 'tasks') this.section = 'daily';
   }

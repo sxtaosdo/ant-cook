@@ -154,6 +154,7 @@ export class ColonyTestBridge {
   /** Isolated browser fixture only; never emits Creator's persistent device option change. */
   public fitToastViewportPreview(): void {
     if (!PREVIEW) throw new Error('Preview only');
+    game.frameRate = 60;
     const toolbar = document.querySelector<HTMLElement>('.toolbar');
     if (toolbar) toolbar.style.display = 'none';
     const profilerBadge = document.getElementById('__cocos_profiler_status_badge__');
@@ -368,6 +369,20 @@ export class ColonyTestBridge {
   }
 
   public getUiEvidence(): unknown { return this.uiEvidence(); }
+  public regressionUiEvidencePreview(): unknown {
+    if (!PREVIEW) throw new Error('Preview only');
+    const node = (item?: Node | null): unknown => item ? { name: item.name, position: item.worldPosition.clone(), localPosition: item.position.clone(),
+      size: item.getComponent(UITransform)?.contentSize, scale: item.scale.clone(), opacity: item.getComponent(UIOpacity)?.opacity,
+      active: item.activeInHierarchy, parent: item.parent?.name } : null;
+    const hud = this.ctx.hudView?.node;
+    const top = hud?.getChildByName('TopBarRoot');
+    return { frameRate: game.frameRate, gm: node(hud?.getChildByName('GmButton')),
+      speed: node(top?.getChildByName('SpeedButton')), leaderboard: node(top?.getChildByName('LeaderboardButton')),
+      tools: this.ctx.toolBarView?.node.getComponentsInChildren(Button).map(button => ({ ...node(button.node) as object,
+        labels: button.node.getComponentsInChildren(Label).map(label => ({ text: label.string, fontSize: label.fontSize, ...node(label.node) as object })) })),
+      background: this.ctx.playRoot?.getComponentsInChildren(Sprite).filter(sprite => sprite.node.name === 'BackgroundArt').map(sprite => ({ ...node(sprite.node) as object, frame: sprite.spriteFrame?.uuid, texture: Boolean(sprite.spriteFrame?.texture) })),
+      resources: { pooled: this.playPage()?.pooledCount, workers: this.evidence(), antTexture: Boolean(this.ctx.antCourierFrame?.texture), cellTexture: Boolean(this.ctx.cellFrame?.texture) } };
+  }
   public getFeedbackEvidence(): unknown {
     if (!this.ctx.hudView || !this.ctx.stackRoot || !this.ctx.slotView) return { mounted: false };
     const c = this.ctx, rail = c.hudView!.node.children.find(n => n.getChildByName('RailViewport'));
