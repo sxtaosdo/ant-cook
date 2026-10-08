@@ -100,7 +100,7 @@ test('actual Presentation-Control-MVC failed popup open releases its business pl
     constructor(context, section, onClosed) { this.context=context; this.section=section; this.onClosed=onClosed; }
     read() { return { rows: [] }; } act() {} ${members}
   }; ProgressPresentation`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const Presentation = vm.runInNewContext(code, { ProgressControl: f.ProgressControl, ToolControl: f.ProgressControl, ColonyProgressView: f.PopupView, ColonyLeaderboardView: f.PopupView, console });
+  const Presentation = vm.runInNewContext(code, { ProgressControl: f.ProgressControl, ToolControl: f.ProgressControl, ColonyProgressView: f.PopupView, ColonyLeaderboardView: f.PopupView, PlayState: { current: () => null }, console });
   let feedback = '', openCalls = 0;
   const context = { progress: { readSocial: () => ({ unread: 0 }) }, progressPopup: null, popupRoot: f.scene, inputLocked: false,
     hudView: { hideRailBackground() {}, setFeedback(value) { feedback = value; } }, app: { setError() {} },

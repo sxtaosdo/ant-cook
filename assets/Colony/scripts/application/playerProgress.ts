@@ -10,6 +10,11 @@ export interface ProgressSavePort { readonly testOnly?: true; read(key: string):
 export interface ProgressClock { now(): number }
 export type ProgressMode = 'main' | 'daily';
 export type SupplyTool = 'trowel' | 'compass';
+export const TOOL_PRODUCTS = [
+  { tool: 'trowel', name: '小铲子', coins: 40 },
+  { tool: 'compass', name: '指南针', coins: 60 },
+] as const;
+export interface ToolTransaction { kind: 'buy' | 'use'; tool: SupplyTool; coins: number; quantity: 1; roundId: string | null }
 export interface ProgressRound {
   id: string; levelId: number; mode: ProgressMode; contentVersion: string;
   day: string; weekend: string; season: string; startedAt: number; completedAt?: number;
@@ -32,6 +37,8 @@ export interface PlayerProgressSnapshot {
   rounds: Record<string, ProgressRound>; rewardLedger: string[]; nextRound: number;
   lastSeen: number; maxTime: number; clockRolledBack: boolean; tutorialDays: Record<string, string>;
   pendingMessages: string[];
+  toolInventory: Record<SupplyTool, number>;
+  toolTransactions: Record<string, ToolTransaction>;
   leaderboard: LeaderboardState;
   social: SocialState;
 }
@@ -169,6 +176,41 @@ export class PlayerProgress {
 
   public wallet(): { readonly coins: number; readonly diamonds: number } {
     return { coins: this.data.coins, diamonds: this.data.diamonds };
+  }
+  public readToolSupply(roundId?: string): { inventory: Readonly<Record<SupplyTool, number>>; extraAvailable: boolean } {
+    const round = roundId ? this.data.rounds[roundId] : null;
+    return { inventory: { ...this.data.toolInventory }, extraAvailable: Boolean(round && !round.settled && !round.extraSupply) };
+  }
+  public hasToolPurchase(txnId: string, tool: SupplyTool): boolean {
+    const receipt = this.data.toolTransactions[`buy:${txnId}`];
+    return receipt?.kind === 'buy' && receipt.tool === tool;
+  }
+  /** One synchronous save publishes the debit, stock and idempotency receipt together. */
+  public buyStoredTool(tool: SupplyTool, txnId: string): boolean {
+    if (!/^[a-z0-9-]{1,80}$/.test(txnId)) throw new Error('无效购买编号');
+    return this.change(s => {
+      const key = `buy:${txnId}`, receipt = s.toolTransactions[key];
+      if (receipt) { if (receipt.kind !== 'buy' || receipt.tool !== tool) throw new Error('购买编号已用于其他商品'); return false; }
+      const product = TOOL_PRODUCTS.find(item => item.tool === tool);
+      if (!product) throw new Error('此道具不出售');
+      if (s.coins < product.coins) throw new Error('金币不足，未扣费');
+      if (!Number.isSafeInteger(s.toolInventory[tool] + 1)) throw new Error('库存已达上限');
+      s.coins -= product.coins; s.toolInventory[tool]++;
+      s.toolTransactions[key] = { kind: 'buy', tool, coins: product.coins, quantity: 1, roundId: null };
+      return true;
+    });
+  }
+  public consumeStoredTool(roundId: string, tool: SupplyTool, validTarget: boolean): boolean {
+    return this.change(s => {
+      const key = `use:${roundId}`, receipt = s.toolTransactions[key];
+      if (receipt) { if (receipt.kind !== 'use' || receipt.tool !== tool) throw new Error('本局额外补给已用完'); return false; }
+      if (!validTarget) throw new Error('当前没有可生效的目标，未消耗库存');
+      const round = this.supplyRound(s, roundId, tool);
+      if (s.toolInventory[tool] < 1) throw new Error('库存不足');
+      s.toolInventory[tool]--; round.extraSupply = true;
+      s.toolTransactions[key] = { kind: 'use', tool, coins: 0, quantity: 1, roundId };
+      return true;
+    });
   }
   /** Test memory ports alone can use GM grants; live storage never receives this capability. */
   public applyTestResources(kind: 'coins' | 'diamonds' | 'speed'): void {

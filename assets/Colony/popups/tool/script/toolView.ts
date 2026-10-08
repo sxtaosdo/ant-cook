@@ -36,7 +36,7 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
     const panel = this.panel ?? this.node.getChildByName('Panel');
     if (!panel) throw new Error('Tool panel binding is missing');
     const { page, feedback } = this._model;
-    const optionCount = Math.min(3, Math.max(1, page.rows.length - 1));
+    const optionCount = Math.min(4, Math.max(1, page.rows.length - 1));
     const height = 600 + optionCount * 80;
     const top = height / 2;
     panel.getComponent(UITransform)!.setContentSize(620, height);
@@ -59,13 +59,13 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
           if (revision === this.revision && this.isAvailable() && frame && icon.isValid && this._model.page.title === page.title) icon.getComponent(Sprite)!.spriteFrame = frame;
         }).catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load tool icon', cause); });
     }
-    for (let index = 0; index < 3; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
       const option = panel.getChildByName(`Option${index}`)!;
       const row = page.rows[index + 1];
       option.active = Boolean(row);
       if (!row) continue;
       option.setPosition(0, top - 565 - index * 80, 0);
-      option.getChildByName('Text')!.getComponent(Label)!.string = row.button;
+      option.getComponentInChildren(Label)!.string = row.button;
       this.bind(option, row.enabled, () => this.event.emit('action', row.action));
     }
     this.bind(panel.getChildByName('Close')!, true, () => this.event.emit('close'));
@@ -76,6 +76,26 @@ export class ColonyToolView extends mk.MVCViewBase<ToolModel> {
     node.targetOff(this);
     node.getComponent(Button)!.interactable = enabled;
     node.on(Button.EventType.CLICK, () => { if (this.isAvailable() && node.activeInHierarchy) action(); }, this);
+  }
+  /** Cleanup keeps ownership; this button only retries cleanup, never gameplay. */
+  public showCleanupRetry(retry: () => Promise<void>): boolean {
+    const root = this.node, panel = this.panel ?? root?.getChildByName('Panel');
+    if (!root?.isValid || !root.activeInHierarchy || !panel) return false;
+    this.clearBindings();
+    const status = panel.getChildByName('Status')!.getComponent(Label)!;
+    status.string = '关闭未完成 · 点击右上角重试关闭';
+    for (let index = 0; index < 4; index++) panel.getChildByName(`Option${index}`)!.getComponent(Button)!.interactable = false;
+    const close = panel.getChildByName('Close')!;
+    close.getComponent(Button)!.interactable = true;
+    this.boundNodes.add(close);
+    let running = false;
+    close.on(Button.EventType.CLICK, () => {
+      if (running || !root.isValid || !root.activeInHierarchy) return;
+      running = true;
+      void retry().catch(() => { if (status.isValid) status.string = '关闭仍未完成 · 点击右上角重试'; })
+        .finally(() => { running = false; });
+    }, this);
+    return true;
   }
   private clearBindings(): void {
     this.revision++;

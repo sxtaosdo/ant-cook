@@ -16,7 +16,8 @@ export interface ProgressRow {
   readonly kind?: 'stall' | 'produce' | 'decoration';
   readonly target?: number;
   readonly iconPath?: string;
-  readonly shopProduct?: { readonly diamonds: number; readonly priceYuan?: number; readonly claimed: boolean; readonly image: 'diamonds-small' | 'diamonds-bag' | 'diamonds-chest' };
+  readonly shopProduct?: { readonly kind?: 'diamonds'; readonly diamonds: number; readonly priceYuan?: number; readonly claimed: boolean; readonly image: 'diamonds-small' | 'diamonds-bag' | 'diamonds-chest' }
+    | { readonly kind: 'tool'; readonly tool: 'trowel' | 'compass'; readonly stock: number; readonly coins: number; readonly claimed: boolean; readonly image: 'trowel' | 'compass' };
   readonly basketItems?: readonly { readonly id: string; readonly name: string; readonly count: number; readonly kind: 'stall' | 'produce' | 'decoration'; readonly target: number; readonly iconPath: string }[];
 }
 

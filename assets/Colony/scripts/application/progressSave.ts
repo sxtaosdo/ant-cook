@@ -21,7 +21,7 @@ export function fresh(now: number, config: LeaderboardConfig): PlayerProgressSna
     totals: { wins: 0, validWins: 0, failures: 0, transported: 0, challenges: 0, builds: 0, orders: 0, events: 0 },
     daily: { day: dayOf(now), orders: ordersFor(dayOf(now), false), rerolled: false, claimed: false, adClears: 0, adSupplies: 0, boostRemainingMs: FREE_BOOST_MS, boostAds: 0, tasks: freshDailyTasks() },
     dailyCompleted: [], weekends: {}, seasons: {}, returnVisit: null, rounds: {}, rewardLedger: [], nextRound: 1,
-    lastSeen: now, maxTime: now, clockRolledBack: false, tutorialDays: {}, pendingMessages: [], social: createSocial(now), leaderboard: createLeaderboard(config, now, now, 0, now) };
+    lastSeen: now, maxTime: now, clockRolledBack: false, tutorialDays: {}, pendingMessages: [], toolInventory: { trowel: 0, compass: 0 }, toolTransactions: {}, social: createSocial(now), leaderboard: createLeaderboard(config, now, now, 0, now) };
 }
 const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const validTime = (value: unknown): value is number => integer(value) && value <= Date.UTC(9999, 11, 31, 15, 59, 59, 999);
@@ -35,6 +35,14 @@ export function parseSave(raw: string | null, config: LeaderboardConfig, socialC
     const parsed = JSON.parse(raw) as unknown;
     if (!record(parsed) || parsed.version !== 6) return null;
     const s = parsed as unknown as PlayerProgressSnapshot;
+    // Existing v6 archives predate permanent tools; absent fields mean zero stock.
+    if (s.toolInventory === undefined) s.toolInventory = { trowel: 0, compass: 0 };
+    if (s.toolTransactions === undefined) s.toolTransactions = {};
+    if (!record(s.toolInventory) || !integer(s.toolInventory.trowel) || !integer(s.toolInventory.compass)) return null;
+    if (!record(s.toolTransactions) || !Object.entries(s.toolTransactions).every(([key, r]) => record(r)
+      && /^(buy:[a-z0-9-]{1,80}|use:round-[1-9]\d*)$/.test(key) && ['trowel', 'compass'].includes(String(r.tool))
+      && r.quantity === 1 && integer(r.coins) && (key.startsWith('buy:') ? r.kind === 'buy' && r.roundId === null
+        : r.kind === 'use' && r.coins === 0 && r.roundId === key.slice(4)))) return null;
     if (typeof s.starterDiamondsClaimed !== 'boolean' || !['coins', 'diamonds', 'stars', 'stamps', 'vouchers', 'supplyTokens', 'signInCount', 'streak', 'nextRound', 'lastSeen', 'maxTime'].every(key => integer((s as unknown as Record<string, unknown>)[key])) || s.nextRound < 1) return null;
     if (!numbers(s.clearedLevels, 60) || s.clearedLevels.some((n, index) => n !== index + 1) || !numbers(s.stalls, 3) || s.stalls.length !== 12 || !numbers(s.districts, 2) || !numbers(s.newcomer, 6)) return null;
     if (![s.decorations, s.collections, s.signInDays, s.achievements, s.dailyCompleted, s.rewardLedger, s.pendingMessages].every(strings)) return null;

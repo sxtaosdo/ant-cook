@@ -1306,6 +1306,14 @@
       "__uuid__": "809a2b74-ab68-4e1e-b529-dbc11decfbf9@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
+    "trowelFrame": {
+      "__uuid__": "78410d0f-8373-4c31-80ca-2cadcd846643@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
+    "compassFrame": {
+      "__uuid__": "3cb8a83b-33c8-4cff-999d-564e6ed73c4c@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
     "cardImage": {
       "__id__": 48
     },

@@ -59,7 +59,16 @@ export class ToolControl extends mk.MVCControlBase<ToolModel, ColonyToolView> {
 
   public async forceClose(): Promise<void> {
     this.navigation.closing?.();
-    await swallowMkInterrupt(Promise.resolve(this.close()));
+    try { await swallowMkInterrupt(Promise.resolve(this.close())); }
+    catch (cause) {
+      const retryAvailable = this.offerCleanupRetry();
+      this.navigation.cleanupFailed?.(cause, retryAvailable);
+      throw cause;
+    }
     if (!this.notified) { this.notified = true; this.navigation.closed(); }
+  }
+
+  public offerCleanupRetry(): boolean {
+    return this._view?.showCleanupRetry(() => this.forceClose()) ?? false;
   }
 }

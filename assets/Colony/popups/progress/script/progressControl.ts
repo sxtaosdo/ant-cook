@@ -18,6 +18,7 @@ export interface ProgressNavigation {
   closed(): void;
   closing?(): void;
   canClose?(): boolean;
+  cleanupFailed?(cause: unknown, retryAvailable: boolean): void;
 }
 
 export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView | typeof ColonyShopView | typeof ColonyCommunityView;

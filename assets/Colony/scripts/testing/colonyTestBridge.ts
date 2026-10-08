@@ -22,6 +22,7 @@ import { createProgressPreviewFixture, createProgressPreviewSession } from './pr
 import { swallowMkInterrupt } from '../../popups/resultPopupNav';
 import { RewardedAds, type RewardedVideo } from '../application/rewardedAds';
 import { FREE_BOOST_MS } from '../application/speedBoost';
+import { PROGRESS_SAVE_KEY, type ProgressSavePort } from '../application/playerProgress';
 import { mountPage } from '../presentation/pageNodes';
 import { UserSettings } from '../application/userSettings';
 import { GmTestSession } from './gmTestSession';
@@ -102,6 +103,20 @@ export class ColonyTestBridge {
   public home(): Promise<void> { return this.goHome(); }
 
   public getProgress(): unknown { return this.ctx.progress?.snapshot(); }
+  /** One-shot fault in the current Preview port; the harness must prove browser isolation first. */
+  public failNextToolSavePreview(): void {
+    if (!PREVIEW || !this.ctx.progress) throw new Error('Preview progress required');
+    const save = (this.ctx.progress as unknown as { save: ProgressSavePort }).save;
+    const before = Object.keys(this.ctx.progress.snapshot().toolTransactions).length;
+    const write = save.write;
+    save.write = function(key: string, value: string): void {
+      if (key === PROGRESS_SAVE_KEY && Object.keys(JSON.parse(value).toolTransactions ?? {}).length > before) {
+        save.write = write;
+        throw new Error('模拟库存保存失败，请重试；余额和库存未变');
+      }
+      write.call(this, key, value);
+    };
+  }
   public getSpeedEvidence(): unknown { return { selected: this.playPage()?.speedEvidence, transport: this.playPage()?.transportEvidence }; }
   public getInstallationId(): string | null { return this.ctx.identity?.read() ?? null; }
   public profileEvidencePreview(): unknown {
@@ -387,7 +402,7 @@ export class ColonyTestBridge {
   public previewToolBadgeDigits(value: number | null): unknown {
     if (!PREVIEW || !this.ctx.gm?.active) throw new Error('Isolated GM preview required');
     if (value !== null && (!Number.isInteger(value) || value < 0 || value > 999)) throw new Error('Expected zero to three digits');
-    if (value === null) this.ctx.toolBarView?.setUsed(this.ctx.play?.usedToolList() ?? [], this.ctx.play?.snapshot().slots.length ?? 5);
+    if (value === null) this.playPage()?.refreshToolCounts();
     else for (const label of this.ctx.toolBarView?.node.getComponentsInChildren(Label) ?? []) {
       if (label.node.name === 'Status') label.string = String(value);
     }

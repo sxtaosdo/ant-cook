@@ -12,7 +12,7 @@ import { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import type { ProgressPage, ProgressRow } from '../../popups/progress/script/progressModel';
 import { swallowMkInterrupt } from '../../popups/resultPopupNav';
-import { ACHIEVEMENTS, COLLECTIONS, SEASON_XP_PER_TIER, WEEKEND_THRESHOLDS } from '../application/playerProgress';
+import { ACHIEVEMENTS, COLLECTIONS, SEASON_XP_PER_TIER, WEEKEND_THRESHOLDS, TOOL_PRODUCTS } from '../application/playerProgress';
 import type { SupplyTool } from '../application/playerProgress';
 import { COLONY_BUILD_VERSION } from '../application/buildInfo';
 import { DAILY_TASKS } from '../application/dailyTasks';
@@ -35,6 +35,12 @@ export class ProgressPresentation {
   private social: SocialPresentation | null = null;
   private pendingGm: { action: string; level: number } | null = null;
   private cancelled = false;
+  private readonly toolPurchaseIds = new Map<SupplyTool, string>();
+  private purchaseId(tool: SupplyTool): string {
+    let id = this.toolPurchaseIds.get(tool);
+    if (!id) { id = `tool-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; this.toolPurchaseIds.set(tool, id); }
+    return id;
+  }
 
   public static notifyPartnerUnlock(context: ColonySceneBootstrap): void {
     if (context.destroyed || !context.progress) return;
@@ -98,6 +104,11 @@ export class ProgressPresentation {
         return result;
       },
       canClose: () => !this.context.ads?.hasPendingReward(),
+      cleanupFailed: (cause, retryAvailable) => {
+        if (retryAvailable) return;
+        this.context.app.setError({ code: 'RUNTIME', message: `弹窗清理未完成且关闭入口不可用：${String(cause)}` });
+        this.context.hudView?.setFeedback('弹窗清理未完成，页面保持锁定');
+      },
       closing: () => { if (this.control === owner) this.cancelled = true; },
       closed: () => {
         if (this.context.progressPopup !== owner) return;
@@ -105,6 +116,10 @@ export class ProgressPresentation {
         if (this.control === owner) this.control = null;
         if (this.context.destroyed) { this.context.inputLocked = true; return; }
         this.context.inputLocked = this.context.play?.snapshot().result !== 'PLAYING';
+        void PlayState.current(this.context)?.finishStoredSupplyPresentation().catch(cause => {
+          this.context.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
+          this.context.hudView?.setFeedback('库存已使用，显示待恢复');
+        });
         // Resource cleanup has completed. A failed refresh/notification must not
         // become a cleanup failure with no remaining owner and locked input.
         try {
@@ -288,8 +303,13 @@ export class ProgressPresentation {
         rows = p.themeBasketProgress().map((basket, index) => row(basket.name, basket.items.filter(item => item.kind === 'decoration').map(item => `${item.name} ${item.count}/${item.target}`).join(' · '), `stall:${index}`, '查看摊位'));
         break;
       case 'shop':
-        title = '钻石商城';
-        summary = `当前钻石 ${s.diamonds} · 充值暂未开放`;
+        title = '补给商城';
+        summary = `金币 ${s.coins} · 钻石 ${s.diamonds}\n库存与钻石/广告额外补给本局共享一次`;
+        rows.push(...TOOL_PRODUCTS.map(product => {
+          const claimed = p.hasToolPurchase(this.purchaseId(product.tool), product.tool);
+          return { ...row(product.name, '永久库存 · 免费优先', `buy-tool:${product.tool}`, claimed ? '已购买' : `${product.coins}金币 ×1`, !claimed && s.coins >= product.coins),
+            shopProduct: { kind: 'tool' as const, tool: product.tool, stock: s.toolInventory[product.tool], coins: product.coins, claimed, image: product.tool } };
+        }));
         rows.push({ ...row('新老玩家体验礼包', '一次性体验礼包', 'starter-diamonds', s.starterDiamondsClaimed ? '已领取' : '免费领取', !s.starterDiamondsClaimed),
           shopProduct: { diamonds: 30, claimed: s.starterDiamondsClaimed, image: 'diamonds-small' } });
         rows.push(...DIAMOND_PRODUCTS.map((product, index) => ({ ...row('钻石补给', '充值暂未开放', `purchase:${product.id}`, `¥${product.priceYuan}`, false),
@@ -357,6 +377,7 @@ export class ProgressPresentation {
         else if (tool === 'slot') rows.push(row('本局已使用', '扩槽最多到6槽，不能再次购买或观看广告', 'noop', '已用完', false));
         else {
           const can = Boolean(this.context.play?.canUseExtraSupply(tool) && this.context.round && !s.rounds[this.context.round.id]?.extraSupply);
+          rows.push(row('永久库存', `持有 ${s.toolInventory[tool]} 个 · 免费优先，本局额外共享一次`, `stored-supply:${tool}`, '库存使用', can && s.toolInventory[tool] > 0));
           if (s.supplyTokens > 0) rows.push(row('补给券', `持有 ${s.supplyTokens} 张 · 本局仅可额外使用一次`, `supply:${tool}`, '补给券使用', can));
           rows.push(row('自愿观看视频', this.context.hasAds ? '完整观看后使用；每日最多3次' : '当前没有配置广告位，免费玩法不受影响', `ad-supply:${tool}`, this.context.hasAds ? '看广告使用' : '广告暂不可用', can && this.context.hasAds));
           rows.push(row('钻石使用', `消耗10钻石 · 当前 ${s.diamonds} 钻`, `diamond-supply:${tool}`, s.diamonds >= 10 ? '10钻石使用' : '去商城', can));
@@ -475,6 +496,22 @@ export class ProgressPresentation {
     else if (kind === 'season') p.claimSeason(Number(value));
     else if (kind === 'return') p.claimReturn(Number(value));
     else if (kind === 'starter-diamonds') p.claimStarterDiamonds();
+    else if (kind === 'buy-tool') {
+      if (value !== 'trowel' && value !== 'compass') throw new Error('此道具不出售');
+      const bought = p.buyStoredTool(value, this.purchaseId(value));
+      PlayState.current(this.context)?.refreshToolCounts();
+      return bought ? '道具已存入永久库存' : '此笔购买已保存';
+    } else if (kind === 'stored-supply') {
+      if (value !== 'trowel' && value !== 'compass') throw new Error('此道具不出售');
+      const page = PlayState.current(this.context);
+      if (!page) throw new Error('对局已变化，库存未消耗');
+      page.commitStoredSupply(value);
+      // MK cleanup retains the same owner after failure; retry it once before
+      // returning a terminal controller to a screen with no actionable buttons.
+      try { await this.close(); } catch { await this.close(); }
+      await page.finishStoredSupplyPresentation();
+      return '';
+    }
     else if (kind === 'free-tool') {
       const tool = value as SupplyTool | 'slot';
       if (!this.context.play?.canUseTool(tool)) throw new Error('当前没有可生效的目标，未消耗道具');
@@ -537,7 +574,16 @@ export class ProgressPresentation {
     this.cancelled = true;
     const control = this.control;
     if (this.context.constructionView) this.context.constructionView.refreshSocialNotice(this.context.progress!.readSocial().unread);
-    if (control) await swallowMkInterrupt(Promise.resolve(control.close()));
+    if (control) {
+      try { await swallowMkInterrupt(Promise.resolve(control.close())); }
+      catch (cause) {
+        if (control instanceof ToolControl && !control.offerCleanupRetry()) {
+          this.context.app.setError({ code: 'RUNTIME', message: `弹窗清理未完成且关闭入口不可用：${String(cause)}` });
+          this.context.hudView?.setFeedback('弹窗清理未完成，页面保持锁定');
+        }
+        throw cause;
+      }
+    }
     if (this.context.progressPopup !== control) return;
     this.context.progressPopup = null;
     if (this.control === control) this.control = null;

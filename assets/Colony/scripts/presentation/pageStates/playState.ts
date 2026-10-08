@@ -178,7 +178,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     const themeTarget = session.round?.mode === 'main' ? themeForLevel(read.currentLevel) : null;
     slotView.setFirstLevelSkin(null);
     toolBarView.setFirstLevelSkin(false);
-    toolBarView.setUsed(read.usedTools, read.snapshot.slots.length);
+    this.refreshToolCounts();
     this.speedBoost = new SpeedBoostPresentation(session, this.transport);
     toolBarView.bind(tool => { void this.tapTool(tool); });
     const board = this.board;
@@ -199,6 +199,8 @@ export class PlayState implements IState<ColonySceneBootstrap> {
   /** 退出对局：回收表现、关闭结算弹窗。 */
   public async exit(): Promise<void> {
     const session = this.context;
+    this.pendingStoredPresentation = null;
+    this.storedPresentationInFlight = null;
     session.generation++; this.hardNotice.dispose(); this.waitingStacks.clear();
     session.toast.clear();
     this.transportLoop = null;
@@ -261,7 +263,68 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     const session = this.context;
     if (session.destroyed || session.inputLocked || !session.play) return;
     if (!PlayState.read(session).usedTools.includes(tool)) await this.usePowerUp(tool);
-    else await ProgressPresentation.open(session, `tool-${tool}`);
+    else if (tool !== 'slot' && session.round && (session.progress?.readToolSupply(session.round.id).inventory[tool] ?? 0) > 0
+      && session.progress?.readToolSupply(session.round.id).extraAvailable) {
+      try { this.commitStoredSupply(tool); }
+      catch (cause) {
+        this.storedSupplyError = String(cause);
+        session.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
+        session.hudView?.setFeedback('库存未消耗，请在道具页重试');
+        await ProgressPresentation.open(session, `tool-${tool}`);
+        return;
+      }
+      try { await this.finishStoredSupplyPresentation(); }
+      catch (cause) {
+        this.storedSupplyError = String(cause);
+        session.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
+        session.hudView?.setFeedback('库存已使用，显示待恢复；请重试关闭道具页');
+        await ProgressPresentation.open(session, `tool-${tool}`);
+      }
+    } else await ProgressPresentation.open(session, `tool-${tool}`);
+  }
+  public refreshToolCounts(): void {
+    const session = this.context, read = PlayState.read(session);
+    const supply = session.progress?.readToolSupply(session.round?.id);
+    const available = supply ? {
+      trowel: (read.usedTools.includes('trowel') ? 0 : 1) + (supply.extraAvailable && supply.inventory.trowel > 0 ? 1 : 0),
+      compass: (read.usedTools.includes('compass') ? 0 : 1) + (supply.extraAvailable && supply.inventory.compass > 0 ? 1 : 0),
+    } : undefined;
+    session.toolBarView?.setUsed(read.usedTools, read.snapshot.slots.length, available);
+  }
+  /** Final target validation, save and Model effect run without an await boundary. */
+  public commitStoredSupply(tool: SupplyTool): boolean {
+    const session = this.context, round = session.round, play = session.play;
+    if (session.destroyed || PlayState.current(session) !== this || !round || !play || !session.progress) throw new Error('对局已变化，库存未消耗');
+    const committed = session.progress.consumeStoredTool(round.id, tool, play.canUseExtraSupply(tool));
+    if (committed) {
+      play.useExtraSupply(tool);
+      this.pendingStoredPresentation = { tool, generation: session.generation, read: PlayState.read(session) };
+    }
+    this.refreshToolCounts();
+    return committed;
+  }
+  private pendingStoredPresentation: { tool: SupplyTool; generation: number; read: ColonyReadModel } | null = null;
+  private storedPresentationInFlight: Promise<void> | null = null;
+  private storedSupplyError: string | null = null;
+  /** Retry presentation after cleanup failure without consuming stock or applying the Model again. */
+  public async finishStoredSupplyPresentation(): Promise<void> {
+    if (this.storedPresentationInFlight) { await this.storedPresentationInFlight; return; }
+    const pending = this.pendingStoredPresentation;
+    if (!pending) return;
+    const session = this.context;
+    if (session.destroyed || session.generation !== pending.generation || PlayState.current(session) !== this || !this.board) {
+      this.pendingStoredPresentation = null; return;
+    }
+    const work = this.presentExtraSupply(pending.tool, pending.read);
+    this.storedPresentationInFlight = work;
+    try {
+      await work;
+      if (this.pendingStoredPresentation === pending) this.pendingStoredPresentation = null;
+      if (this.storedSupplyError && session.app.error?.message === this.storedSupplyError) {
+        session.app.clearError(); session.hudView?.setFeedback(''); this.storedSupplyError = null;
+      }
+    }
+    finally { if (this.storedPresentationInFlight === work) this.storedPresentationInFlight = null; }
   }
 
   /** 使用一次性道具（扩槽 / 铲子 / 指南针）。 */
@@ -282,7 +345,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     }
     const generation = session.generation;
     read = PlayState.read(session); if (session.round) session.dailyActivity?.tool(session.round.id, tool);
-    session.toolBarView!.setUsed(read.usedTools, read.snapshot.slots.length);
+    this.refreshToolCounts();
     void this.playSound('click');
     if (tool === 'slot') {
       board.addExtraSlot(read);
@@ -302,18 +365,19 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     if (afterClear.result !== 'PLAYING') await this.showResult(afterClear.result === 'SUCCESS');
   }
 
-  public async presentExtraSupply(tool: SupplyTool): Promise<void> {
+  public async presentExtraSupply(tool: SupplyTool, capturedRead?: ColonyReadModel): Promise<void> {
     const session = this.context;
     if (!session.play || !this.board) return;
+    this.refreshToolCounts();
     const generation = session.generation;
-    const read = PlayState.read(session); if (session.round) session.dailyActivity?.tool(session.round.id, tool);
+    const read = capturedRead ?? PlayState.read(session); if (session.round) session.dailyActivity?.tool(session.round.id, tool);
     if (tool === 'compass' && read.suggestedStackId) await this.tapStack(read.suggestedStackId);
     else {
       this.collectionFlight?.accept(read.lastEvents);
       const event = read.lastEvents.find(item => item.phase === 'INTERACT');
       if (event?.cellId) await this.board.clearCell(event.cellId);
       if (generation !== session.generation || session.destroyed || PlayState.current(session) !== this) return;
-      this.board.applyCounts(read.lastEvents, read);
+      this.board.applyCounts(read.lastEvents, PlayState.read(session));
       this.checkFreeFinish();
       if (read.result !== 'PLAYING') await this.showResult(read.result === 'SUCCESS');
     }
