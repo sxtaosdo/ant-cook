@@ -8,11 +8,13 @@
 
 ## 启动与停止
 
-使用 Node 22（>=22 <23）和本工程已有依赖，在 `D:/code/shidai3/P4000/ant-cook` 运行：
+使用 Node 22（>=22 <23）、pnpm 10（来源使用10.33.2）和本工程已有依赖，在 `D:/code/shidai3/P4000/ant-cook` 运行：
 
 ```bash
 pnpm editor:board
 ```
+
+若本机使用 pnpm 12，请使用明确的 `pnpm run editor:board`（该版本简写会触发安装流程）；验证使用 `pnpm run verify:editor`。
 
 打开 <http://127.0.0.1:7468>。无需打开 Creator。首次安装依赖可运行 `pnpm install`；使用 Node 22 的终端运行以上命令。服务只监听本机；终端 Ctrl+C 停止。端口固定为 7468，没有自动换端口或 PORT 参数。若出现 EADDRINUSE，检查 `Get-NetTCPConnection -LocalPort 7468 -State Listen`，在旧编辑器终端按 Ctrl+C 停止后重启；不要结束不明进程。启动时编译编辑器 TypeScript，生成物在忽略的 `temp/board-editor/`。图片仅在浏览器内处理，不上传、不覆盖项目资源。
 
