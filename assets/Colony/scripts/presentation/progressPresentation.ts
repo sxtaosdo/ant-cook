@@ -44,7 +44,7 @@ export class ProgressPresentation {
     if (section === 'market') { await ConstructionState.open(context); return; }
     if (context.destroyed || !context.progress || context.progressPopup) return;
     if (section === 'social') {
-      if (!context.progress.socialAvailable()) return;
+      if (!context.progress.socialAvailable()) { context.toast.show(context.progress.socialUnlockHint(), 'feature-locked', 'social'); return; }
       context.progress.advanceSocial();
     }
     const presentation = new ProgressPresentation(context, section, onClosed);
@@ -75,9 +75,14 @@ export class ProgressPresentation {
     const navigation: ProgressNavigation = {
       read: () => this.read(), act: async action => {
         const owner = this.control;
+        const generation = this.context.generation;
         const result = await this.act(action);
         if (owner && owner === this.control && this.context.progressPopup === owner && (owner instanceof ProgressControl || owner instanceof CommunityControl)
           && owner.viewType !== this.progressViewType()) await this.switchControl();
+        if (result && generation === this.context.generation && !this.context.destroyed && !this.context.ads?.hasPendingReward()) {
+          this.context.toast.show(result, 'action', action);
+          return '';
+        }
         return result;
       },
       canClose: () => !this.context.ads?.hasPendingReward(),
@@ -379,12 +384,12 @@ export class ProgressPresentation {
       return '';
     }
     if (kind === 'partner') {
-      if (!p.socialAvailable()) return '第3关后开放虚拟伙伴';
+      if (!p.socialAvailable()) { this.context.toast.show(p.socialUnlockHint(), 'feature-locked', 'social'); return ''; }
       this.socialPresentation().openPartner(value); this.returnSection = 'leaderboard'; this.section = 'social'; return '';
     }
     if (kind === 'community-tab') {
       if (value !== 'leaderboard' && value !== 'social') throw new Error('社区页面不存在');
-      if (value === 'social' && !p.socialAvailable()) return '第3关后开放虚拟伙伴';
+      if (value === 'social' && !p.socialAvailable()) { this.context.toast.show(p.socialUnlockHint(), 'feature-locked', 'social'); return ''; }
       if (value === 'social') { p.advanceSocial(); this.socialPresentation().act('tab:partners'); }
       this.returnSection = null; this.section = value; return '';
     }

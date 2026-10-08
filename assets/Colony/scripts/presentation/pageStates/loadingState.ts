@@ -1,5 +1,6 @@
 import type { IState } from 'db://shidai3/index';
 import mk from 'mk';
+import { ColonyToastView } from '../../../popups/toast/script/toastView';
 import { JsonAsset, SpriteFrame } from 'cc';
 import { readLevelDifficulty } from '../../application/levelDifficulty';
 import GlobalConfig from 'GlobalConfig';
@@ -97,6 +98,7 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       mk.uiManage.regis(ColonyConfirmView, 'popups/confirm/prefab/confirm', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyShopView, 'popups/shop/prefab/shop', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyToolView, 'popups/tool/tool', session.popupRoot!, colonyLoad),
+      mk.uiManage.regis(ColonyToastView, 'popups/toast/prefab/toast', session.popupRoot!, colonyLoad),
     ]);
   }
 

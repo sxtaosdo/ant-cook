@@ -29,6 +29,9 @@ export class BoardPresentation {
   private slotNodes: Node[] = [];
   private displaySlots: Array<SlotStackState | null> = [];
   private slotTokens: Array<{ node: Node; label: Label; stackId: string; color: SlotStackState['color']; remaining: number; frame: SpriteFrame } | null> = [];
+  private readonly zeroExits = new Map<Node, { stackId: string; generation: number; sequence: number }>();
+  private visualGeneration = 0;
+  private zeroExitSequence = 0;
   private geometryValue: BoardGeometry | null = null;
   private queueOffset = 0;
   private queueMaxOffset = 0;
@@ -106,6 +109,12 @@ export class BoardPresentation {
 
   /** 回收全部表现节点并重置瞬态。 */
   public recycle(): void {
+    ++this.visualGeneration;
+    for (const token of this.zeroExits.keys()) {
+      Tween.stopAllByTarget(token);
+      this.slotTokenPool.put(token);
+    }
+    this.zeroExits.clear();
     for (const node of this.cellNodes.values()) this.cellPool.put(node);
     for (const node of this.stackNodes.values()) this.stackPool.put(node);
     for (const [index, node] of this.fixedSlots.entries()) {
@@ -160,15 +169,40 @@ export class BoardPresentation {
     for (const event of events) {
       if (event.phase === 'COUNT' && event.slotIndex !== undefined && event.remaining !== undefined) {
         const occupant = this.displaySlots[event.slotIndex];
-        if (occupant) occupant.remaining = Math.min(occupant.remaining, event.remaining);
+        if (occupant && occupant.stackId === event.stackId) occupant.remaining = Math.min(occupant.remaining, event.remaining);
       }
       if (event.phase === 'RELEASE' && event.slotIndex !== undefined) {
+        const occupant = this.displaySlots[event.slotIndex];
+        if (!occupant || occupant.stackId !== event.stackId) continue;
+        this.exitZeroToken(event.slotIndex, occupant.stackId);
         this.displaySlots[event.slotIndex] = null;
       }
     }
     this.renderSlots();
     this.renderStacks(readModel);
     this.renderExposure(readModel);
+  }
+
+  /** Business release already happened; this detached view can only return itself to the pool. */
+  private exitZeroToken(index: number, stackId: string): void {
+    const cached = this.slotTokens[index];
+    if (!cached?.node.isValid || !cached.label.isValid || cached.stackId !== stackId) return;
+    const token = cached.node;
+    this.slotTokens[index] = null;
+    Tween.stopAllByTarget(token);
+    cached.label.string = '0';
+    token.setParent(this.slotRoot, true);
+    const scale = token.scale.clone();
+    const identity = { stackId, generation: this.visualGeneration, sequence: ++this.zeroExitSequence };
+    this.zeroExits.set(token, identity);
+    tween(token).to(0.10, { scale: new Vec3(scale.x * 1.12, scale.y * 1.12, scale.z) })
+      .to(0.16, { scale: new Vec3(0, 0, scale.z) })
+      .call(() => {
+        if (this.disposed || !token.isValid || identity.generation !== this.visualGeneration
+          || this.zeroExits.get(token) !== identity) return;
+        this.zeroExits.delete(token);
+        this.slotTokenPool.put(token);
+      }).start();
   }
 
   /** 扩槽后重建槽位锚点。 */

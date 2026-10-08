@@ -7,6 +7,7 @@ import {
 } from '../../assets/Colony/scripts/application/playerProgress.js';
 
 import { DAILY_TASKS } from '../../assets/Colony/scripts/application/dailyTasks';
+import { readSocialConfig } from '../../assets/Colony/scripts/application/social/social';
 const DAY = 86400000;
 function setup(time = PROGRESS_CALENDAR_START) {
   const values = new Map<string, string>();
@@ -33,6 +34,43 @@ function challenge(progress: PlayerProgress) {
   const round = progress.startRound(progress.dailyChallengeIndex() + 1, 'daily');
   return progress.settleRound(round.id, 'SUCCESS', 100);
 }
+
+test('partners depend on the completed level ID, including isolated sparse fixtures', () => {
+  const values = new Map<string, string>();
+  const progress = new PlayerProgress({ testOnly: true, read: key => values.get(key) ?? null,
+    write: (key, value) => { values.set(key, value); } }, { now: () => PROGRESS_CALENDAR_START }, leaderboardTestConfig, socialTestConfig);
+  const round = progress.startRound(3);
+  assert.equal(progress.socialAvailable(), false);
+  progress.settleRound(round.id, 'SUCCESS', 0);
+  assert.deepEqual(progress.snapshot().clearedLevels, [3]);
+  assert.equal(progress.socialAvailable(), true);
+  assert.equal(progress.socialUnlockHint(), '通关第3关后解锁伙伴');
+});
+
+test('failed third-level save cannot unlock partners; retry and restart preserve the unlock', () => {
+  const env = setup(); clearThrough(env.progress, 2);
+  const round = env.progress.startRound(3);
+  env.fail(true);
+  assert.throws(() => env.progress.settleRound(round.id, 'SUCCESS', 0), /disk full/);
+  assert.equal(env.progress.socialAvailable(), false);
+  assert.throws(() => env.progress.followPartner('bot-1', true), /通关第3关后解锁伙伴/);
+  env.fail(false); env.progress.settleRound(round.id, 'SUCCESS', 0);
+  assert.equal(env.restart().socialAvailable(), true);
+  const before = env.progress.snapshot().coins;
+  assert.equal(env.progress.settleRound(round.id, 'SUCCESS', 0).duplicate, true);
+  assert.equal(env.progress.snapshot().coins, before);
+});
+
+test('partner unlock threshold is validated configuration and supplies its own hint', () => {
+  const config = readSocialConfig({ ...socialTestConfig, unlockClears: 5 });
+  for (const unlockClears of [0, 61, 2.5, '3']) assert.throws(() => readSocialConfig({ ...socialTestConfig, unlockClears }));
+  const values = new Map<string, string>();
+  const progress = new PlayerProgress({ read: key => values.get(key) ?? null,
+    write: (key, value) => { values.set(key, value); } }, { now: () => PROGRESS_CALENDAR_START }, leaderboardTestConfig, config);
+  clearThrough(progress, 4); assert.equal(progress.socialAvailable(), false);
+  assert.equal(progress.socialUnlockHint(), '通关第5关后解锁伙伴');
+  clear(progress, 5); assert.equal(progress.socialAvailable(), true);
+});
 
 test('first clear is atomic and idempotent across callbacks, replay and restart', () => {
   const env = setup();

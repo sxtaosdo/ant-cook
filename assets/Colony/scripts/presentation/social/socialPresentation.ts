@@ -39,7 +39,7 @@ export class SocialPresentation {
     let title = '伙伴中心'; let summary = '本地虚拟伙伴 · 来访与回应均为模拟';
     const social: SocialPage = { tab: this.tab, cards: [], footer: `常客 ${model.partners.filter(p => p.followed).length}/5 · 今日互助 ${model.helped}/3 · 已获 ${model.helped * this.config.helpCoins}/30 金币` };
     if (!this.progress.socialAvailable()) {
-      summary = '第3关后开放虚拟伙伴'; social.footer = '继续收集，认识夜市伙伴';
+      summary = this.progress.socialUnlockHint(); social.footer = '继续收集，认识夜市伙伴';
     } else if (this.tab === 'partners') {
       social.cards = model.partners.map(p => card(p.name, p.avatar, p.name, `主线 ${p.cleared}/60 关\n${p.ranked ? '点击拜访主题摊位' : '离榜常客 · 保留最后收集成果'}`, `profile:${p.id}`, '拜访', true, p.followed ? '常客' : '榜单伙伴'));
     } else if (this.tab === 'history') {

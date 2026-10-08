@@ -36,6 +36,7 @@ export class HomeState implements IState<ColonySceneBootstrap> {
 
   /** 隐藏首页。 */
   public exit(): void {
+    this.context.toast.clear();
     this.context.homeView!.setVisible(false);
   }
 }

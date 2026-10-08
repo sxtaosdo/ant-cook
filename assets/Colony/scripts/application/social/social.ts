@@ -1,6 +1,7 @@
 import type { LeaderboardOpponent, LeaderboardState } from '../leaderboard/leaderboard';
 
 export interface SocialConfig {
+  /** Legacy field name; the value is the highest completed main-level threshold. */
   unlockClears: number; maxFollows: number; dailyHelpCount: number; helpCoins: number;
   responseHours: [number, number]; returnChance: number; naturalVisits: [number, number];
   historyLimit: number; messages: string[]; replies: string[]; thankYou: string;
@@ -39,7 +40,7 @@ const ids = (value: unknown): value is string[] => Array.isArray(value) && value
 const validDay = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(start(value)) && socialDay(start(value)) === value;
 
 export function readSocialConfig(value: unknown): SocialConfig {
-  if (!record(value) || value.unlockClears !== 3 || value.maxFollows !== 5 || value.dailyHelpCount !== 3 || value.helpCoins !== 10
+  if (!record(value) || !integer(value.unlockClears) || value.unlockClears < 1 || value.unlockClears > 60 || value.maxFollows !== 5 || value.dailyHelpCount !== 3 || value.helpCoins !== 10
     || !Array.isArray(value.responseHours) || value.responseHours.length !== 2 || value.responseHours[0] !== 18 || value.responseHours[1] !== 30
     || value.returnChance !== 0.5 || !Array.isArray(value.naturalVisits) || value.naturalVisits.length !== 2 || value.naturalVisits[0] !== 2 || value.naturalVisits[1] !== 4
     || value.historyLimit !== 100 || !Array.isArray(value.messages) || value.messages.length !== 6 || !value.messages.every(text)

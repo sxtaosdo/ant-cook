@@ -24,10 +24,10 @@ test('actual Ant close publishes its task before reentry, orders teardown and re
     game: { off() { calls.push('off'); } }, Game: { EVENT_HIDE: 'hide', EVENT_SHOW: 'show' },
     mk: { uiManage: { async unregis(Class, owner) { assert.equal(owner, root.popupRoot); calls.push(Class.name); if (Class === Tools && fail) throw Error('pool destroy'); } } },
     ColonyResultSuccessView: Success, ColonyResultFailView: Fail, ColonyProgressView: Progress, ColonyCommunityView: Community,
-    ColonySettingsView: Settings, ColonyConfirmView: Confirm, ColonyShopView: Shop, ColonyToolView: Tools,
+    ColonySettingsView: Settings, ColonyConfirmView: Confirm, ColonyShopView: Shop, ColonyToolView: Tools, ColonyToastView: class Toast {},
     ColonyTestBridge: { clear() { calls.push('bridge'); } },
   });
-  root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {},
+  root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {}, toast: { clear() {}, async flush() {} },
     dailyActivity: { dispose() { calls.push('daily'); reentry = root.close('recovery'); } },
     unschedule() {}, ads: { dispose() { calls.push('ads'); } }, progressPopup: { forceClose() { calls.push('popup'); } },
     StateMachine: { releaseAllStates() { calls.push('states'); } } });
@@ -45,12 +45,12 @@ test('actual Ant cleanup stops before unregister when an active popup close fail
   const Subject = methods('assets/Colony/scripts/bootstrap/colonySceneBootstrap.ts', 'ColonySceneBootstrap', ['close', 'closeModule'], {
     game: { off() {} }, Game: {}, mk: { uiManage: { unregis() { unregister++; } } },
     ColonyResultSuccessView: class {}, ColonyResultFailView: class {}, ColonyProgressView: class {}, ColonyCommunityView: class {},
-    ColonySettingsView: class {}, ColonyConfirmView: class {}, ColonyShopView: class {}, ColonyToolView: class {}, ColonyTestBridge: { clear() {} },
+    ColonySettingsView: class {}, ColonyConfirmView: class {}, ColonyShopView: class {}, ColonyToolView: class {}, ColonyToastView: class {}, ColonyTestBridge: { clear() {} },
   });
-  const root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {}, unschedule() {},
+  const root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {}, unschedule() {}, toast: { clear() {}, async flush() {} },
     progressPopup: { forceClose() { attempts++; if (fail) throw Error('popup close'); } }, StateMachine: { releaseAllStates() {} } });
   await assert.rejects(root.close('switch'), /cleanup did not complete/); assert.equal(unregister, 0);
-  fail = false; await root.close('switch'); assert.equal(attempts, 2); assert.equal(unregister, 8);
+  fail = false; await root.close('switch'); assert.equal(attempts, 2); assert.equal(unregister, 9);
 });
 
 test('actual popup closed callback preserves destroyed input fence and never clears a newer control', () => {
@@ -98,13 +98,14 @@ test('outer partner tab resets a visited profile to its list and preserves the u
   const Social = methods('assets/Colony/scripts/presentation/social/socialPresentation.ts', 'SocialPresentation', ['isProfile', 'act'], {});
   const social = new Social(); social.tab = 'profile';
   const Subject = methods('assets/Colony/scripts/presentation/progressPresentation.ts', 'ProgressPresentation', ['act'], {});
-  const popup = new Subject(); let available = true, advances = 0;
-  Object.assign(popup, { context: { progress: { socialAvailable: () => available, advanceSocial() { advances++; } } },
+  const popup = new Subject(); let available = true, advances = 0; const toasts = [];
+  Object.assign(popup, { context: { toast: { show: (...args) => toasts.push(args) }, progress: { socialAvailable: () => available, socialUnlockHint: () => '通关第3关后解锁伙伴', advanceSocial() { advances++; } } },
     section: 'leaderboard', returnSection: 'leaderboard', socialPresentation: () => social });
   await popup.act('community-tab:social');
   assert.equal(social.tab, 'partners'); assert.equal(popup.section, 'social'); assert.equal(popup.returnSection, null); assert.equal(advances, 1);
   social.tab = 'profile'; await popup.act('community-tab:leaderboard');
   assert.equal(social.tab, 'profile'); assert.equal(popup.section, 'leaderboard');
   available = false; const feedback = await popup.act('community-tab:social');
-  assert.ok(feedback.includes('第3关')); assert.equal(social.tab, 'profile'); assert.equal(popup.section, 'leaderboard'); assert.equal(advances, 1);
+  assert.equal(feedback, ''); assert.equal(toasts.length, 1); assert.ok(toasts[0][0].includes('第3关'));
+  assert.equal(social.tab, 'profile'); assert.equal(popup.section, 'leaderboard'); assert.equal(advances, 1);
 });

@@ -1,5 +1,5 @@
 import type { GameColor } from '../application/levelCatalog';
-import { Button, game, Game, Label, Node, Sprite, UITransform, UIOpacity, view } from 'cc';
+import { Button, Component, director, Director, game, Game, Label, Node, ResolutionPolicy, Sprite, UITransform, UIOpacity, view } from 'cc';
 import { PREVIEW } from 'cc/env';
 import type { ColonySceneBootstrap } from '../bootstrap/colonySceneBootstrap';
 import { ColonyUtil } from '../colonyUtil';
@@ -11,6 +11,8 @@ import { ColonyPopupView } from '../../popups/progress/script/popupView';
 import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
 import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
+import { ColonyCommunityView } from '../../popups/progress/script/communityView';
+import { ColonyToastView } from '../../popups/toast/script/toastView';
 import { colonyTestLevelTrace } from './colonyTestTraces';
 import { ProgressPresentation, type ProgressSection } from '../presentation/progressPresentation';
 import { createProgressPreviewFixture, createProgressPreviewSession } from './progressPreviewFixture';
@@ -108,6 +110,70 @@ export class ColonyTestBridge {
   }
 
   public openProgress(section: ProgressSection = 'market'): Promise<void> { return ProgressPresentation.open(this.ctx, section); }
+
+  public clickSocialTabPreview(): void {
+    if (!PREVIEW) throw new Error('Preview only');
+    const tab = this.ctx.popupRoot?.getComponentInChildren(ColonyCommunityView)?.socialTab;
+    if (!tab?.activeInHierarchy || !tab.getComponent(Button)?.interactable) throw new Error('Social tab is unavailable');
+    tab.emit(Button.EventType.CLICK);
+  }
+  /** Isolated browser fixture only; never emits Creator's persistent device option change. */
+  public fitToastViewportPreview(): void {
+    if (!PREVIEW) throw new Error('Preview only');
+    for (const element of [game.frame, game.container]) if (element) {
+      element.style.width = '750px'; element.style.height = '1334px';
+      element.style.position = 'fixed'; element.style.left = '0'; element.style.top = '0';
+      element.style.margin = '0'; element.style.transform = 'none';
+    }
+    view.setFrameSize(750, 1334);
+    view.setDesignResolutionSize(750, 1334, ResolutionPolicy.FIXED_WIDTH);
+    if (game.canvas) { game.canvas.style.width = '750px'; game.canvas.style.height = '1334px'; }
+    const canvas = this.ctx.node.parent;
+    canvas?.getComponent(UITransform)?.setContentSize(750, 1334);
+    canvas?.setWorldPosition(375, 667, 0);
+    if (this.ctx.mainCamera) {
+      this.ctx.mainCamera.orthoHeight = 667;
+      this.ctx.mainCamera.node.setWorldPosition(375, 667, 1000);
+    }
+  }
+  public showToastPreview(text: string, object = ''): void {
+    if (!PREVIEW) throw new Error('Preview only');
+    this.ctx.toast.show(text, 'preview', object);
+  }
+  public toastEvidencePreview(): unknown {
+    if (!PREVIEW) throw new Error('Preview only');
+    const rect = game.canvas?.getBoundingClientRect();
+    return { visibleSize: view.getVisibleSize(), canvasSize: rect ? { width: rect.width, height: rect.height } : null,
+      cameraHeight: this.ctx.mainCamera?.orthoHeight, inputLocked: this.ctx.inputLocked,
+      toasts: this.ctx.popupRoot?.getComponentsInChildren(ColonyToastView).filter(item => item.node.activeInHierarchy)
+        .map(item => ({ text: item.caption?.string, position: item.node.worldPosition.clone(),
+          size: item.node.getComponent(UITransform)?.contentSize, components: item.node.getComponents(Component).map(component => component.constructor.name) })) ?? [] };
+  }
+
+  /** Observe the real release tween during legal level-one transport in an isolated Preview. */
+  public async zeroExitEvidencePreview(): Promise<unknown> {
+    if (!PREVIEW || !this.ctx.gm?.active || !this.playPage() || this.ctx.play?.snapshot().level !== 1) throw new Error('Isolated level-one Preview required');
+    const samples: Array<{ node: string; scale: number; occupied: number }> = [];
+    let frames = 0;
+    const observe = (): void => {
+      ++frames;
+      for (const node of this.ctx.slotView?.content.children ?? []) {
+        if (node.activeInHierarchy && node.name.startsWith('slot-token-') && node.getComponentInChildren(Label)?.string === '0' && samples.length < 200) {
+          samples.push({ node: node.uuid, scale: node.scale.x, occupied: this.ctx.play?.snapshot().slots.filter(Boolean).length ?? 0 });
+        }
+      }
+    };
+    director.on(Director.EVENT_AFTER_DRAW, observe, this);
+    try {
+      const stack = this.ctx.play?.snapshot().stacks.find(item => item.accessible && !item.selected);
+      if (!stack) throw new Error('No available stack for zero-exit observation');
+      await this.playPage()?.tapStack(stack.id);
+      await this.playPage()?.waitForTransportIdle();
+      await ColonyUtil.delay(0.4);
+      return { samples, frames, result: this.ctx.play?.snapshot().result,
+        remainingZeroNodes: this.ctx.slotView?.content.children.filter(node => node.activeInHierarchy && node.name.startsWith('slot-token-') && node.getComponentInChildren(Label)?.string === '0').length ?? 0 };
+    } finally { director.off(Director.EVENT_AFTER_DRAW, observe, this); }
+  }
 
   public previewSettings(): void {
     if (!PREVIEW) throw new Error('Preview only');
@@ -291,6 +357,7 @@ export class ColonyTestBridge {
     return {
       screen,
       inputLocked: this.ctx.inputLocked,
+      toast: PREVIEW ? this.toastEvidencePreview() : undefined,
       settings: this.ctx.settings?.snapshot(),
       speed: { remainingMs: this.ctx.progress?.readSpeedBoost().remainingMs,
         labels: this.ctx.hudView?.node.getChildByName('TopBarRoot')!.getChildByName('SpeedButton')!.getComponentsInChildren(Label).map(label => ({ name: label.node.name, text: label.string, active: label.node.activeInHierarchy })),

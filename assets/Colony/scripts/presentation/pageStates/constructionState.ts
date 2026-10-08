@@ -77,6 +77,7 @@ export class ConstructionState implements IState<ColonySceneBootstrap> {
   }
 
   public exit(): void {
+    this.context.toast.clear();
     this.context.constructionView?.setVisible(false);
     this.context.constructionView?.node.destroy(); this.context.constructionView = null;
   }

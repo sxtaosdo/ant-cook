@@ -198,6 +198,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
   public async exit(): Promise<void> {
     const session = this.context;
     session.generation++; this.hardNotice.dispose(); this.waitingStacks.clear();
+    session.toast.clear();
     this.transportLoop = null;
     this.collectionFlight?.dispose(); this.collectionFlight = null;
     this.speedBoost?.dispose(); this.speedBoost = null;
@@ -224,7 +225,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     try {
       play.selectStack(stackId);
     } catch {
-      session.hudView?.setFeedback('先选择本列前方方块');
+      session.toast.show('先选择本列前方方块', 'stack-locked', stackId);
       return;
     }
     const generation = session.generation;

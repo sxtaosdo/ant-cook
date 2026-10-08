@@ -144,9 +144,9 @@ export class PlayerProgress {
     if (!next.activeDays.includes(day)) next.activeDays.push(day);
     if (day !== next.daily.day) next.daily = { day, orders: ordersFor(day, next.clearedLevels.length >= 10), rerolled: false, claimed: false, adClears: 0, adSupplies: 0, boostRemainingMs: FREE_BOOST_MS, boostAds: 0, tasks: freshDailyTasks() };
     this.collectExpired(next, effective);
-    if (!next.clockRolledBack && next.clearedLevels.length >= this.socialConfig.unlockClears) advanceSocial(next.social, next.leaderboard, effective, this.socialConfig);
+    if (!next.clockRolledBack && this.hasSocialUnlock(next)) advanceSocial(next.social, next.leaderboard, effective, this.socialConfig);
     const result = action(next);
-    if (!next.clockRolledBack && next.clearedLevels.length >= this.socialConfig.unlockClears) advanceSocial(next.social, next.leaderboard, effective, this.socialConfig);
+    if (!next.clockRolledBack && this.hasSocialUnlock(next)) advanceSocial(next.social, next.leaderboard, effective, this.socialConfig);
     next.lastSeen = Math.max(next.lastSeen, now);
     const encoded = JSON.stringify(next);
     // A failed primary write leaves the in-memory transaction uncommitted and the prior save recoverable.
@@ -209,7 +209,12 @@ export class PlayerProgress {
     });
   }
   public readLeaderboard(): LeaderboardEntry[] { return readLeaderboard(this.data.leaderboard, this.data.clearedLevels.length, this.leaderboardConfig); }
-  public socialAvailable(): boolean { return this.data.clearedLevels.length >= this.socialConfig.unlockClears; }
+  /** Completed level IDs are authoritative; entering/unlocking a level never opens partners. */
+  private hasSocialUnlock(state: PlayerProgressSnapshot): boolean {
+    return state.clearedLevels.some(level => level >= this.socialConfig.unlockClears);
+  }
+  public socialAvailable(): boolean { return this.hasSocialUnlock(this.data); }
+  public socialUnlockHint(): string { return `通关第${this.socialConfig.unlockClears}关后解锁伙伴`; }
   public socialCanInteract(): boolean { return this.socialAvailable() && this.now() + 60000 >= this.data.maxTime; }
   public readSocial(): SocialReadModel { return readSocial(this.data.social, this.data.leaderboard); }
   public advanceSocial(): boolean {
@@ -219,7 +224,7 @@ export class PlayerProgress {
   }
   private socialAllowed(s: PlayerProgressSnapshot): void {
     this.timeAllowed(s);
-    if (s.clearedLevels.length < this.socialConfig.unlockClears) throw new Error('第3关后开放虚拟伙伴');
+    if (!this.hasSocialUnlock(s)) throw new Error(this.socialUnlockHint());
   }
   public followPartner(id: string, followed: boolean): void {
     this.change(s => { this.socialAllowed(s); followPartner(s.social, s.leaderboard, id, followed, this.socialConfig); });

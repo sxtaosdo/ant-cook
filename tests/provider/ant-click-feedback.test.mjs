@@ -41,7 +41,7 @@ function playFixture() {
       lastDispatchRoundList: () => [], suggestedStack: () => null,
       selectStack: id => { selections.push(id); throw Error('stop after command boundary'); },
       useExtraSlot: () => { if (used.includes('slot')) throw Error('used'); used.push('slot'); } },
-    hudView: { setFeedback() {} }, toolBarView: { setUsed() {} },
+    hudView: { setFeedback() {} }, toast: { show() {} }, toolBarView: { setUsed() {} },
   };
   state.board = { shakeStack: id => shakes.push(id), addExtraSlot() {} };
   state.playSound = async () => {};
