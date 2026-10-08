@@ -25,6 +25,8 @@ export class ColonyHudView extends mk.StaticViewBase {
   @property(Button) private leaderboardButton: Button | null = null;
   @property(Label) private coinLabel: Label | null = null;
   @property(Label) private diamondLabel: Label | null = null;
+  @property(Label) private nicknameLabel: Label | null = null;
+  @property(Label) private buildVersionLabel: Label | null = null;
   @property(Label) private speedText: Label | null = null;
   @property(Label) private speedTime: Label | null = null;
   @property(Node) private speedTimePlate: Node | null = null;
@@ -94,6 +96,12 @@ export class ColonyHudView extends mk.StaticViewBase {
   public setResources(coins: number, diamonds: number): void {
     this.diamondLabel!.string = String(diamonds);
     this.coinLabel!.string = String(coins);
+  }
+
+  public setProfile(nickname: string, version: string): void {
+    if (!this.nicknameLabel || !this.buildVersionLabel) throw new Error('HUD profile bindings are missing');
+    this.nicknameLabel.string = nickname;
+    this.buildVersionLabel.string = `v${version}`;
   }
 
   /** Main levels are a read-only horizontal track; progress changes only after cargo clears. */

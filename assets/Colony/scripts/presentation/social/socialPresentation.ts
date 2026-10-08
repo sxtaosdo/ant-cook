@@ -2,6 +2,7 @@ import { readThemeCollections, type PlayerProgress, type ThemeBasketProgress } f
 import type { LeaderboardConfig } from '../../application/leaderboard/leaderboard';
 import type { SocialConfig, SocialEvent, SocialPartner } from '../../application/social/social';
 import type { ProgressPage } from '../../../popups/progress/script/progressModel';
+import type { PlayerProfile } from '../../application/playerProfile';
 
 export interface SocialCard {
   title: string; detail: string; name: string; avatarColor: string; badge: string;
@@ -22,7 +23,7 @@ export class SocialPresentation {
   private tab: SocialPage['tab'] = 'partners';
   private partnerId = '';
   private themeIndex = -1;
-  public constructor(private readonly progress: PlayerProgress, private readonly config: SocialConfig, private readonly leaderboard: LeaderboardConfig) {}
+  public constructor(private readonly progress: PlayerProgress, private readonly config: SocialConfig, private readonly leaderboard: LeaderboardConfig, private readonly localProfile?: PlayerProfile) {}
 
   public isProfile(): boolean { return this.tab === 'profile'; }
   public openPartner(id: string): void {
@@ -36,12 +37,14 @@ export class SocialPresentation {
     const color = (avatar: number): string => this.leaderboard.avatarColors[avatar]!;
     const card = (name: string, avatar: number, title: string, detail: string, action: string, button: string, enabled = true, badge = ''): SocialCard =>
       ({ name, avatarColor: color(avatar), title, detail, action, button, enabled, badge });
-    let title = '伙伴中心'; let summary = '本地虚拟伙伴 · 来访与回应均为模拟';
+    const self = this.localProfile?.snapshot();
+    let title = '伙伴中心'; let summary = `${self ? `${self.nickname} · ` : ''}本地虚拟伙伴 · 来访与回应均为模拟`;
     const social: SocialPage = { tab: this.tab, cards: [], footer: `常客 ${model.partners.filter(p => p.followed).length}/5 · 今日互助 ${model.helped}/3 · 已获 ${model.helped * this.config.helpCoins}/30 金币` };
+    if (self && this.tab === 'partners') social.cards.push(card(self.nickname, self.avatar, '我的资料', `本地玩家ID：${self.playerId}\n头像和昵称在设置中修改`, 'settings', '修改资料', true, '我'));
     if (!this.progress.socialAvailable()) {
       summary = this.progress.socialUnlockHint(); social.footer = '继续收集，认识夜市伙伴';
     } else if (this.tab === 'partners') {
-      social.cards = model.partners.map(p => card(p.name, p.avatar, p.name, `主线 ${p.cleared}/60 关\n${p.ranked ? '点击拜访主题摊位' : '离榜常客 · 保留最后收集成果'}`, `profile:${p.id}`, '拜访', true, p.followed ? '常客' : '榜单伙伴'));
+      social.cards.push(...model.partners.map(p => card(p.name, p.avatar, p.name, `主线 ${p.cleared}/60 关\n${p.ranked ? '点击拜访主题摊位' : '离榜常客 · 保留最后收集成果'}`, `profile:${p.id}`, '拜访', true, p.followed ? '常客' : '榜单伙伴')));
     } else if (this.tab === 'history') {
       social.cards = model.history.map(event => {
         const p = model.partners.find(bot => bot.id === event.actor.id);

@@ -174,6 +174,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     session.playRoot!.active = true;
     layoutPlay(session);
     hudView.setLevel(read.currentLevel);
+    session.refreshProfile();
     const themeTarget = session.round?.mode === 'main' ? themeForLevel(read.currentLevel) : null;
     slotView.setFirstLevelSkin(null);
     toolBarView.setFirstLevelSkin(false);

@@ -24,6 +24,7 @@ export class HomeState implements IState<ColonySceneBootstrap> {
     if (session.progress) {
       session.homeView!.tutorial = session.progress.takeTutorial() ?? session.homeView!.tutorial;
       session.homeView!.refresh(session.progress);
+      session.refreshProfile();
     }
     session.homeView!.bind(() => {
       void PlayState.enterLevel(session, session.progress?.nextLevel() ?? 1);

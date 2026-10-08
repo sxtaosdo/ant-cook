@@ -13,6 +13,7 @@ import { ColonySocialPopupView } from '../../popups/social/script/socialPopupVie
 import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { ColonyCommunityView } from '../../popups/progress/script/communityView';
 import { ColonyToastView } from '../../popups/toast/script/toastView';
+import { ColonySettingsView } from '../../popups/settings/script/settingsView';
 import { colonyTestLevelTrace } from './colonyTestTraces';
 import { ProgressPresentation, type ProgressSection } from '../presentation/progressPresentation';
 import { createProgressPreviewFixture, createProgressPreviewSession } from './progressPreviewFixture';
@@ -101,6 +102,15 @@ export class ColonyTestBridge {
   public getProgress(): unknown { return this.ctx.progress?.snapshot(); }
   public getSpeedEvidence(): unknown { return { selected: this.playPage()?.speedEvidence, transport: this.playPage()?.transportEvidence }; }
   public getInstallationId(): string | null { return this.ctx.identity?.read() ?? null; }
+  public profileEvidencePreview(): unknown {
+    if (!PREVIEW) throw new Error('Preview only');
+    const settings = this.ctx.popupRoot?.getComponentInChildren(ColonySettingsView);
+    const nickname = (node?: Node): unknown => node?.getComponentsInChildren(Label).filter(label => ['ProfileNickname', 'ProfileBuildVersion'].includes(label.node.name)).map(label => ({ name: label.node.name, text: label.string, size: label.node.getComponent(UITransform)?.contentSize, position: label.node.worldPosition }));
+    return { profile: this.ctx.profile?.snapshot(), hud: nickname(this.ctx.hudView?.node), home: nickname(this.ctx.homeView?.node),
+      settings: settings?.node.activeInHierarchy ? { nickname: settings.nicknameEdit?.string, playerId: settings.userIdLabel?.string,
+        registered: settings.registeredLabel?.string, avatar: settings.profileAvatar?.color, feedback: settings.noticeLabel?.string } : null,
+      projectedSelf: this.ctx.profile && this.ctx.progress && this.ctx.leaderboardConfig ? this.ctx.profile.leaderboard(this.ctx.progress.readLeaderboard(), this.ctx.leaderboardConfig.avatarColors).find(entry => entry.isSelf) : null };
+  }
   public async enterGmPreview(): Promise<void> { if (!PREVIEW) throw new Error('Preview only'); await this.ctx.gm!.enter(); }
   public async gmActionPreview(action: string, level?: number): Promise<void> { if (!PREVIEW) throw new Error('Preview only'); await this.ctx.gm!.run(action, level); }
 

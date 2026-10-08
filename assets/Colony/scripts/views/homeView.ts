@@ -7,6 +7,14 @@ const { ccclass, property } = _decorator;
 @ccclass('ColonyHomeView')
 /** 首页 Prefab：开始按钮与显隐。 */
 export class ColonyHomeView extends mk.StaticViewBase {
+  @property(Label) private nicknameLabel: Label | null = null;
+  @property(Label) private buildVersionLabel: Label | null = null;
+
+  public setProfile(nickname: string, version: string): void {
+    if (!this.nicknameLabel || !this.buildVersionLabel) throw new Error('Home profile bindings are missing');
+    this.nicknameLabel.string = nickname;
+    this.buildVersionLabel.string = `v${version}`;
+  }
   public tutorial: string | null = null;
   @property(Button)
   private startButton: Button | null = null;

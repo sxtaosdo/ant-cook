@@ -1,4 +1,4 @@
-import { _decorator, Label, Layout, Node, Sprite, SpriteFrame } from 'cc';
+import { _decorator, Color, EditBox, Label, Layout, Node, Sprite, SpriteFrame } from 'cc';
 import { ColonyPopupView } from '../../progress/script/popupView';
 
 const { ccclass, property } = _decorator;
@@ -22,12 +22,22 @@ export class ColonySettingsView extends ColonyPopupView {
   @property(Label) public versionLabel: Label | null = null;
   @property(Label) public userIdLabel: Label | null = null;
   @property(Label) public noticeLabel: Label | null = null;
+  @property(EditBox) public nicknameEdit: EditBox | null = null;
+  @property(Sprite) public profileAvatar: Sprite | null = null;
+  @property(Label) public profileInitial: Label | null = null;
+  @property(Label) public registeredLabel: Label | null = null;
+  @property(Node) public avatarButton: Node | null = null;
+  @property(Node) public saveProfileButton: Node | null = null;
+  private profileKey = '';
+  private selectedAvatar = 0;
   @property(SpriteFrame) public musicOnFrame: SpriteFrame | null = null;
   @property(SpriteFrame) public musicOffFrame: SpriteFrame | null = null;
   @property(SpriteFrame) public soundOnFrame: SpriteFrame | null = null;
   @property(SpriteFrame) public soundOffFrame: SpriteFrame | null = null;
   @property public homeSpacing = 84;
   @property public roundSpacing = 24;
+
+  protected prepareOpen(): void { this.profileKey = ''; }
 
   public render(): void {
     const settings = this._model.page.settings;
@@ -52,7 +62,23 @@ export class ColonySettingsView extends ColonyPopupView {
     }
     this.bind(this.closeButton, true, () => this.event.emit('close'));
     this.versionLabel.string = settings.version;
-    this.userIdLabel.string = `ID: ${settings.userId}`;
+    this.userIdLabel.string = `本地玩家ID：${settings.userId}`;
+    const profile = settings.profile;
+    if (profile) {
+      if (!this.nicknameEdit || !this.profileAvatar || !this.profileInitial || !this.registeredLabel || !this.avatarButton || !this.saveProfileButton) throw new Error('Settings profile bindings are missing');
+      const key = JSON.stringify([profile.playerId, profile.nickname, profile.avatar]);
+      if (key !== this.profileKey) {
+        this.profileKey = key; this.nicknameEdit.string = profile.nickname; this.selectedAvatar = profile.avatar;
+        this.profileAvatar.color = new Color(profile.avatarColor);
+      }
+      this.profileInitial.string = [...profile.nickname][0] ?? '我';
+      this.registeredLabel.string = `注册时间：${profile.registeredAt === null ? '未记录' : new Date(profile.registeredAt + 8 * 3600000).toISOString().slice(0, 10)}`;
+      this.bind(this.avatarButton, true, () => {
+        this.selectedAvatar = (this.selectedAvatar + 1) % profile.avatarColors.length;
+        this.profileAvatar!.color = new Color(profile.avatarColors[this.selectedAvatar]);
+      });
+      this.bind(this.saveProfileButton, true, () => this.event.emit('action', `profile-save:${encodeURIComponent(JSON.stringify({ nickname: this.nicknameEdit!.string, avatar: this.selectedAvatar }))}`));
+    }
     this.gmButton.active = settings.gmAvailable;
     this.bind(this.gmButton, settings.gmAvailable, () => this.event.emit('action', 'section:gm'));
     this.noticeLabel.node.active = Boolean(this._model.feedback);

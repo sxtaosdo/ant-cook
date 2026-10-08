@@ -138,7 +138,7 @@ export class ProgressPresentation {
     const p = this.context.progress!;
     if (this.section === 'social') return this.socialPresentation().read();
     if (this.section === 'leaderboard') {
-      const entries = p.readLeaderboard();
+      const entries = this.context.profile?.leaderboard(p.readLeaderboard(), this.context.leaderboardConfig!.avatarColors) ?? p.readLeaderboard();
       return { title: '排行榜', summary: '虚拟伙伴 · 同进度先达到者在前\n主线首通排名 · 升降相对上次更新', rows: [], layout: 'leaderboard', showBack: false,
         leaderboard: { entries, self: entries.find(entry => entry.isSelf)!, canVisit: p.socialAvailable() } };
     }
@@ -292,10 +292,12 @@ export class ProgressPresentation {
       }
       case 'settings': {
         const inRound = Boolean(PlayState.current(this.context) && this.context.round);
+        const profile = this.context.profile?.snapshot();
         return { title: '设置', summary: '', rows: [], layout: 'settings', showBack: false,
           settings: { soundEnabled: this.context.settings?.snapshot().soundEnabled !== false,
             musicEnabled: this.context.settings?.snapshot().musicEnabled !== false, inRound, version: `v${COLONY_BUILD_VERSION}`,
-            userId: this.context.identity?.read() ?? '暂不可用', gmAvailable: this.context.gm?.available ?? false } };
+            userId: profile?.playerId ?? '暂不可用', gmAvailable: this.context.gm?.available ?? false,
+            profile: profile ? { ...profile, avatarColor: this.context.leaderboardConfig!.avatarColors[profile.avatar], avatarColors: this.context.leaderboardConfig!.avatarColors } : undefined } };
       }
       case 'gm': {
         if (!this.context.gm?.available) throw new Error('GM仅在开发与Preview可用');
@@ -359,6 +361,14 @@ export class ProgressPresentation {
     const [kind, value] = action.split(':');
     if (kind === 'product-navigation' && !this.context.ads?.hasPendingReward()) { ModuleEntryGate.require('ant').requestNavigation?.(); return ''; }
     if (this.context.ads?.hasPendingReward() && kind !== 'ad-supply' && kind !== 'ad-speed') return '奖励待保存，请重试原广告领取，无需再看视频';
+    if (kind === 'profile-save' && this.section === 'settings') {
+      const edit: unknown = JSON.parse(decodeURIComponent(value));
+      if (!edit || typeof edit !== 'object' || !('nickname' in edit) || typeof edit.nickname !== 'string' || !('avatar' in edit) || typeof edit.avatar !== 'number' || !this.context.profile) throw new Error('资料输入无效，请重试');
+      try { this.context.profile.save(edit.nickname, edit.avatar); }
+      catch (cause) { throw new Error(`资料保存未完成，请重试：${cause instanceof Error ? cause.message : String(cause)}`); }
+      this.context.refreshProfile();
+      return '资料已保存';
+    }
     if (kind === 'gm' || kind === 'gm-confirm') {
       const gm = this.context.gm;
       if (!gm?.available) throw new Error('GM仅在开发与Preview可用');
@@ -394,6 +404,7 @@ export class ProgressPresentation {
       this.returnSection = null; this.section = value; return '';
     }
     if (this.section === 'social') {
+      if (kind === 'settings') { this.section = 'settings'; return ''; }
       if (kind === 'back' && this.returnSection === 'leaderboard' && this.socialPresentation().isProfile()) {
         this.section = 'leaderboard'; this.returnSection = null; return '';
       }
@@ -505,7 +516,7 @@ export class ProgressPresentation {
   }
 
   private socialPresentation(): SocialPresentation {
-    return this.social ??= new SocialPresentation(this.context.progress!, this.context.socialConfig!, this.context.leaderboardConfig!);
+    return this.social ??= new SocialPresentation(this.context.progress!, this.context.socialConfig!, this.context.leaderboardConfig!, this.context.profile ?? undefined);
   }
 
   private async close(): Promise<void> {

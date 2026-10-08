@@ -22,7 +22,9 @@ import GlobalConfig from 'GlobalConfig';
 import { ColonyResultFailView } from '../../popups/resultFail/script/resultFailView';
 import { ColonyResultSuccessView } from '../../popups/resultSuccess/script/resultSuccessView';
 import { AppModel } from '../application/appModel';
-import { PlayerProgress, type ProgressRound } from '../application/playerProgress';
+import { PlayerProgress, PROGRESS_SAVE_KEY, PROGRESS_BACKUP_KEY, type ProgressRound } from '../application/playerProgress';
+import { PlayerProfile } from '../application/playerProfile';
+import { COLONY_BUILD_VERSION } from '../application/buildInfo';
 import type { LeaderboardConfig } from '../application/leaderboard/leaderboard';
 import type { SocialConfig } from '../application/social/social';
 import { RewardedAds, type WeChatAdsPort } from '../application/rewardedAds';
@@ -114,6 +116,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
   public progress: PlayerProgress | null = null;
   public settings: UserSettings | null = null;
   public identity: InstallationIdentity | null = null;
+  public profile: PlayerProfile | null = null;
   public gm: GmTestSession | null = null;
   public dailyActivity: DailyActivityPresentation | null = null;
   public readonly difficultyKinds = new Map<number, 'E' | 'S' | 'H'>();
@@ -162,6 +165,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
     // MK storage.set queues writes and cannot report a disk failure. This synchronous port
     // lets the product transaction retain its previous snapshot if persistence fails.
     const storage = this.requireEntry().storage;
+    const legacyPlayer = Boolean(storage.getItem(PROGRESS_SAVE_KEY) || storage.getItem(PROGRESS_BACKUP_KEY));
     this.progress = new PlayerProgress({
       read: (key) => storage.getItem(key),
       write: (key, value) => storage.setItem(key, value),
@@ -174,6 +178,10 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
       read: key => storage.getItem(key), write: (key, value) => storage.setItem(key, value),
     }, () => globalThis.crypto.getRandomValues(new Uint8Array(16)));
     this.identity.read();
+    this.profile = new PlayerProfile({ read: key => storage.getItem(key), write: (key, value) => storage.setItem(key, value) },
+      this.leaderboardConfig!.avatarColors.length,
+      () => `local-${Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')}`,
+      () => Date.now(), legacyPlayer);
     this.dailyActivity = new DailyActivityPresentation(this);
     this.applyAudioSettings();
     const platform = (globalThis as typeof globalThis & { wx?: WeChatAdsPort }).wx ?? null;
@@ -181,6 +189,13 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
     game.on(Game.EVENT_HIDE, this.cancelAd, this);
     game.on(Game.EVENT_SHOW, this.advanceSocial, this);
     this.schedule(this.advanceSocial, 30);
+  }
+
+  public refreshProfile(): void {
+    const profile = this.profile?.snapshot();
+    if (!profile) return;
+    this.hudView?.setProfile(profile.nickname, COLONY_BUILD_VERSION);
+    this.homeView?.setProfile(profile.nickname, COLONY_BUILD_VERSION);
   }
 
   private cancelAd(): void { if (!this.ads?.isShowingSpeed()) this.ads?.cancel(); }
