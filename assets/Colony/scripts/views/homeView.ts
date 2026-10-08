@@ -12,6 +12,8 @@ export class ColonyHomeView extends mk.StaticViewBase {
   @property(Label) private buildVersionLabel: Label | null = null;
   @property(Label) private stageTargetLabel: Label | null = null;
   @property(Button) private stageTargetButton: Button | null = null;
+  @property(Label) private trackedObjectLabel: Label | null = null;
+  @property(Button) private trackedObjectButton: Button | null = null;
 
   public setProfile(nickname: string, version: string): void {
     if (!this.nicknameLabel || !this.buildVersionLabel) throw new Error('Home profile bindings are missing');
@@ -27,13 +29,16 @@ export class ColonyHomeView extends mk.StaticViewBase {
   }
 
   /** 绑定开始按钮回调。 */
-  public bind(onStart: () => void, onOpen?: (section: 'market' | 'tasks' | 'collection' | 'events' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'stages') => void): void {
+  public bind(onStart: () => void, onOpen?: (section: 'market' | 'tasks' | 'collection' | 'events' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'stages' | 'tracked-object') => void): void {
     const startButton = this.requireStartButton();
     startButton.node.targetOff(this);
     startButton.node.on(Button.EventType.CLICK, onStart, this);
     if (!this.stageTargetButton) throw new Error('Home stage target button binding is missing');
     this.stageTargetButton.node.targetOff(this);
     this.stageTargetButton.node.on(Button.EventType.CLICK, () => onOpen?.('stages'), this);
+    if (!this.trackedObjectButton) throw new Error('Home collection target button binding is missing');
+    this.trackedObjectButton.node.targetOff(this);
+    this.trackedObjectButton.node.on(Button.EventType.CLICK, () => onOpen?.('tracked-object'), this);
     for (const [name, section] of [['NightMarketButton', 'market'], ['DailyButton', 'tasks'], ['CollectionButton', 'collection'], ['EventsButton', 'events'], ['ShopButton', 'shop'], ['SettingsButton', 'settings'], ['LeaderboardButton', 'leaderboard']] as const) {
       const node = this.node.getChildByName(name);
       node?.targetOff(this);
@@ -46,6 +51,9 @@ export class ColonyHomeView extends mk.StaticViewBase {
     if (!this.stageTargetLabel) throw new Error('Home stage target label binding is missing');
     const stage = StageTargetSelector.select(s);
     this.stageTargetLabel.string = `${stage.title}\n${stage.rewardText} · 查看领取记录`;
+    if (!this.trackedObjectLabel) throw new Error('Home collection target label binding is missing');
+    const tracked = progress.trackedObject();
+    this.trackedObjectLabel.string = tracked ? `关注：${tracked.item.name} ${tracked.count}/${tracked.item.target}${tracked.complete ? ' · 已完成' : ''} · 查看` : '选择一个收集目标 · 查看清单';
     const unlock = progress.availability();
     const socialButton = this.node.getChildByName('SocialButton');
     if (socialButton) {
@@ -80,6 +88,7 @@ export class ColonyHomeView extends mk.StaticViewBase {
   protected onDestroy(): void {
     this.startButton?.node?.targetOff(this);
     this.stageTargetButton?.node?.targetOff(this);
+    this.trackedObjectButton?.node?.targetOff(this);
   }
 
   private requireStartButton(): Button {

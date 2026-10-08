@@ -1,4 +1,5 @@
 import { THEME_BASKETS, themeForLevel } from './operationalLevels';
+import { collectionObject, readCollectionObject } from './collectionObject';
 import { advanceLeaderboard, readLeaderboard, recordLeaderboardFirstClear, type LeaderboardConfig, type LeaderboardEntry, type LeaderboardState } from './leaderboard/leaderboard';
 import { fresh, ordersFor, parseSave } from './progressSave';
 import { claimDailyTask, completeDailyTasks, freshDailyTasks, recordDailyTime, recordDailyTool, type DailyTasksState, type DailyTimeReceipt } from './dailyTasks';
@@ -37,6 +38,7 @@ export interface PlayerProgressSnapshot {
   rounds: Record<string, ProgressRound>; rewardLedger: string[]; nextRound: number;
   lastSeen: number; maxTime: number; clockRolledBack: boolean; tutorialDays: Record<string, string>;
   pendingMessages: string[];
+  trackedObjectId: string | null;
   toolInventory: Record<SupplyTool, number>;
   toolTransactions: Record<string, ToolTransaction>;
   leaderboard: LeaderboardState;
@@ -306,6 +308,27 @@ export class PlayerProgress {
   }
   /** Derived from permanent first clears, so legacy saves and replayed rounds share one source of truth. */
   public themeBasketProgress(): ThemeBasketProgress[] { return readThemeCollections(this.snapshot().clearedLevels); }
+  public trackedObject() {
+    const state = this.snapshot();
+    return state.trackedObjectId ? readCollectionObject(state.clearedLevels, state.trackedObjectId) : null;
+  }
+  public trackObject(itemId: string | null): boolean {
+    if (itemId !== null && !collectionObject(itemId)) throw new Error('收集对象不存在');
+    if (this.data.trackedObjectId === itemId) return false;
+    return this.change(s => {
+      s.trackedObjectId = itemId;
+      const detail = itemId ? readCollectionObject(s.clearedLevels, itemId) : null;
+      const notice = `notice:tracked-object:${itemId}`;
+      // Selecting an already complete object is quiet and never awards anything.
+      if (detail?.complete && !s.rewardLedger.includes(notice)) s.rewardLedger.push(notice);
+      return true;
+    });
+  }
+  public takeTrackedObjectNotice(): string | null {
+    const message = this.data.pendingMessages.find(value => value.startsWith('收集目标已完成：'));
+    if (!message) return null;
+    return this.change(s => { s.pendingMessages.splice(s.pendingMessages.indexOf(message), 1); return message; });
+  }
   public dailyChallengeIndex(): number { return challengeIndex(this.snapshot().daily.day); }
   public calendar(): { day: string; weekend: string; season: string; weekendEnd: number; seasonEnd: number } { return periods(Math.max(this.now(), this.data.maxTime)); }
   public startRound(levelId: number, mode: ProgressMode = 'main'): ProgressRound {
@@ -349,6 +372,12 @@ export class PlayerProgress {
         const wasUnlocked = this.hasSocialUnlock(s);
         recordLeaderboardFirstClear(s.leaderboard, s.clearedLevels.length, Math.max(round.completedAt!, s.maxTime), this.leaderboardConfig);
         s.clearedLevels.push(round.levelId); s.clearedLevels.sort((a, b) => a - b); s.totals.wins++;
+        const tracked = s.trackedObjectId ? readCollectionObject(s.clearedLevels, s.trackedObjectId) : null;
+        const trackedNotice = `notice:tracked-object:${s.trackedObjectId}`;
+        if (tracked?.complete && !s.rewardLedger.includes(trackedNotice)) {
+          s.rewardLedger.push(trackedNotice);
+          s.pendingMessages.push(`收集目标已完成：${tracked.theme.name}·${tracked.item.name}`);
+        }
         if (!wasUnlocked && this.hasSocialUnlock(s) && !s.rewardLedger.includes(PARTNER_UNLOCK_FACT)) {
           s.rewardLedger.push(PARTNER_UNLOCK_FACT);
           s.pendingMessages.push(PARTNER_UNLOCK_MESSAGE);

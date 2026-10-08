@@ -18,18 +18,20 @@ import { COLONY_BUILD_VERSION } from '../application/buildInfo';
 import { DAILY_TASKS } from '../application/dailyTasks';
 import { DIAMOND_PRODUCTS } from '../application/payment';
 import { themeForLevel } from '../application/operationalLevels';
+import { readCollectionObject } from '../application/collectionObject';
 import type { ColonySceneBootstrap } from '../bootstrap/colonySceneBootstrap';
 import { PlayState } from './pageStates/playState';
 import { ConstructionState } from './pageStates/constructionState';
 import { SocialPresentation } from './social/socialPresentation';
 
-export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'daily' | 'orders' | 'newcomer' | 'stages' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}`;
+export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'object-detail' | 'tracked-object' | 'daily' | 'orders' | 'newcomer' | 'stages' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}`;
 const row = (title: string, detail: string, action: string, button: string, enabled = true): ProgressRow => ({ title, detail, action, button, enabled });
 const date = (time: number): string => new Date(time + 8 * 3600000).toISOString().slice(0, 10);
 
 /** 导航与命令留在表现协调层；MK 弹窗只接收投影。 */
 export class ProgressPresentation {
   private themeIndex = 0;
+  private objectId = '';
   private control: ProgressControl | ToolControl | CommunityControl | null = null;
   private returnSection: ProgressSection | null = null;
   private social: SocialPresentation | null = null;
@@ -48,10 +50,18 @@ export class ProgressPresentation {
       const message = context.progress.takePartnerUnlockNotice();
       if (message) context.toast.show(message, 'feature-unlocked', 'social');
     } catch { /* Retain the pending notice for the next safe page or settlement. */ }
+    try {
+      const message = context.progress.takeTrackedObjectNotice();
+      if (message) context.toast.show(message, 'collection-complete', message);
+    } catch { /* Completion stays pending when saving its acknowledgement fails. */ }
   }
 
   constructor(private readonly context: ColonySceneBootstrap, private section: ProgressSection, private readonly onClosed?: () => void) {
     if (this.section === 'tasks') this.section = 'daily';
+    if (this.section === 'tracked-object') {
+      this.objectId = context.progress?.snapshot().trackedObjectId ?? '';
+      this.section = this.objectId ? 'object-detail' : 'themes';
+    }
   }
 
   public static async open(context: ColonySceneBootstrap, section: ProgressSection, onClosed?: () => void): Promise<void> {
@@ -191,7 +201,7 @@ export class ProgressPresentation {
         const basket = p.themeBasketProgress()[this.themeIndex];
         title = `${basket.name} · 收集清单`;
         summary = basket.unlocked ? `已收集 ${basket.cleared}/${basket.items.reduce((sum, item) => sum + item.target, 0)} 件 · 通关自动展示\n重玩不重复增加` : '集齐前一主题后开放\n现在可以预览本主题的收集物';
-        rows = basket.items.map(item => ({ ...row(item.name, `${item.count}/${item.target}${item.count >= item.target ? ' · 已集齐' : ''}`, 'noop', '', false), itemId: item.id, count: item.count, target: item.target, kind: item.kind, iconPath: item.iconPath }));
+        rows = basket.items.map(item => ({ ...row(item.name, `${item.count}/${item.target}${item.count >= item.target ? ' · 已集齐' : ''}${s.trackedObjectId === item.id ? ' · 正在追踪' : ''}`, `object:${item.id}`, '详情'), itemId: item.id, count: item.count, target: item.target, kind: item.kind, iconPath: item.iconPath }));
         rows.push(row('主题摊位', '查看已经摆上摊位的收集成果', `stall:${this.themeIndex}`, '查看摊位'));
         const next = Array.from({ length: 12 }, (_, i) => this.themeIndex * 12 + i + 1).find(levelId => !s.clearedLevels.includes(levelId) && levelId <= p.nextLevel());
         if (basket.unlocked && next !== undefined) rows.push(row('下一件收集物', `完成第 ${next} 关，收集${themeForLevel(next)?.item.name ?? '物品'}`, `level:${next}`, '去收集'));
@@ -208,6 +218,22 @@ export class ProgressPresentation {
           const cleared = s.clearedLevels.includes(levelId);
           return row(`第 ${levelId} 关 · ${target}`, cleared ? '已收集 · 重玩不重复增加' : levelId > p.nextLevel() ? '完成前一关后解锁' : '首次通关展示到主题摊位', `level:${levelId}`, cleared ? '重玩' : '出发', levelId <= p.nextLevel());
         });
+        break;
+      }
+      case 'object-detail': {
+        const detail = readCollectionObject(s.clearedLevels, this.objectId);
+        if (!detail) throw new Error('收集对象不存在');
+        this.themeIndex = detail.themeIndex;
+        title = `${detail.item.name} · 对象详情`;
+        summary = `${detail.theme.name} · ${detail.count}/${detail.item.target} 件\n${detail.complete ? '已集齐，永久展示' : '主线首次通关收集'}`;
+        const kinds = { stall: '主题摊位', produce: '果蔬收集物', decoration: '主题装饰' };
+        rows = [{ ...row('这是什么', kinds[detail.item.kind], 'noop', '', false), itemId: detail.item.id, iconPath: detail.item.iconPath, kind: detail.item.kind, count: detail.count, target: detail.item.target },
+          row('如何获得', `首次通关第 ${detail.sourceLevels.join('、')} 关，各收集1件\n确定获得，重玩和每日挑战不重复增加`, 'noop', '', false),
+          row('真实用途', `${detail.purpose}\n不作为货币或可消耗道具`, `stall:${detail.themeIndex}`, '看摊位'),
+          row('当前数量', `${detail.count}/${detail.item.target} 件 · 来自保存的首通记录`, 'noop', '', false),
+          row('追踪目标', s.trackedObjectId === detail.item.id ? '首页正在关注此对象，可随时取消' : '一次关注一个对象，完成仅提示，不增发奖励', s.trackedObjectId === detail.item.id ? 'untrack-object' : `track-object:${detail.item.id}`, s.trackedObjectId === detail.item.id ? '取消追踪' : '追踪')];
+        if (detail.nextLevel !== null) rows.push(row('下一步', detail.nextSource === detail.nextLevel ? `首次通关第 ${detail.nextLevel} 关收集下一件` : `先完成第 ${detail.nextLevel} 关，逐步解锁来源第 ${detail.nextSource} 关`, `level:${detail.nextLevel}`, '去收集'));
+        else rows.push(row('下一步', '此对象已经集齐，可返回清单关注其他对象', `theme:${detail.themeIndex}`, '看清单'));
         break;
       }
       case 'market':
@@ -450,11 +476,20 @@ export class ProgressPresentation {
       return this.socialPresentation().act(action);
     }
     if (kind === 'theme') { this.themeIndex = Number(value); this.section = 'theme-detail'; return ''; }
+    if (kind === 'object') {
+      if (!readCollectionObject(p.snapshot().clearedLevels, value)) throw new Error('收集对象不存在');
+      this.objectId = value; this.section = 'object-detail'; return '';
+    }
+    if (kind === 'track-object' || kind === 'untrack-object') {
+      p.trackObject(kind === 'track-object' ? value : null);
+      this.context.homeView?.refresh(p);
+      return kind === 'track-object' ? '已在首页追踪此对象' : '已取消追踪';
+    }
     if (kind === 'stall') { await this.close(); await ConstructionState.open(this.context, Number(value)); return ''; }
     if (['build', 'finish', 'decoration', 'equip'].includes(kind)) return '摊位和装饰改为关卡收集，不再花费资源';
     if (kind === 'back') {
       if (this.section === 'shop' && this.returnSection) { this.section = this.returnSection; this.returnSection = null; await this.switchControl(); }
-      else this.section = this.section === 'theme-levels' ? 'theme-detail'
+      else this.section = this.section === 'theme-levels' || this.section === 'object-detail' ? 'theme-detail'
           : this.section === 'theme-detail' ? 'themes'
           : this.section === 'orders' ? 'daily'
           : this.section === 'newcomer' || this.section === 'stages' ? 'task-achievements'
