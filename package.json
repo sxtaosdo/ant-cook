@@ -14,7 +14,7 @@
     "editor:board": "node scripts/board-editor/serve.mjs",
     "editor:typecheck": "tsc -p scripts/board-editor/tsconfig.json --noEmit",
     "editor:test": "node --import tsx --test tests/editor/board-editor.test.ts",
-    "verify:editor": "pnpm editor:typecheck && pnpm editor:test",
+    "verify:editor": "pnpm run editor:typecheck && pnpm run editor:test",
     "typecheck": "tsc -p tests/tsconfig.creator.json",
     "test": "node --loader ./tests/ts-loader.mjs --test tests/unit/*.test.ts tests/provider/*.test.mjs"
   },
