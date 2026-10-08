@@ -42,7 +42,11 @@ export class ProgressPresentation {
 
   public static async open(context: ColonySceneBootstrap, section: ProgressSection, onClosed?: () => void): Promise<void> {
     if (section === 'market') { await ConstructionState.open(context); return; }
-    if (context.destroyed || !context.progress || context.progressPopup) return;
+    if (context.destroyed || !context.progress) return;
+    if (context.progressPopup) {
+      if (section === 'shop') await context.progressPopup.navigateToShop();
+      return;
+    }
     if (section === 'social') {
       if (!context.progress.socialAvailable()) { context.toast.show(context.progress.socialUnlockHint(), 'feature-locked', 'social'); return; }
       context.progress.advanceSocial();
@@ -77,8 +81,8 @@ export class ProgressPresentation {
         const owner = this.control;
         const generation = this.context.generation;
         const result = await this.act(action);
-        if (owner && owner === this.control && this.context.progressPopup === owner && (owner instanceof ProgressControl || owner instanceof CommunityControl)
-          && owner.viewType !== this.progressViewType()) await this.switchControl();
+        if (owner && owner === this.control && this.context.progressPopup === owner
+          && (owner instanceof ToolControl ? !this.section.startsWith('tool-') : owner.viewType !== this.progressViewType())) await this.switchControl();
         if (result && generation === this.context.generation && !this.context.destroyed && !this.context.ads?.hasPendingReward()) {
           this.context.toast.show(result, 'action', action);
           return '';
@@ -122,16 +126,17 @@ export class ProgressPresentation {
   }
 
   private async switchControl(): Promise<void> {
-    const previous = this.control;
-    const generation = this.context.generation;
-    if (previous) {
-      await swallowMkInterrupt(Promise.resolve(previous.close()));
-    }
-    if (this.cancelled || this.context.destroyed || this.context.generation !== generation
-      || this.control !== previous || this.context.progressPopup !== previous) return;
-    this.control = this.createControl();
-    this.context.progressPopup = this.control;
-    await this.waitForControl();
+    const releaseHold = this.context.currencyView?.holdDuringSwitch();
+    try {
+      const previous = this.control;
+      const generation = this.context.generation;
+      if (previous) await swallowMkInterrupt(Promise.resolve(previous.close()));
+      if (this.cancelled || this.context.destroyed || this.context.generation !== generation
+        || this.control !== previous || this.context.progressPopup !== previous) return;
+      this.control = this.createControl();
+      this.context.progressPopup = this.control;
+      await this.waitForControl();
+    } finally { releaseHold?.(); }
   }
 
   private read(): ProgressPage {
@@ -403,16 +408,17 @@ export class ProgressPresentation {
       if (value === 'social') { p.advanceSocial(); this.socialPresentation().act('tab:partners'); }
       this.returnSection = null; this.section = value; return '';
     }
+    if (kind === 'section') {
+      if (value === 'market') { await this.close(); await ConstructionState.open(this.context); return ''; }
+      if (value === 'shop' && this.section !== 'shop') this.returnSection = this.section;
+      this.section = value === 'tasks' ? 'daily' : value as ProgressSection; return '';
+    }
     if (this.section === 'social') {
       if (kind === 'settings') { this.section = 'settings'; return ''; }
       if (kind === 'back' && this.returnSection === 'leaderboard' && this.socialPresentation().isProfile()) {
         this.section = 'leaderboard'; this.returnSection = null; return '';
       }
       return this.socialPresentation().act(action);
-    }
-    if (kind === 'section') {
-      if (value === 'market') { await this.close(); await ConstructionState.open(this.context); return ''; }
-      this.section = value === 'tasks' ? 'daily' : value as ProgressSection; return '';
     }
     if (kind === 'theme') { this.themeIndex = Number(value); this.section = 'theme-detail'; return ''; }
     if (kind === 'stall') { await this.close(); await ConstructionState.open(this.context, Number(value)); return ''; }

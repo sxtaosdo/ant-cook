@@ -1,0 +1,60 @@
+{
+  "status": "runtime-verified",
+  "viewport": {
+    "width": 750,
+    "height": 1334
+  },
+  "verification": "runtime-shop-final.json; runtime-currency.json",
+  "assets": [
+    {
+      "name": "canopy",
+      "bytes": 226718,
+      "sha256": "2471c3d44584b11eab283533da0807a596986e3d61591a2f546cc5e1adefd0a4"
+    },
+    {
+      "name": "wood-sign",
+      "bytes": 137633,
+      "sha256": "175e7bd23f9b35373dcae201d9cf1eef435f531035848d576c16a137c07f6bab"
+    },
+    {
+      "name": "cream-card-purple",
+      "bytes": 208060,
+      "sha256": "4c334fc158afd1bf03c4b78f97a99bd44bb0084496f533621cc5d59498e4f954"
+    },
+    {
+      "name": "cream-card-cyan",
+      "bytes": 204943,
+      "sha256": "341b659fd8c998bda28a077a3636cc0b1ae47568a18f2f0d473d573d614c558c"
+    },
+    {
+      "name": "green-button",
+      "bytes": 55406,
+      "sha256": "82b1c9b4695245f5947c9335653b8ce85d82d3645cc7e2711163f7c4ac188fa7"
+    },
+    {
+      "name": "wood-shelf",
+      "bytes": 93607,
+      "sha256": "ffc2593267f5925c9296224c5c1f0c215ed7fc2a786d9a53b938ecd41400ee25"
+    },
+    {
+      "name": "return-button",
+      "bytes": 48627,
+      "sha256": "a2f1686ec1d66469d3d286a277a1e45dcbcb47d2fe0bb4cb85578b3c1e97897d"
+    },
+    {
+      "name": "purple-pattern",
+      "bytes": 137753,
+      "sha256": "75e6bfcb78849639a788fde655f63a4f208c71cfff7fb9be15048fa86ba368d4"
+    },
+    {
+      "name": "currency-capsule-empty",
+      "bytes": 51095,
+      "sha256": "1b40fdef16f908fa9395927494267e67a1cdbb613b742e9a933f867bd75765fb"
+    }
+  ],
+  "totalPngBytes": 1163842,
+  "unusedCandidates": [
+    "cream-card",
+    "currency-capsule"
+  ]
+}

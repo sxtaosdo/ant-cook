@@ -24,6 +24,8 @@ export class ColonyProgressView extends ColonyPopupView {
     this.listTitle = '';
   }
 
+  public countsAsBusinessPopup(): boolean { return this._model?.page.layout !== 'gm'; }
+
   public render(): void {
     const panel = this.panel;
     if (!panel) throw new Error('Progress panel binding is missing');

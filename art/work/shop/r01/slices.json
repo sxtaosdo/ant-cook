@@ -1,0 +1,173 @@
+[
+  {
+    "name": "canopy",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      8,
+      25,
+      975,
+      238
+    ],
+    "size": [
+      967,
+      213
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "wood-sign",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      979,
+      47,
+      1518,
+      241
+    ],
+    "size": [
+      539,
+      194
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "cream-card-purple",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      15,
+      245,
+      767,
+      571
+    ],
+    "size": [
+      752,
+      326
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "cream-card-cyan",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      775,
+      245,
+      1520,
+      571
+    ],
+    "size": [
+      745,
+      326
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "green-button",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      10,
+      586,
+      386,
+      733
+    ],
+    "size": [
+      376,
+      147
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "cream-card",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      13,
+      733,
+      484,
+      1001
+    ],
+    "size": [
+      471,
+      268
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "wood-shelf",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      488,
+      798,
+      1037,
+      946
+    ],
+    "size": [
+      549,
+      148
+    ],
+    "alpha": [
+      0,
+      253
+    ]
+  },
+  {
+    "name": "return-button",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      1342,
+      569,
+      1516,
+      735
+    ],
+    "size": [
+      174,
+      166
+    ],
+    "alpha": [
+      0,
+      253
+    ]
+  },
+  {
+    "name": "currency-capsule",
+    "source": "art/work/shop/r01/generated/design-01.png",
+    "rectangle": [
+      1027,
+      592,
+      1340,
+      714
+    ],
+    "size": [
+      313,
+      122
+    ],
+    "alpha": [
+      0,
+      254
+    ]
+  },
+  {
+    "name": "purple-pattern",
+    "source": "art/work/shop/r01/generated/purple-pattern-01.png",
+    "size": [
+      384,
+      384
+    ],
+    "processing": "resize for runtime"
+  }
+]

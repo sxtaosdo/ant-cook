@@ -1,6 +1,7 @@
 import type { GameColor } from '../application/levelCatalog';
 import { Button, Component, director, Director, game, Game, Label, Node, ResolutionPolicy, Sprite, UITransform, UIOpacity, view } from 'cc';
 import { PREVIEW } from 'cc/env';
+import mk from 'mk';
 import type { ColonySceneBootstrap } from '../bootstrap/colonySceneBootstrap';
 import { ColonyUtil } from '../colonyUtil';
 import type { ColonyTransportEvidence } from '../presentation/pageStates/playState';
@@ -11,6 +12,7 @@ import { ColonyPopupView } from '../../popups/progress/script/popupView';
 import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboardView';
 import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
+import { ColonyShopRow } from '../../popups/shop/script/shopRow';
 import { ColonyCommunityView } from '../../popups/progress/script/communityView';
 import { ColonyToastView } from '../../popups/toast/script/toastView';
 import { ColonySettingsView } from '../../popups/settings/script/settingsView';
@@ -111,6 +113,28 @@ export class ColonyTestBridge {
         registered: settings.registeredLabel?.string, avatar: settings.profileAvatar?.color, feedback: settings.noticeLabel?.string } : null,
       projectedSelf: this.ctx.profile && this.ctx.progress && this.ctx.leaderboardConfig ? this.ctx.profile.leaderboard(this.ctx.progress.readLeaderboard(), this.ctx.leaderboardConfig.avatarColors).find(entry => entry.isSelf) : null };
   }
+
+  public currencyEvidencePreview(): unknown {
+    if (!PREVIEW) throw new Error('Preview only');
+    const overlay = this.ctx.currencyView;
+    const shops = mk.uiManage.get([ColonyShopView]);
+    const button = (node: Node | null | undefined): unknown => node ? { position: node.worldPosition.clone(), size: node.getComponent(UITransform)?.contentSize } : null;
+    return { visible: overlay?.bars?.activeInHierarchy, coins: overlay?.coins?.string, diamonds: overlay?.diamonds?.string,
+      wallet: this.ctx.progress?.wallet(), profile: { nickname: overlay?.nicknameLabel?.string, version: overlay?.versionLabel?.string },
+      shopCount: shops.length, popups: mk.uiManage.get().map(item => item.constructor.name),
+      diamondButton: button(overlay?.diamondButton?.node), plusButton: button(overlay?.plusButton?.node),
+      rows: this.ctx.popupRoot?.getComponentsInChildren(ColonyShopRow).filter(item => item.node.activeInHierarchy).map(item => ({ name: item.nameLabel?.string, quantity: item.quantityLabel?.string, status: item.statusLabel?.string,
+        action: item.actionLabel?.string, enabled: item.actionButton?.getComponent(Button)?.interactable, button: button(item.actionButton) })) ?? [] };
+  }
+
+  public async currencySwitchEvidencePreview(): Promise<unknown> {
+    if (!PREVIEW || !this.ctx.gm?.active || !this.ctx.currencyView?.hasBusinessPopup()) throw new Error('Isolated business popup required');
+    const samples: Array<{ visible: boolean; business: boolean; shops: number }> = [];
+    const observe = (): void => { if (samples.length < 100) samples.push({ visible: Boolean(this.ctx.currencyView?.bars?.activeInHierarchy), business: this.ctx.currencyView?.hasBusinessPopup() ?? false, shops: mk.uiManage.get([ColonyShopView]).length }); };
+    director.on(Director.EVENT_AFTER_DRAW, observe, this);
+    try { await ProgressPresentation.open(this.ctx, 'shop'); await ColonyUtil.delay(0.3); return samples; }
+    finally { director.off(Director.EVENT_AFTER_DRAW, observe, this); }
+  }
   public async enterGmPreview(): Promise<void> { if (!PREVIEW) throw new Error('Preview only'); await this.ctx.gm!.enter(); }
   public async gmActionPreview(action: string, level?: number): Promise<void> { if (!PREVIEW) throw new Error('Preview only'); await this.ctx.gm!.run(action, level); }
 
@@ -130,6 +154,10 @@ export class ColonyTestBridge {
   /** Isolated browser fixture only; never emits Creator's persistent device option change. */
   public fitToastViewportPreview(): void {
     if (!PREVIEW) throw new Error('Preview only');
+    const toolbar = document.querySelector<HTMLElement>('.toolbar');
+    if (toolbar) toolbar.style.display = 'none';
+    const profilerBadge = document.getElementById('__cocos_profiler_status_badge__');
+    if (profilerBadge) profilerBadge.style.display = 'none';
     for (const element of [game.frame, game.container]) if (element) {
       element.style.width = '750px'; element.style.height = '1334px';
       element.style.position = 'fixed'; element.style.left = '0'; element.style.top = '0';

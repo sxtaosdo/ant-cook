@@ -62,6 +62,10 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
   public refresh(): void {
     if (!this.isClosing && !this.busy && this._view?.isAvailable()) { this._model.page = this.navigation.read(); this._view.render(); }
   }
+  public async navigateToShop(): Promise<void> {
+    try { await this.whenOpened(); } catch { return; }
+    if (!this.isClosing) await this.act('section:shop');
+  }
   public suspend(): void { this._view?.suspend(); }
 
   private async dismiss(): Promise<void> {

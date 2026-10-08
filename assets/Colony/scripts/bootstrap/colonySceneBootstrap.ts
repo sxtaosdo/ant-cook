@@ -54,6 +54,7 @@ import { ColonyBoardView } from '../views/boardView';
 import { ColonyHomeView } from '../views/homeView';
 import { ColonyConstructionView } from '../views/constructionView';
 import { ColonyHudView } from '../views/hudView';
+import type { ColonyCurrencyOverlayView } from '../views/currencyOverlayView';
 import { ColonyLoadingView } from '../views/loadingView';
 import { ColonySlotView } from '../views/slotView';
 import { ColonyToolBarView } from '../views/toolBarView';
@@ -117,6 +118,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
   public settings: UserSettings | null = null;
   public identity: InstallationIdentity | null = null;
   public profile: PlayerProfile | null = null;
+  public currencyView: ColonyCurrencyOverlayView | null = null;
   public gm: GmTestSession | null = null;
   public dailyActivity: DailyActivityPresentation | null = null;
   public readonly difficultyKinds = new Map<number, 'E' | 'S' | 'H'>();
@@ -196,6 +198,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
     if (!profile) return;
     this.hudView?.setProfile(profile.nickname, COLONY_BUILD_VERSION);
     this.homeView?.setProfile(profile.nickname, COLONY_BUILD_VERSION);
+    this.currencyView?.setProfile(profile.nickname, COLONY_BUILD_VERSION);
   }
 
   private cancelAd(): void { if (!this.ads?.isShowingSpeed()) this.ads?.cancel(); }
@@ -305,13 +308,14 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
       ['events', () => { game.off(Game.EVENT_HIDE, this.cancelAd, this); game.off(Game.EVENT_SHOW, this.advanceSocial, this); this.unschedule(this.advanceSocial); }],
       ['ads', () => this.ads?.dispose()], ['progressPopup', () => this.progressPopup?.forceClose()],
       ['states', () => this.StateMachine.releaseAllStates()],
+      ['currency', () => { this.currencyView?.node.destroy(); this.currencyView = null; }],
       ['success', () => mk.uiManage.unregis(ColonyResultSuccessView, this.popupRoot)], ['fail', () => mk.uiManage.unregis(ColonyResultFailView, this.popupRoot)],
       ['progress', () => mk.uiManage.unregis(ColonyProgressView, this.popupRoot)], ['community', () => mk.uiManage.unregis(ColonyCommunityView, this.popupRoot)], ['settings', () => mk.uiManage.unregis(ColonySettingsView, this.popupRoot)], ['confirm', () => mk.uiManage.unregis(ColonyConfirmView, this.popupRoot)], ['shop', () => mk.uiManage.unregis(ColonyShopView, this.popupRoot)], ['tools', () => mk.uiManage.unregis(ColonyToolView, this.popupRoot)],
       ['testBridge', () => ColonyTestBridge.clear()],
       ['toast', async () => { await this.toast.flush(); await mk.uiManage.unregis(ColonyToastView, this.popupRoot); }],
     ]);
     const errors: unknown[] = [];
-    for (const phase of [['daily', 'events', 'ads'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'community', 'settings', 'confirm', 'shop', 'tools', 'toast', 'testBridge']]) {
+    for (const phase of [['daily', 'events', 'ads'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'community', 'settings', 'confirm', 'shop', 'tools', 'toast', 'testBridge', 'currency']]) {
       await Promise.all(phase.map(async key => {
         const operation = this.cleanupSteps!.get(key);
         if (!operation) return;

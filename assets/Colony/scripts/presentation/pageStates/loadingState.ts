@@ -20,6 +20,7 @@ import { ColonyFlowModel } from '../../gameModel';
 import type { ColonySoundName } from '../colonyViews';
 import { HomeState } from './homeState';
 import { mountPage } from '../pageNodes';
+import { mountCurrencyOverlay } from '../currencyOverlay';
 
 /** 启动页：加载音频、关卡目录与结算弹窗注册，完成后进入 Home。 */
 export class LoadingState implements IState<ColonySceneBootstrap> {
@@ -55,6 +56,8 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       const preparation = this.prepareBootAssets(session);
       session.loadingView!.setProgress(0.55);
       await preparation;
+      if (session.destroyed) return;
+      await mountCurrencyOverlay(session);
       if (session.destroyed) return;
       session.loadingView!.setProgress(1);
       if (!session.destroyed && session.play && session.catalog) {

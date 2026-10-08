@@ -69,6 +69,11 @@ export class CommunityControl {
     } finally { this.actionBusy = false; }
   }
 
+  public async navigateToShop(): Promise<void> {
+    try { await this.whenOpened(); } catch { return; }
+    if (!this.isClosing) await this.act('section:shop');
+  }
+
   private async sync(): Promise<void> {
     // Startup reporting and partial shell cleanup belong to the top-level owner.
     try { await this.shell.whenOpened(); } catch { return; }

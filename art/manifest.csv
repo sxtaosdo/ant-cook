@@ -1,0 +1,10 @@
+asset,module,status,source,round,runtime,method,updated
+canopy,shop,runtime-verified,art/final/shop/canopy.png,r01,assets/Colony/art/toy-market/ui/shop-r01/canopy.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+wood-sign,shop,runtime-verified,art/final/shop/wood-sign.png,r01,assets/Colony/art/toy-market/ui/shop-r01/wood-sign.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+cream-card-purple,shop,runtime-verified,art/final/shop/cream-card-purple.png,r01,assets/Colony/art/toy-market/ui/shop-r01/cream-card-purple.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+cream-card-cyan,shop,runtime-verified,art/final/shop/cream-card-cyan.png,r01,assets/Colony/art/toy-market/ui/shop-r01/cream-card-cyan.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+green-button,shop,runtime-verified,art/final/shop/green-button.png,r01,assets/Colony/art/toy-market/ui/shop-r01/green-button.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+wood-shelf,shop,runtime-verified,art/final/shop/wood-shelf.png,r01,assets/Colony/art/toy-market/ui/shop-r01/wood-shelf.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+return-button,shop,runtime-verified,art/final/shop/return-button.png,r01,assets/Colony/art/toy-market/ui/shop-r01/return-button.png,art/work/shop/r01/generated/design-01.png,2026-10-08
+purple-pattern,shop,runtime-verified,art/final/shop/purple-pattern.png,r01,assets/Colony/art/toy-market/ui/shop-r01/purple-pattern.png,art/work/shop/r01/generated/purple-pattern-01.png,2026-10-08
+currency-capsule-empty,shop,runtime-verified,art/final/shop/currency-capsule-empty.png,r01,assets/Colony/art/toy-market/ui/shop-r01/currency-capsule-empty.png,art/work/shop/r01/generated/currency-capsule-empty-01.png,2026-10-08

@@ -52,6 +52,11 @@ export class ToolControl extends mk.MVCControlBase<ToolModel, ColonyToolView> {
     await this.forceClose();
   }
 
+  public async navigateToShop(): Promise<void> {
+    try { await this.whenOpened(); } catch { return; }
+    if (!this.isClosing) await this.act('section:shop');
+  }
+
   public async forceClose(): Promise<void> {
     this.navigation.closing?.();
     await swallowMkInterrupt(Promise.resolve(this.close()));

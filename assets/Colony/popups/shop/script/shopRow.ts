@@ -14,6 +14,9 @@ export class ColonyShopRow extends Component {
   @property(SpriteFrame) public smallFrame: SpriteFrame | null = null;
   @property(SpriteFrame) public bagFrame: SpriteFrame | null = null;
   @property(SpriteFrame) public chestFrame: SpriteFrame | null = null;
+  @property(Sprite) public cardImage: Sprite | null = null;
+  @property(SpriteFrame) public freeCardFrame: SpriteFrame | null = null;
+  @property(SpriteFrame) public paidCardFrame: SpriteFrame | null = null;
 
   public render(row: ProgressRow): void {
     const product = row.shopProduct;
@@ -25,6 +28,7 @@ export class ColonyShopRow extends Component {
     this.nameLabel.string = product.priceYuan === undefined ? '新老玩家体验礼包' : '钻石补给';
     this.statusLabel.string = product.priceYuan === undefined ? product.claimed ? '已领取' : '一次性免费领取' : '充值暂未开放';
     this.productImage.spriteFrame = product.image === 'diamonds-small' ? this.smallFrame : product.image === 'diamonds-bag' ? this.bagFrame : this.chestFrame;
+    if (this.cardImage && this.freeCardFrame && this.paidCardFrame) this.cardImage.spriteFrame = product.priceYuan === undefined ? this.freeCardFrame : this.paidCardFrame;
     this.actionLabel.string = row.button;
     this.actionImage.color = new Color(product.priceYuan === undefined && !product.claimed ? '#FFFFFF' : '#CBD2DE');
   }

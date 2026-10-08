@@ -162,6 +162,10 @@ export class PlayerProgress {
     if (dayOf(Math.max(now, this.data.maxTime)) !== this.data.daily.day || (now + 60000 < this.data.maxTime) !== this.data.clockRolledBack) this.change(() => undefined);
     return clone(this.data);
   }
+
+  public wallet(): { readonly coins: number; readonly diamonds: number } {
+    return { coins: this.data.coins, diamonds: this.data.diamonds };
+  }
   /** Test memory ports alone can use GM grants; live storage never receives this capability. */
   public applyTestResources(kind: 'coins' | 'diamonds' | 'speed'): void {
     if (this.save.testOnly !== true) throw new Error('GM requires an isolated test profile');
