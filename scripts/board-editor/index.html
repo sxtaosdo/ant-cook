@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>棋盘编辑器 · 蚂蚁搬搬搬</title><link rel="stylesheet" href="/editor.css"><link rel="icon" href="data:,"></head>
+<body>
+  <header><div><span class="eyebrow">蚂蚁搬搬搬 / 内容制作</span><h1>棋盘编辑器</h1></div><p>选尺寸 → 手绘或导入图片 → 修整图案 → 导出棋盘</p></header>
+  <nav class="toolbar" aria-label="棋盘操作">
+    <label>行数 <input id="rows" type="number" min="1" max="64" value="32"></label>
+    <label>列数 <input id="columns" type="number" min="1" max="64" value="32"></label>
+    <label>快捷尺寸 <select id="preset"><option value="">自定义</option><option value="20">20 × 20</option><option value="32" selected>32 × 32</option><option value="48">48 × 48</option><option value="64">64 × 64</option></select></label>
+    <button id="new-board">新建棋盘</button><span class="divider"></span>
+    <button id="import-image">导入图片</button><button id="import-json">导入配置</button>
+    <button id="export-json" class="primary">导出配置</button>
+  </nav>
+  <p id="status" role="status" aria-live="polite">正在读取游戏调色板…</p>
+  <main>
+    <aside class="panel tools"><h2>绘制工具</h2><div class="tool-pair"><button id="brush" aria-pressed="true">画笔</button><button id="eraser" aria-pressed="false">橡皮擦</button></div>
+      <h2>游戏调色板 <span>12色</span></h2><div id="palette" role="group" aria-label="画笔颜色"></div>
+      <div class="tool-pair"><button id="undo">撤销</button><button id="redo">重做</button></div><button id="clear">清空棋盘</button>
+      <p class="hint">点击格子上色，按住拖动连续绘制。空格不参与搬运。</p><p class="hint">Ctrl / ⌘ Z 撤销<br>Ctrl / ⌘ Shift Z 重做</p>
+    </aside>
+    <section class="panel workspace"><div class="workspace-header"><div><h2>绘制棋盘</h2><span id="dimensions">32 × 32</span></div><label>缩放 <input id="zoom" type="range" min="8" max="32" value="18"><output id="zoom-value">18px / 格</output></label></div>
+      <div id="board-scroll"><canvas id="board" tabindex="0" aria-label="可编辑棋盘，使用鼠标或触控笔绘制"></canvas></div>
+    </section>
+    <aside class="panel information"><h2>图案预览</h2><canvas id="pattern" width="256" height="256" aria-label="无网格图案预览"></canvas>
+      <div class="total"><span>有效格子</span><strong id="total">0</strong></div><div id="counts"></div>
+      <h2>参考图片</h2><img id="reference" hidden alt="最近应用的参考图片"><p id="no-reference" class="hint">导入图片后在这里对照。</p>
+      <details><summary>棋盘配置与CSV字段</summary><p class="hint">棋盘配置不含搬运顺序和底部数字组。</p><textarea id="config" readonly aria-label="棋盘JSON配置" rows="8"></textarea><button id="copy-csv">复制棋盘CSV字段</button></details>
+    </aside>
+  </main>
+  <input id="image-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+  <input id="json-file" type="file" accept=".json,application/json" hidden>
+  <dialog id="image-dialog" aria-labelledby="image-title"><h2 id="image-title">图片生成棋盘初稿</h2><p>主体保持比例，居中适配，外围留一格边距。</p><div class="image-comparison"><figure><img id="image-original" alt="导入的原图"><figcaption>参考图片</figcaption></figure><figure><canvas id="image-preview" width="320" height="320"></canvas><figcaption>填充预览</figcaption></figure></div>
+    <label>颜色数量 <select id="image-color-count"><option value="" selected>自动</option><option value="1">1色</option><option value="2">2色</option><option value="3">3色</option><option value="4">4色</option><option value="5">5色</option><option value="6">6色</option><option value="7">7色</option><option value="8">8色</option><option value="9">9色</option><option value="10">10色</option><option value="11">11色</option><option value="12">12色</option></select></label>
+    <p>选择具体数量会生成恰好对应种类的颜色；原图颜色较少时会补色。</p>
+    <label class="check"><input id="remove-white" type="checkbox" checked>去除外围白色背景（保留图案内部白色）</label><p id="image-status" role="status"></p>
+    <div class="dialog-actions"><button id="cancel-image">取消</button><button id="apply-image" class="primary">应用到棋盘</button></div>
+  </dialog>
+  <script type="module" src="/editor.js"></script>
+</body></html>

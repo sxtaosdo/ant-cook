@@ -1,0 +1,51 @@
+{
+  "sourceProject": "P4000/colony-flow-food-hunt",
+  "sourceHead": "a6d0bbccd2bac88769e0b697a4f56f9220ce4cb6",
+  "files": [
+    {
+      "source": "scripts/board-editor/core.ts",
+      "target": "scripts/board-editor/core.ts",
+      "sha256": "95cce62139ade70fa87777dc67d5a90b9e63f0469732b153adaff4dedfab87e2"
+    },
+    {
+      "source": "scripts/board-editor/editor.css",
+      "target": "scripts/board-editor/editor.css",
+      "sha256": "0c742820f22cc777b41ecad63f7dd8fc532d55404178e8e1fd0111493fd3ea0b"
+    },
+    {
+      "source": "scripts/board-editor/editor.ts",
+      "target": "scripts/board-editor/editor.ts",
+      "sha256": "b27f612c5f667f297e98b48c0f8710b0d15772e7d98d90886ea72ffcc229b94a"
+    },
+    {
+      "source": "scripts/board-editor/index.html",
+      "target": "scripts/board-editor/index.html",
+      "sha256": "5c519b44f96573c656c97e719c03ce300b0dc936e3795acddd1c5b9be347a0d5"
+    },
+    {
+      "source": "scripts/board-editor/palette.mjs",
+      "target": "scripts/board-editor/palette.mjs",
+      "sha256": "5b9c3ecba2c060eab0eaa96b144c69d205309b0027cd32d77e3ca285b7015ff5"
+    },
+    {
+      "source": "scripts/board-editor/serve.mjs",
+      "target": "scripts/board-editor/serve.mjs",
+      "sha256": "9d13a45f5f5459ac42e5c05e0e6cc565f605a81a7155614a8f03296d039ffbcf"
+    },
+    {
+      "source": "scripts/board-editor/tsconfig.json",
+      "target": "scripts/board-editor/tsconfig.json",
+      "sha256": "c2734422e78bf1195fdc08ce05969c98a9bdd516d15c1c1aecff1334b2ef0221"
+    },
+    {
+      "source": "Tests/editor/board-editor.test.ts",
+      "target": "tests/editor/board-editor.test.ts",
+      "sha256": "dd3e0c9f694ca11d1bef84257bcc7beb62c2d3ad5ecd8e465c2e92d2d347fd9d"
+    }
+  ],
+  "sourceDocumentation": {
+    "path": "docs/007-board-editor.md",
+    "sha256": "2ffe807c75f65484ee4c05b0a0020818f694dc5c88978aaf48d1bdb14c87a147"
+  },
+  "scope": "Copied editor closure and tests unchanged; documentation adapted to 4060. Original project untouched."
+}
