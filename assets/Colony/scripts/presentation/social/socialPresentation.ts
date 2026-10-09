@@ -3,6 +3,8 @@ import type { LeaderboardConfig } from '../../application/leaderboard/leaderboar
 import type { SocialConfig, SocialEvent, SocialPartner } from '../../application/social/social';
 import type { ProgressPage } from '../../../popups/progress/script/progressModel';
 import type { PlayerProfile } from '../../application/playerProfile';
+import { readCollectionObject } from '../../application/collectionObject';
+import { PARTNER_DIALOGUE_LINES } from '../../application/partnerDialogue';
 
 export interface SocialCard {
   title: string; detail: string; name: string; avatarColor: string; badge: string;
@@ -13,7 +15,7 @@ export interface SocialProfile {
   previous: boolean; next: boolean; canFollow: boolean; liked: boolean; commented: boolean; canRequest: boolean; canInteract: boolean;
 }
 export interface SocialPage {
-  tab: 'partners' | 'history' | 'help' | 'profile' | 'messages'; cards: SocialCard[];
+  tab: 'partners' | 'history' | 'help' | 'profile' | 'messages' | 'dialogue'; cards: SocialCard[];
   footer: string; profile?: SocialProfile;
 }
 const at = (value: number): string => new Date(value + 8 * 3600000).toISOString().slice(5, 16).replace('T', ' ');
@@ -26,6 +28,7 @@ export class SocialPresentation {
   public constructor(private readonly progress: PlayerProgress, private readonly config: SocialConfig, private readonly leaderboard: LeaderboardConfig, private readonly localProfile?: PlayerProfile) {}
 
   public isProfile(): boolean { return this.tab === 'profile'; }
+  public dialogueObjectId(): string | null { return this.progress.readPartnerDialogue()?.objectId ?? null; }
   public openPartner(id: string): void {
     if (!this.progress.readSocial().partners.some(p => p.id === id)) throw new Error('这位伙伴已离榜，历史记录仍然保留');
     if (this.progress.socialCanInteract()) this.progress.interactPartner(id, 'visit');
@@ -44,7 +47,25 @@ export class SocialPresentation {
     if (!this.progress.socialAvailable()) {
       summary = this.progress.socialUnlockHint(); social.footer = '继续收集，认识夜市伙伴';
     } else if (this.tab === 'partners') {
+      const dialogue = this.progress.readPartnerDialogue();
+      if (dialogue) social.cards.push(card(dialogue.partner.name, dialogue.partner.avatar, `${dialogue.partner.name} · 一起收集`, '系统伙伴固定对话\n保存原身份，可随时继续', 'dialogue-resume', '继续对话', true, '一起收集'));
       social.cards.push(...model.partners.map(p => card(p.name, p.avatar, p.name, `主线 ${p.cleared}/60 关\n${p.ranked ? '点击拜访主题摊位' : '离榜常客 · 保留最后收集成果'}`, `profile:${p.id}`, '拜访', true, p.followed ? '常客' : '榜单伙伴')));
+    } else if (this.tab === 'dialogue') {
+      const dialogue = this.progress.readPartnerDialogue();
+      if (!dialogue) throw new Error('固定对话尚未开始');
+      const detail = readCollectionObject(this.progress.snapshot().clearedLevels, dialogue.objectId)!;
+      const actor = dialogue.partner;
+      title = `${actor.name} · 一起收集`; summary = '系统伙伴 · 固定台词与本地流程';
+      social.footer = `${detail.item.name} ${detail.count}/${detail.item.target} · 对话记录永久保存`;
+      const tracked = this.progress.snapshot().trackedObjectId === dialogue.objectId;
+      const steps = [
+        card(actor.name, actor.avatar, '问来源', `我：${detail.item.name}从哪里来？`, 'dialogue:ask', '问来源'),
+        card(actor.name, actor.avatar, '查看真实来源', `首次通关第 ${detail.sourceLevels.join('、')} 关，各收集1件\n${PARTNER_DIALOGUE_LINES[1]}`, 'dialogue-source', '看来源'),
+        card(actor.name, actor.avatar, '一起关注目标', `${PARTNER_DIALOGUE_LINES[2]}\n目标：${detail.item.name}`, 'dialogue:track', '一起关注'),
+        card(actor.name, actor.avatar, '完成反馈', tracked ? `${PARTNER_DIALOGUE_LINES[3]}\n已收集 ${detail.count}/${detail.item.target}` : '首页已关注其他对象，可以恢复这个共同目标', tracked ? 'dialogue:complete' : 'dialogue-retrack', tracked ? detail.complete ? '查看完成' : '等待收集' : '恢复关注', !tracked || detail.complete),
+        card(actor.name, actor.avatar, '收集已完成', `${PARTNER_DIALOGUE_LINES[4]}\n${detail.item.name} ${detail.count}/${detail.item.target}`, 'noop', '已完成', false),
+      ];
+      social.cards = [steps[dialogue.step]!, ...PARTNER_DIALOGUE_LINES.slice(0, dialogue.step).map((line, index) => card(actor.name, actor.avatar, `对话记录 ${index + 1}`, line, 'noop', '', false))];
     } else if (this.tab === 'history') {
       social.cards = model.history.map(event => {
         const p = model.partners.find(bot => bot.id === event.actor.id);
@@ -72,11 +93,12 @@ export class SocialPresentation {
         if (this.tab === 'messages') {
           title = '给伙伴留句话';
           social.cards = this.config.messages.map((message, i) => card(p.name, p.avatar, message, '每天一次固定短句\n18–30小时后回应', `message:${i}`, '留言', canInteract && !model.commented.includes(p.id)));
+          social.cards.unshift(card(p.name, p.avatar, '一起收集 · 固定对话', '问来源、一起关注目标和查看完成\n首次选择后绑定这一位系统伙伴', `dialogue-begin:${p.id}`, '一起收集'));
         }
       }
     }
     if (this.progress.socialAvailable() && !canInteract) social.footer = '时间回退：可以浏览，互动与领奖暂缓';
-    return { title, summary, rows: [], layout: 'social', showBack: this.tab === 'profile' || this.tab === 'messages', social };
+    return { title, summary, rows: [], layout: 'social', showBack: this.tab === 'profile' || this.tab === 'messages' || this.tab === 'dialogue', social };
   }
 
   public act(action: string): string {
@@ -88,6 +110,18 @@ export class SocialPresentation {
       this.tab = value as SocialPage['tab']; return '';
     }
     if (kind === 'back') { this.tab = this.tab === 'messages' ? 'profile' : 'partners'; return ''; }
+    if (kind === 'dialogue-begin') { this.progress.beginPartnerDialogue(value); this.tab = 'dialogue'; return ''; }
+    if (kind === 'dialogue-resume') {
+      if (!this.progress.readPartnerDialogue()) throw new Error('固定对话尚未开始');
+      this.tab = 'dialogue'; return '';
+    }
+    if (kind === 'dialogue') {
+      if (!['ask', 'source', 'track', 'complete'].includes(value)) throw new Error('固定对话操作不存在');
+      const changed = this.progress.advancePartnerDialogue(value as 'ask' | 'source' | 'track' | 'complete');
+      return value === 'complete' && changed ? '一起关注的目标已完成' : '';
+    }
+    if (kind === 'dialogue-retrack') { this.progress.trackObject(this.dialogueObjectId()); return '已恢复共同关注的目标'; }
+    if (kind === 'noop') return '';
     if (kind === 'help') return this.progress.helpPartner(Number(value)) ? '援助已送出，获得10金币' : '这份援助已经完成';
     if (kind === 'claim') { this.progress.claimPartnerHelp(); return '已收到1张补给券'; }
     if (kind === 'messages') { this.tab = 'messages'; return ''; }

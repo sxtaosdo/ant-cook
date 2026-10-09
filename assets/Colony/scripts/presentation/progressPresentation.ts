@@ -469,11 +469,18 @@ export class ProgressPresentation {
       this.section = value === 'tasks' ? 'daily' : value as ProgressSection; return '';
     }
     if (this.section === 'social') {
+      if (kind === 'dialogue-source') {
+        this.socialPresentation().act('dialogue:source');
+        this.objectId = this.socialPresentation().dialogueObjectId()!;
+        this.returnSection = 'social'; this.section = 'object-detail'; return '';
+      }
       if (kind === 'settings') { this.section = 'settings'; return ''; }
       if (kind === 'back' && this.returnSection === 'leaderboard' && this.socialPresentation().isProfile()) {
         this.section = 'leaderboard'; this.returnSection = null; return '';
       }
-      return this.socialPresentation().act(action);
+      const feedback = this.socialPresentation().act(action);
+      this.context.homeView?.refresh(p);
+      return feedback;
     }
     if (kind === 'theme') { this.themeIndex = Number(value); this.section = 'theme-detail'; return ''; }
     if (kind === 'object') {
@@ -488,6 +495,9 @@ export class ProgressPresentation {
     if (kind === 'stall') { await this.close(); await ConstructionState.open(this.context, Number(value)); return ''; }
     if (['build', 'finish', 'decoration', 'equip'].includes(kind)) return '摊位和装饰改为关卡收集，不再花费资源';
     if (kind === 'back') {
+      if (this.section === 'object-detail' && this.returnSection === 'social') {
+        this.section = 'social'; this.returnSection = null; return '';
+      }
       if (this.section === 'shop' && this.returnSection) { this.section = this.returnSection; this.returnSection = null; await this.switchControl(); }
       else this.section = this.section === 'theme-levels' || this.section === 'object-detail' ? 'theme-detail'
           : this.section === 'theme-detail' ? 'themes'

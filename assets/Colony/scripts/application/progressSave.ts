@@ -4,6 +4,7 @@ import type { PlayerProgressSnapshot, DailyOrder } from './playerProgress';
 import { AD_BOOST_MS, FREE_BOOST_MS } from './speedBoost';
 import { freshDailyTasks, isDailyTasks } from './dailyTasks';
 import { collectionObject } from './collectionObject';
+import { isPartnerDialogue } from './partnerDialogue';
 
 const DAY = 86400000;
 const dayOf = (at: number): string => new Date(at + 8 * 3600000).toISOString().slice(0, 10);
@@ -22,7 +23,7 @@ export function fresh(now: number, config: LeaderboardConfig): PlayerProgressSna
     totals: { wins: 0, validWins: 0, failures: 0, transported: 0, challenges: 0, builds: 0, orders: 0, events: 0 },
     daily: { day: dayOf(now), orders: ordersFor(dayOf(now), false), rerolled: false, claimed: false, adClears: 0, adSupplies: 0, boostRemainingMs: FREE_BOOST_MS, boostAds: 0, tasks: freshDailyTasks() },
     dailyCompleted: [], weekends: {}, seasons: {}, returnVisit: null, rounds: {}, rewardLedger: [], nextRound: 1,
-    lastSeen: now, maxTime: now, clockRolledBack: false, tutorialDays: {}, pendingMessages: [], trackedObjectId: null, toolInventory: { trowel: 0, compass: 0 }, toolTransactions: {}, social: createSocial(now), leaderboard: createLeaderboard(config, now, now, 0, now) };
+    lastSeen: now, maxTime: now, clockRolledBack: false, tutorialDays: {}, pendingMessages: [], trackedObjectId: null, partnerDialogue: null, toolInventory: { trowel: 0, compass: 0 }, toolTransactions: {}, social: createSocial(now), leaderboard: createLeaderboard(config, now, now, 0, now) };
 }
 const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const validTime = (value: unknown): value is number => integer(value) && value <= Date.UTC(9999, 11, 31, 15, 59, 59, 999);
@@ -37,6 +38,7 @@ export function parseSave(raw: string | null, config: LeaderboardConfig, socialC
     if (!record(parsed) || parsed.version !== 6) return null;
     const s = parsed as unknown as PlayerProgressSnapshot;
     if (s.trackedObjectId === undefined) s.trackedObjectId = null;
+    if (s.partnerDialogue === undefined) s.partnerDialogue = null;
     if (s.trackedObjectId !== null && (typeof s.trackedObjectId !== 'string' || !collectionObject(s.trackedObjectId))) return null;
     // Existing v6 archives predate permanent tools; absent fields mean zero stock.
     if (s.toolInventory === undefined) s.toolInventory = { trowel: 0, compass: 0 };
@@ -60,6 +62,7 @@ export function parseSave(raw: string | null, config: LeaderboardConfig, socialC
     if (s.returnVisit !== null && (!s.returnVisit || typeof s.returnVisit.id !== 'string' || !integer(s.returnVisit.baseline) || !numbers(s.returnVisit.claimed, 2))) return null;
     if (typeof s.clockRolledBack !== 'boolean' || !record(s.tutorialDays) || !Object.values(s.tutorialDays).every(dateKey) || !s.dailyCompleted.every(dateKey) || !s.signInDays.every(dateKey)) return null;
     if (!isLeaderboardState(s.leaderboard, config, s.maxTime)) return null;
+    if (s.partnerDialogue !== null && !isPartnerDialogue(s.partnerDialogue, s.leaderboard.nextId, config.avatarColors.length)) return null;
     if (!isSocialState(s.social, socialConfig, s.leaderboard, config.avatarColors.length, s.maxTime)) return null;
     if (!integer(s.daily.boostRemainingMs) || !integer(s.daily.boostAds) || !Number.isSafeInteger(FREE_BOOST_MS + AD_BOOST_MS * s.daily.boostAds) || s.daily.boostRemainingMs > FREE_BOOST_MS + AD_BOOST_MS * s.daily.boostAds) return null;
     if (!isDailyTasks(s.daily.tasks)) return null;

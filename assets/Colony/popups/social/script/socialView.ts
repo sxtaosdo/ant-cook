@@ -65,7 +65,7 @@ export class ColonySocialView extends Component {
     this.summaryWidget.updateAlignment();
     this.footerLabel.string = feedback || page.footer;
     if (!this.embeddedMode) this.bind(this.closeButton!, true, close);
-    this.backButton.active = page.tab === 'profile' || page.tab === 'messages';
+    this.backButton.active = page.tab === 'profile' || page.tab === 'messages' || page.tab === 'dialogue';
     this.bind(this.backButton, true, () => action('back'));
     this.tabsRoot.active = !this.backButton.active;
     this.tabButtons.forEach((button, index) => {

@@ -1,5 +1,6 @@
 import { THEME_BASKETS, themeForLevel } from './operationalLevels';
 import { collectionObject, readCollectionObject } from './collectionObject';
+import type { PartnerDialogue } from './partnerDialogue';
 import { advanceLeaderboard, readLeaderboard, recordLeaderboardFirstClear, type LeaderboardConfig, type LeaderboardEntry, type LeaderboardState } from './leaderboard/leaderboard';
 import { fresh, ordersFor, parseSave } from './progressSave';
 import { claimDailyTask, completeDailyTasks, freshDailyTasks, recordDailyTime, recordDailyTool, type DailyTasksState, type DailyTimeReceipt } from './dailyTasks';
@@ -39,6 +40,7 @@ export interface PlayerProgressSnapshot {
   lastSeen: number; maxTime: number; clockRolledBack: boolean; tutorialDays: Record<string, string>;
   pendingMessages: string[];
   trackedObjectId: string | null;
+  partnerDialogue: PartnerDialogue | null;
   toolInventory: Record<SupplyTool, number>;
   toolTransactions: Record<string, ToolTransaction>;
   leaderboard: LeaderboardState;
@@ -312,15 +314,48 @@ export class PlayerProgress {
     const state = this.snapshot();
     return state.trackedObjectId ? readCollectionObject(state.clearedLevels, state.trackedObjectId) : null;
   }
+  public readPartnerDialogue(): PartnerDialogue | null { return clone(this.data.partnerDialogue); }
+  public beginPartnerDialogue(partnerId: string): void {
+    if (!this.socialAvailable()) throw new Error(this.socialUnlockHint());
+    if (this.data.partnerDialogue) {
+      if (this.data.partnerDialogue.partner.id !== partnerId) throw new Error('固定对话已绑定另一位伙伴，请继续原对话');
+      return;
+    }
+    const partner = this.readSocial().partners.find(value => value.id === partnerId);
+    if (!partner) throw new Error('这位伙伴已离榜，请选择当前伙伴');
+    this.change(s => {
+      const objectId = s.trackedObjectId ?? themeForLevel(Math.min(60, s.clearedLevels.length + 1))!.item.id;
+      s.partnerDialogue = { partner: { id: partner.id, name: partner.name, avatar: partner.avatar }, objectId, step: 0 };
+    });
+  }
+  public advancePartnerDialogue(action: 'ask' | 'source' | 'track' | 'complete'): boolean {
+    const expected = { ask: 0, source: 1, track: 2, complete: 3 }[action];
+    if (expected === undefined) throw new Error('固定对话操作不存在');
+    if (!this.hasSocialUnlock(this.data)) throw new Error(this.socialUnlockHint());
+    const current = this.data.partnerDialogue;
+    if (!current) throw new Error('请先选择一起收集的伙伴');
+    if (current.step > expected) return false;
+    if (current.step !== expected) throw new Error('请按对话顺序查看来源和关注目标');
+    return this.change(s => {
+      const dialogue = s.partnerDialogue!;
+      if (action === 'track') this.trackObjectIn(s, dialogue.objectId);
+      if (action === 'complete' && (s.trackedObjectId !== dialogue.objectId || !readCollectionObject(s.clearedLevels, dialogue.objectId)?.complete)) throw new Error('共同关注的目标尚未完成');
+      dialogue.step = (expected + 1) as PartnerDialogue['step'];
+      return true;
+    });
+  }
+  private trackObjectIn(s: PlayerProgressSnapshot, itemId: string | null): void {
+    s.trackedObjectId = itemId;
+    const detail = itemId ? readCollectionObject(s.clearedLevels, itemId) : null;
+    const notice = `notice:tracked-object:${itemId}`;
+    if (detail?.complete && !s.rewardLedger.includes(notice)) s.rewardLedger.push(notice);
+  }
   public trackObject(itemId: string | null): boolean {
     if (itemId !== null && !collectionObject(itemId)) throw new Error('收集对象不存在');
     if (this.data.trackedObjectId === itemId) return false;
     return this.change(s => {
-      s.trackedObjectId = itemId;
-      const detail = itemId ? readCollectionObject(s.clearedLevels, itemId) : null;
-      const notice = `notice:tracked-object:${itemId}`;
       // Selecting an already complete object is quiet and never awards anything.
-      if (detail?.complete && !s.rewardLedger.includes(notice)) s.rewardLedger.push(notice);
+      this.trackObjectIn(s, itemId);
       return true;
     });
   }
