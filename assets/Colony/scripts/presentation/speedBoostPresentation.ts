@@ -15,7 +15,6 @@ export class SpeedBoostPresentation {
     context.hudView!.bind(
       this.cycle,
       () => { void ProgressPresentation.open(context, 'settings'); },
-      () => { void ProgressPresentation.open(context, 'shop'); },
       () => { void ProgressPresentation.open(context, 'leaderboard'); },
       () => {
         if (!context.gm?.available || context.destroyed || context.navigating || context.inputLocked || context.progressPopup) return;
@@ -55,7 +54,7 @@ export class SpeedBoostPresentation {
   private readonly cycle = (): void => {
     if (this.context.inputLocked) return;
     try {
-      const exhausted = this.boost.cycle(this.transport.moving);
+      const exhausted = this.boost.cycle();
       this.suspended = false;
       this.fractionMs = 0;
       this.render();
@@ -66,11 +65,11 @@ export class SpeedBoostPresentation {
     if (this.suspended) return;
     try {
       if (this.skipResumeFrame) { this.skipResumeFrame = false; this.render(); return; }
-      const moving = this.transport.moving && this.boost.multiplier !== 1 && this.boost.source === 'manual';
-      this.fractionMs = moving ? this.fractionMs + director.getDeltaTime() * 1000 : 0;
+      const timed = this.boost.multiplier !== 1 && this.boost.source === 'manual';
+      this.fractionMs = timed ? this.fractionMs + director.getDeltaTime() * 1000 : 0;
       const ms = Math.floor(this.fractionMs);
       this.fractionMs -= ms;
-      this.boost.advance(ms, moving, consumed => this.context.dailyActivity?.boost(consumed));
+      this.boost.advance(ms, consumed => this.context.dailyActivity?.boost(consumed));
       this.render();
     } catch { this.fail(); }
   };

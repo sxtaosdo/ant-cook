@@ -9,7 +9,7 @@ export interface SpeedBudgetPort {
   refundSpeedBoost(day: string, ms: number): void;
 }
 
-/** Prepay at most one second before movement; a crash cannot restore spent time. */
+/** Prepay at most one active second; a crash cannot restore spent time. */
 export class SpeedBoostSession {
   public multiplier: SpeedMultiplier = 1;
   private freeFinish = false;
@@ -21,18 +21,18 @@ export class SpeedBoostSession {
     return { ...budget, remainingMs: budget.remainingMs + (this.lease?.ms ?? 0) };
   }
   /** true asks the caller to show the exhausted-time panel. */
-  public cycle(moving = false): boolean {
+  public cycle(): boolean {
     if (this.freeFinish) return false;
     if (this.multiplier === 3) { this.stop(); return false; }
-    if (this.read().remainingMs === 0 || (moving && !this.ensureLease())) { this.stop(); return true; }
+    if (this.read().remainingMs === 0 || !this.ensureLease()) { this.stop(); return true; }
     this.multiplier = this.multiplier === 1 ? 2 : 3;
     return false;
   }
-  public advance(ms: number, moving: boolean, recordConsumed?: (ms: number) => void): number {
+  public advance(ms: number, recordConsumed?: (ms: number) => void): number {
     if (!Number.isSafeInteger(ms) || ms < 0) throw new Error('无效加速时长');
     this.read();
     if (this.freeFinish) { this.refundLease(); return 0; }
-    if (this.multiplier === 1 || !moving) return 0;
+    if (this.multiplier === 1) return 0;
     let consumed = 0;
     while (ms > 0) {
       if (!this.ensureLease()) { this.stop(); return consumed; }

@@ -16,6 +16,10 @@ export class ColonyToolBarView extends mk.StaticViewBase {
   @property(Button)
   private compassButton: Button | null = null;
 
+  @property(Button) private trowelCount: Button | null = null;
+  @property(Button) private slotCount: Button | null = null;
+  @property(Button) private compassCount: Button | null = null;
+
   protected onLoad(): void {
     this.button('trowel');
     this.button('slot');
@@ -30,11 +34,14 @@ export class ColonyToolBarView extends mk.StaticViewBase {
   }
 
   /** 绑定道具点击回调。 */
-  public bind(onUse: (tool: ColonyTool) => void): void {
+  public bind(onUse: (tool: ColonyTool) => void, onCount: (tool: ColonyTool) => void): void {
     for (const tool of ['trowel', 'slot', 'compass'] as const) {
       const button = this.button(tool);
       button.node.targetOff(this);
       button.node.on(Button.EventType.CLICK, () => onUse(tool), this);
+      const count = this.count(tool);
+      count.node.targetOff(this);
+      count.node.on(Button.EventType.CLICK, () => onCount(tool), this);
     }
   }
 
@@ -54,6 +61,13 @@ export class ColonyToolBarView extends mk.StaticViewBase {
     this.trowelButton?.node?.targetOff(this);
     this.slotButton?.node?.targetOff(this);
     this.compassButton?.node?.targetOff(this);
+    for (const count of [this.trowelCount, this.slotCount, this.compassCount]) count?.node?.targetOff(this);
+  }
+
+  private count(tool: ColonyTool): Button {
+    const count = { trowel: this.trowelCount, slot: this.slotCount, compass: this.compassCount }[tool];
+    if (!count) throw new Error(`ToolBar Prefab is missing the ${tool} count binding`);
+    return count;
   }
 
   /** 按道具名取序列化按钮。 */

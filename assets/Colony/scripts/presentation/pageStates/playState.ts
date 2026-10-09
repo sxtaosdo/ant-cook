@@ -180,7 +180,9 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     toolBarView.setFirstLevelSkin(false);
     this.refreshToolCounts();
     this.speedBoost = new SpeedBoostPresentation(session, this.transport);
-    toolBarView.bind(tool => { void this.tapTool(tool); });
+    toolBarView.bind(tool => { void this.tapTool(tool); }, tool => {
+      if (!session.destroyed && !session.inputLocked) void ProgressPresentation.open(session, `tool-${tool}`);
+    });
     const board = this.board;
     const transport = this.transport;
     await prepareThemePresentation(session, board, transport, read, themeTarget, () => this.board === board && this.transport === transport);

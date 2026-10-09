@@ -5,18 +5,20 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
 function fixture() {
+  class Vec3 { constructor(x=0,y=0,z=0) { Object.assign(this,{x,y,z}); } clone() { return new Vec3(this.x,this.y,this.z); } }
   const stack = []; class Business {} class Progress { countsAsBusinessPopup() { return !this.gm; } } class Toast {}
   const source = readFileSync(new URL('../../assets/Colony/scripts/views/currencyOverlayView.ts', import.meta.url), 'utf8');
   const exports = {}, decorator = () => () => {};
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
     target: ts.ScriptTarget.ES2022, experimentalDecorators: true, useDefineForClassFields: false } }).outputText,
-  { exports, require: name => name === 'cc' ? { _decorator: { ccclass: decorator, property: decorator }, Button: { EventType: { CLICK: 'click' } } }
+  { exports, require: name => name === 'cc' ? { _decorator: { ccclass: decorator, property: decorator }, Button: { EventType: { CLICK: 'click' } }, Vec3,
+    Tween: { stopAllByTarget() {} }, tween: () => ({ to() { return this; }, start() {} }) }
     : name === 'mk' ? { default: { StaticViewBase: class {}, uiManage: { get: () => stack } } }
     : name.includes('progressView') ? { ColonyProgressView: Progress }
     : Object.fromEntries(['ColonyCommunityView','ColonySettingsView','ColonyConfirmView','ColonyShopView','ColonyToolView','ColonyResultSuccessView','ColonyResultFailView'].map(key => [key, Business])) });
   const owner = { isValid: true }, overlay = new exports.ColonyCurrencyOverlayView();
   const listeners = [], button = { node: { isValid: true, targetOff() {}, on(_event, action) { listeners.push(action); } } };
-  overlay.bars = { active: true }; overlay.coins = { string: '' }; overlay.diamonds = { string: '' };
+  overlay.bars = { active: true, position: new Vec3(0,548), setPosition(x,y,z) { this.position = typeof x === 'object' ? x.clone() : new Vec3(x,y,z); } }; overlay.coins = { string: '' }; overlay.diamonds = { string: '' };
   overlay.diamondButton = button; overlay.plusButton = button;
   let wallet = { coins: 40, diamonds: 30 }, clicks = 0;
   overlay.bind(owner, () => wallet, () => clicks++);

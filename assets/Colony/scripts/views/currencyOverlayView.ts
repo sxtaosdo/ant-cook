@@ -1,4 +1,4 @@
-import { _decorator, Button, Label, Node } from 'cc';
+import { _decorator, Button, Label, Node, tween, Tween, Vec3 } from 'cc';
 import mk from 'mk';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
 import { ColonyCommunityView } from '../../popups/progress/script/communityView';
@@ -27,6 +27,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   private popupOwner: Node | null = null;
   private readWallet: (() => { coins: number; diamonds: number } | null) | null = null;
   private readonly switchHolds = new Set<object>();
+  private restingPosition: Vec3 | null = null;
 
   public bind(owner: Node, readWallet: () => { coins: number; diamonds: number } | null, onShop: () => void): void {
     if (!this.bars || !this.coins || !this.diamonds || !this.diamondButton || !this.plusButton) throw new Error('Currency overlay bindings are missing');
@@ -34,6 +35,9 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
     for (const button of [this.diamondButton, this.plusButton]) {
       button.node.targetOff(this); button.node.on(Button.EventType.CLICK, onShop, this);
     }
+    Tween.stopAllByTarget(this.bars);
+    this.restingPosition ??= this.bars.position.clone();
+    this.bars.setPosition(this.restingPosition);
     this.bars.active = false;
   }
 
@@ -64,7 +68,16 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   protected lateUpdate(): void {
     if (!this.bars || !this.readWallet) return;
     const wallet = this.readWallet();
-    this.bars.active = Boolean(wallet && (this.hasBusinessPopup() || this.switchHolds.size));
+    const visible = Boolean(wallet && (this.hasBusinessPopup() || this.switchHolds.size));
+    if (visible !== this.bars.active) {
+      Tween.stopAllByTarget(this.bars);
+      const end = this.restingPosition!;
+      this.bars.active = visible;
+      if (visible) {
+        this.bars.setPosition(end.x, end.y + 100, end.z);
+        tween(this.bars).to(0.32, { position: end.clone() }, { easing: 'quadOut' }).start();
+      } else this.bars.setPosition(end);
+    }
     if (this.profileStrip) this.profileStrip.active = this.bars.active;
     if (!this.bars.active || !wallet) return;
     if (this.coins!.string !== String(wallet.coins)) this.coins!.string = String(wallet.coins);
@@ -72,6 +85,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   }
 
   protected onDestroy(): void {
+    if (this.bars?.isValid) Tween.stopAllByTarget(this.bars);
     this.readWallet = null; this.popupOwner = null; this.switchHolds.clear();
     for (const button of [this.diamondButton, this.plusButton]) if (button?.node.isValid) button.node.targetOff(this);
   }

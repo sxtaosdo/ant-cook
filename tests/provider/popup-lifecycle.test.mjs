@@ -226,8 +226,11 @@ test('actual construction icon and second-stage board load are fenced by destruc
 test('actual toolbar refresh maps existing free-use state to count/plus through 0→1→0 without disabling the original click action',async()=>{
   const f=fixture(),Class=f.load('assets/Colony/scripts/views/toolBarView.ts').ColonyToolBarView;
   const view=new Class();view.node=new f.Node();let clicked=[];
-  for(const name of ['trowel','slot','compass'])view[name+'Button']=new f.Node(name).getComponent(f.Button);
-  view.bind(tool=>clicked.push(tool));
+  for(const name of ['trowel','slot','compass']) {
+    view[name+'Button']=new f.Node(name).getComponent(f.Button);
+    view[name+'Count']=new f.Node(name+'Count').getComponent(f.Button);
+  }
+  view.bind(tool=>clicked.push(tool),()=>assert.fail('icon must retain its original route'));
   for(const used of [['trowel'],[],['trowel'],['trowel']]) {
     view.setUsed(used);
     const node=view.trowelButton.node;

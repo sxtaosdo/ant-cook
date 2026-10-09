@@ -21,7 +21,6 @@ export class ColonyHudView extends mk.StaticViewBase {
   @property(Node) private topBarRoot: Node | null = null;
   @property(Node) private levelRailMount: Node | null = null;
   @property(Button) private settingsButton: Button | null = null;
-  @property(Button) private shopButton: Button | null = null;
   @property(Button) private leaderboardButton: Button | null = null;
   @property(Label) private coinLabel: Label | null = null;
   @property(Label) private diamondLabel: Label | null = null;
@@ -42,7 +41,7 @@ export class ColonyHudView extends mk.StaticViewBase {
 
   protected onLoad(): void {
     if (!this.speedButton || !this.levelLabel || !this.feedbackLabel || !this.topBarRoot || !this.levelRailMount
-      || !this.settingsButton || !this.shopButton || !this.leaderboardButton || !this.coinLabel || !this.diamondLabel
+      || !this.settingsButton || !this.leaderboardButton || !this.coinLabel || !this.diamondLabel
       || !this.speedText || !this.speedTime || !this.speedTimePlate || !this.gmButton) {
       throw new Error('HUD Prefab is missing required editor bindings');
     }
@@ -51,14 +50,14 @@ export class ColonyHudView extends mk.StaticViewBase {
   }
 
   /** 绑定倍速及功能入口。 */
-  public bind(onSpeed: () => void, onSettings?: () => void, onShop?: () => void, onLeaderboard?: () => void, onGm?: () => void, gmAvailable = false): void {
+  public bind(onSpeed: () => void, onSettings?: () => void, onLeaderboard?: () => void, onGm?: () => void, gmAvailable = false): void {
     const speedButton = this.requireSpeedButton();
     for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
     this.boundNodes.clear();
     this.boundNodes.add(speedButton.node);
     speedButton.node.targetOff(this);
     speedButton.node.on(Button.EventType.CLICK, onSpeed, this);
-    for (const [button, action] of [[this.settingsButton, onSettings], [this.shopButton, onShop], [this.leaderboardButton, onLeaderboard]] as const) {
+    for (const [button, action] of [[this.settingsButton, onSettings], [this.leaderboardButton, onLeaderboard]] as const) {
       const node = button!.node;
       this.boundNodes.add(node);
       node.targetOff(this);
@@ -118,6 +117,7 @@ export class ColonyHudView extends mk.StaticViewBase {
         if (request !== this.railRequest || !this.node.isValid || !isCurrent()) return;
         const node = instantiate(prefab);
         node.parent = this.levelRailMount!;
+        node.setPosition(0, 0, 0);
         node.setSiblingIndex(0);
         this.railView = new LevelRailView(node);
       }

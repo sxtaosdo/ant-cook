@@ -79,9 +79,6 @@
         "__id__": 120
       },
       {
-        "__id__": 304
-      },
-      {
         "__id__": 308
       }
     ],
@@ -2977,16 +2974,19 @@
       },
       {
         "__id__": 295
+      },
+      {
+        "__id__": 301
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 301
+        "__id__": 305
       }
     ],
     "_prefab": {
-      "__id__": 303
+      "__id__": 307
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -4336,7 +4336,7 @@
     "_string": "3m:00s",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 0,
+    "_actualFontSize": 24,
     "_fontSize": 24,
     "_fontFamily": "Arial",
     "_lineHeight": 32,
@@ -4678,7 +4678,7 @@
         "__id__": 206
       }
     ],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 212
@@ -5990,7 +5990,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -140,
+      "x": 221,
       "y": 30,
       "z": 0
     },
@@ -7511,68 +7511,27 @@
     "nestedPrefabInstanceRoots": null
   },
   {
-    "__type__": "cc.UITransform",
-    "_name": "",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "node": {
-      "__id__": 120
-    },
-    "_enabled": true,
-    "__prefab": {
-      "__id__": 302
-    },
-    "_contentSize": {
-      "__type__": "cc.Size",
-      "width": 750,
-      "height": 200
-    },
-    "_anchorPoint": {
-      "__type__": "cc.Vec2",
-      "x": 0.5,
-      "y": 0.5
-    },
-    "_id": ""
-  },
-  {
-    "__type__": "cc.CompPrefabInfo",
-    "fileId": "4dOBglEb5Eor0bS931MaHV"
-  },
-  {
-    "__type__": "cc.PrefabInfo",
-    "root": {
-      "__id__": 1
-    },
-    "asset": {
-      "__id__": 0
-    },
-    "fileId": "f2QfieHTlF86E3otW8GGA4",
-    "instance": null,
-    "targetOverrides": null,
-    "nestedPrefabInstanceRoots": null
-  },
-  {
     "__type__": "cc.Node",
     "_name": "LevelRailMount",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 1
+      "__id__": 120
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 305
+        "__id__": 302
       }
     ],
     "_prefab": {
-      "__id__": 307
+      "__id__": 304
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -30,
-      "y": -128,
+      "x": -5,
+      "y": 30,
       "z": 0
     },
     "_lrot": {
@@ -7584,8 +7543,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 1,
-      "y": 1,
+      "x": 0.9,
+      "y": 0.9,
       "z": 1
     },
     "_mobility": 0,
@@ -7604,11 +7563,11 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 304
+      "__id__": 301
     },
     "_enabled": true,
     "__prefab": {
-      "__id__": 306
+      "__id__": 303
     },
     "_contentSize": {
       "__type__": "cc.Size",
@@ -7635,6 +7594,47 @@
       "__id__": 0
     },
     "fileId": "6316Fz2TFI07ZauT+fHCJ7",
+    "instance": null,
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 120
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 306
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 750,
+      "height": 200
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "4dOBglEb5Eor0bS931MaHV"
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 1
+    },
+    "asset": {
+      "__id__": 0
+    },
+    "fileId": "f2QfieHTlF86E3otW8GGA4",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -8063,13 +8063,10 @@
       "__id__": 120
     },
     "levelRailMount": {
-      "__id__": 304
+      "__id__": 301
     },
     "settingsButton": {
       "__id__": 236
-    },
-    "shopButton": {
-      "__id__": 216
     },
     "leaderboardButton": {
       "__id__": 286

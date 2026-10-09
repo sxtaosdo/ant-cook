@@ -57,7 +57,6 @@ export class GuidePresentation {
         catch { view.feedback!.string = '跳过未保存，请重试'; }
       };
       manager.regis(view.steps);
-      let automaticTried = false;
       view.steps[state.segment]!.activate = () => {
         if (!current() || this.active !== owner) return;
         const shape = page === 'play' ? 0 : state.segment === 1 || state.segment === 2 ? 1 : state.segment === 3 && p.socialAvailable() ? 3 : 2;
@@ -66,7 +65,6 @@ export class GuidePresentation {
           if (!current() || this.active !== owner) return;
           view.refreshHole(target, shape);
           const eligible = p.canAdvanceGuide(this.receipt()); view.next!.interactable = eligible;
-          if (page === 'play' && eligible && !automaticTried) { automaticTried = true; advance(); }
         }, 0.25);
       };
       owner.running = manager.run(); await owner.running;
