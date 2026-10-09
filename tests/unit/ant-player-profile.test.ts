@@ -47,6 +47,21 @@ test('self projection uses stable identity and leaves a same-name partner unchan
   assert.equal(projected[0].id, id); assert.equal(projected[0].avatarColor, '#333333');
   assert.deepEqual(projected[1], bot); assert.equal(entry.id, 'self');
 });
+
+test('display ID is stable and bounded while collisions retain distinct full identities', () => {
+  const other = `local-${'b'.repeat(19)}${'a'.repeat(13)}`;
+  const short = PlayerProfile.displayId(id);
+  assert.match(short, /^[0-9a-z]{10}$/);
+  assert.equal(PlayerProfile.displayId(id), short);
+  assert.equal(PlayerProfile.displayId(other), short);
+  const f = fixture(); const first = f.make();
+  const second = new PlayerProfile({ read: () => null, write: () => {} }, 6, () => other, () => 2000, false);
+  const entry: LeaderboardEntry = { id: 'self', name: '我', avatarColor: '#000000', cleared: 3, reachedAt: 1000, rank: 1, change: 0, isNew: false, isSelf: true };
+  assert.equal(first.leaderboard([entry], ['#ffffff'])[0].id, id);
+  assert.equal(second.leaderboard([entry], ['#ffffff'])[0].id, other);
+  assert.equal(JSON.parse(f.stored.get(PROFILE_SAVE_KEY)!).playerId, id);
+  assert.equal(f.make().snapshot().playerId, id);
+});
 test('unreadable persisted profile reports failure instead of replacing identity', () => {
   const f = fixture(); f.stored.set(PROFILE_SAVE_KEY, JSON.stringify({ playerId: 'broken' }));
   assert.throws(() => f.make(), /无法读取/);

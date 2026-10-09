@@ -44,7 +44,7 @@ test('actual tool count binds a separate popup route, retaining icon use across 
   view.onDestroy(); view.trowelCount.node.click(); assert.equal(events.length, 6);
 });
 
-test('actual currency entrance starts on visibility edges, survives switch holds and cancels on hide', () => {
+test('actual currency animations start only on visibility edges and switch holds defer retraction', () => {
   let business = false, started = 0, stopped = 0, animation;
   class Vec3 { constructor(x, y, z) { Object.assign(this, { x, y, z }); } clone() { return new Vec3(this.x, this.y, this.z); } }
   class Button { static EventType = { CLICK: 'click' }; }
@@ -73,11 +73,13 @@ test('actual currency entrance starts on visibility edges, survives switch holds
   assert.equal(barsWidget.enabled, true);
   for (let i = 0; i < 20; i++) view.lateUpdate(); assert.equal(started, 1);
   const release = view.holdDuringSwitch(); business = false; view.lateUpdate(); assert.equal(view.bars.active, true); assert.equal(started, 1);
-  release(); view.lateUpdate(); assert.equal(view.bars.active, false); assert.equal(view.bars.position.y, 634.5);
+  release(); view.lateUpdate(); assert.equal(view.bars.active, true); assert.equal(animation.props.position.y, 734.5);
+  assert.equal(barsWidget.enabled, false); view.bars.setPosition(animation.props.position); animation.complete();
+  assert.equal(view.bars.active, false); assert.equal(view.bars.position.y, 634.5);
   assert.equal(barsWidget.enabled, true);
   business = true; view.lateUpdate(); assert.equal(barsWidget.enabled, false);
-  business = false; view.lateUpdate(); assert.equal(barsWidget.enabled, true);
-  business = true; view.lateUpdate(); assert.equal(started, 3); view.onDestroy(); assert.ok(stopped >= 4);
+  business = false; view.lateUpdate(); assert.equal(barsWidget.enabled, false);
+  business = true; view.lateUpdate(); assert.equal(started, 5); view.onDestroy(); assert.ok(stopped >= 6);
   // MK may clear the referenced component node before the view's destroy callback.
   view.diamondButton = { node: null }; view.plusButton = null; view.bars = null;
   assert.doesNotThrow(() => view.onDestroy());

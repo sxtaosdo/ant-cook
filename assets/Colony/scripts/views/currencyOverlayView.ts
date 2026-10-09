@@ -28,6 +28,8 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   private readWallet: (() => { coins: number; diamonds: number } | null) | null = null;
   private readonly switchHolds = new Set<object>();
   private restingPosition: Vec3 | null = null;
+  private displayWanted = false;
+  private animationEpoch = 0;
 
   public bind(owner: Node, readWallet: () => { coins: number; diamonds: number } | null, onShop: () => void): void {
     if (!this.bars || !this.coins || !this.diamonds || !this.diamondButton || !this.plusButton) throw new Error('Currency overlay bindings are missing');
@@ -36,6 +38,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
       button.node.targetOff(this); button.node.on(Button.EventType.CLICK, onShop, this);
     }
     Tween.stopAllByTarget(this.bars);
+    this.displayWanted = false;
     this.fitSafeArea();
     view.off('canvas-resize', this.fitSafeArea, this);
     view.on('canvas-resize', this.fitSafeArea, this);
@@ -57,11 +60,14 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
     const safe = transform.convertToNodeSpaceAR(new Vec3(0, Math.min(top, safeArea.y + safeArea.height), 0));
     barsWidget.top = Math.max(0, origin.y - safe.y);
     Tween.stopAllByTarget(this.bars!);
+    this.animationEpoch++;
     barsWidget.enabled = true;
     barsWidget.updateAlignment();
     this.restingPosition = this.bars!.position.clone();
     profileWidget.top = barsWidget.top + this.bars!.getComponent(UITransform)!.height * Math.abs(this.bars!.scale.y) + 8;
     profileWidget.updateAlignment();
+    this.bars!.active = this.displayWanted;
+    this.profileStrip!.active = this.displayWanted;
   }
 
   public hasBusinessPopup(): boolean {
@@ -92,18 +98,29 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
     if (!this.bars || !this.readWallet) return;
     const wallet = this.readWallet();
     const visible = Boolean(wallet && (this.hasBusinessPopup() || this.switchHolds.size));
-    if (visible !== this.bars.active) {
+    if (visible !== this.displayWanted) {
+      this.displayWanted = visible;
+      const epoch = ++this.animationEpoch;
       Tween.stopAllByTarget(this.bars);
       const end = this.restingPosition!;
       const barsWidget = this.bars.getComponent(Widget)!;
-      // Widget's first visible-frame alignment must not overwrite the tween's start.
-      barsWidget.enabled = !visible;
-      this.bars.active = visible;
+      // Keep rendering through retraction; stale completion cannot hide a reopened popup.
+      barsWidget.enabled = false;
       if (visible) {
-        this.bars.setPosition(end.x, end.y + 100, end.z);
+        if (!this.bars.active) this.bars.setPosition(end.x, end.y + 100, end.z);
+        this.bars.active = true;
         tween(this.bars).to(0.32, { position: end.clone() }, { easing: 'quadOut' })
-          .call(() => { if (barsWidget.isValid) barsWidget.enabled = true; }).start();
-      } else this.bars.setPosition(end);
+          .call(() => { if (epoch === this.animationEpoch && barsWidget.isValid) barsWidget.enabled = true; }).start();
+      } else {
+        tween(this.bars).to(0.32, { position: new Vec3(end.x, end.y + 100, end.z) }, { easing: 'quadIn' })
+          .call(() => {
+            if (epoch !== this.animationEpoch || !this.bars?.isValid) return;
+            this.bars.active = false; this.bars.setPosition(end);
+            if (barsWidget.isValid) barsWidget.enabled = true;
+            if (this.profileStrip) this.profileStrip.active = false;
+          }).start();
+      }
+      for (const button of [this.diamondButton, this.plusButton]) if (button) button.interactable = visible;
     }
     if (this.profileStrip) this.profileStrip.active = this.bars.active;
     if (!this.bars.active || !wallet) return;
@@ -112,6 +129,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   }
 
   protected onDestroy(): void {
+    this.animationEpoch++;
     view.off('canvas-resize', this.fitSafeArea, this);
     if (this.bars?.isValid) Tween.stopAllByTarget(this.bars);
     this.readWallet = null; this.popupOwner = null; this.switchHolds.clear();

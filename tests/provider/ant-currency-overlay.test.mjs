@@ -9,6 +9,7 @@ function fixture() {
   class Widget {} class UITransform {}
   let height = 1334, safeTop = height;
   const callbacks = new Map();
+  const animations = [];
   const stack = []; class Business {} class Progress { countsAsBusinessPopup() { return !this.gm; } } class Toast {}
   const source = readFileSync(new URL('../../assets/Colony/scripts/views/currencyOverlayView.ts', import.meta.url), 'utf8');
   const exports = {}, decorator = () => () => {};
@@ -17,7 +18,11 @@ function fixture() {
   { exports, require: name => name === 'cc' ? { _decorator: { ccclass: decorator, property: decorator }, Button: { EventType: { CLICK: 'click' } }, Vec3,
     Widget, UITransform, sys: { getSafeAreaRect: () => ({ y: 0, height: safeTop }) },
     view: { on(name, callback) { callbacks.set(name, callback); }, off(name) { callbacks.delete(name); } },
-    Tween: { stopAllByTarget() {} }, tween: () => ({ to() { return this; }, call() { return this; }, start() {} }) }
+    Tween: { stopAllByTarget(target) { for (const animation of animations) if (animation.target === target) animation.stopped = true; } },
+    tween: target => { const animation = { target }; return {
+      to(duration, end, options) { Object.assign(animation, { duration, end, options }); return this; },
+      call(done) { animation.done = done; return this; }, start() { animations.push(animation); },
+    }; } }
     : name === 'mk' ? { default: { StaticViewBase: class {}, uiManage: { get: () => stack } } }
     : name.includes('progressView') ? { ColonyProgressView: Progress }
     : Object.fromEntries(['ColonyCommunityView','ColonySettingsView','ColonyConfirmView','ColonyShopView','ColonyToolView','ColonyResultSuccessView','ColonyResultFailView'].map(key => [key, Business])) });
@@ -36,7 +41,8 @@ function fixture() {
   let wallet = { coins: 40, diamonds: 30 }, clicks = 0;
   overlay.bind(owner, () => wallet, () => clicks++);
   const popup = (Type = Business, parent = owner) => Object.assign(new Type(), { node: { parent, activeInHierarchy: false } });
-  return { stack, overlay, popup, Progress, Toast, owner, listeners, barsWidget, profileWidget, callbacks,
+  return { stack, overlay, popup, Progress, Toast, owner, listeners, barsWidget, profileWidget, callbacks, animations,
+    finish(animation = animations.at(-1)) { if (!animation.stopped) { animation.target.setPosition(animation.end.position); animation.done(); } },
     resize(nextHeight, nextSafeTop = nextHeight) { height = nextHeight; safeTop = nextSafeTop; callbacks.get('canvas-resize').call(overlay); },
     setWallet: value => { wallet = value; }, clicks: () => clicks };
 }
@@ -49,7 +55,10 @@ test('actual manager stack excludes Toast, GM and foreign owners, including a hi
   const bottom = f.popup(), top = f.popup(); f.stack.push(bottom, top); f.overlay.lateUpdate();
   assert.equal(f.overlay.bars.active, true); assert.equal(f.overlay.coins.string, '40');
   f.stack.pop(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, true);
-  f.stack.pop(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, false);
+  f.stack.pop(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, true);
+  assert.equal(f.overlay.plusButton.interactable, false);
+  assert.equal(f.animations.at(-1).options.easing, 'quadIn');
+  f.finish(); assert.equal(f.overlay.bars.active, false);
 });
 
 test('top placement follows the Canvas and safe-area inset instead of the old fixed y, including resize', () => {
@@ -78,9 +87,36 @@ test('popup replacement holds only an existing real business stack, releases aft
   f.stack.push(f.popup()); const release = f.overlay.holdDuringSwitch(); f.stack.length = 0;
   f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, true);
   f.setWallet({ coins: 81, diamonds: 20 }); f.overlay.lateUpdate(); assert.equal(f.overlay.coins.string, '81'); assert.equal(f.overlay.diamonds.string, '20');
-  release(); release(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, false);
+  release(); release(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, true);
+  f.finish(); assert.equal(f.overlay.bars.active, false);
   f.listeners.forEach(action => action()); assert.equal(f.clicks(), 2);
   f.overlay.onDestroy(); f.stack.push(f.popup()); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, false);
+});
+
+test('quick close/reopen cancels retraction and ignores a stale hide callback', () => {
+  const f = fixture(); f.stack.push(f.popup()); f.overlay.lateUpdate(); f.finish();
+  const resting = f.overlay.bars.position.y;
+  f.stack.length = 0; f.overlay.lateUpdate(); const retract = f.animations.at(-1);
+  f.overlay.bars.setPosition(0, resting + 35, 0);
+  f.stack.push(f.popup()); f.overlay.lateUpdate();
+  assert.equal(retract.stopped, true);
+  assert.equal(f.overlay.bars.position.y, resting + 35);
+  retract.done(); assert.equal(f.overlay.bars.active, true);
+  assert.equal(f.barsWidget.enabled, false);
+  f.finish(); assert.equal(f.overlay.bars.position.y, resting); assert.equal(f.barsWidget.enabled, true);
+  assert.equal(f.overlay.plusButton.interactable, true);
+});
+
+test('resize settles a closing animation and destruction cancels outstanding completions', () => {
+  const f = fixture(); f.stack.push(f.popup()); f.overlay.lateUpdate(); f.finish();
+  f.stack.length = 0; f.overlay.lateUpdate(); const retract = f.animations.at(-1);
+  f.resize(1334, 1290);
+  assert.equal(retract.stopped, true); assert.equal(f.overlay.bars.active, false);
+  assert.equal(f.overlay.profileStrip.active, false); assert.equal(f.barsWidget.enabled, true);
+  retract.done(); assert.equal(f.overlay.bars.position.y, 590.5);
+  f.stack.push(f.popup()); f.overlay.lateUpdate(); const entrance = f.animations.at(-1);
+  f.overlay.onDestroy(); assert.equal(entrance.stopped, true); entrance.done();
+  assert.equal(f.barsWidget.enabled, false); assert.equal(f.callbacks.size, 0);
 });
 
 test('actual mount attaches to the Canvas and clears instance offset before layout binding', async () => {

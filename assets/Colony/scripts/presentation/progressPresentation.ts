@@ -108,7 +108,14 @@ export class ProgressPresentation {
       read: () => this.read(), act: async action => {
         const owner = this.control;
         const generation = this.context.generation;
-        const result = await this.act(action);
+        let result: string;
+        try { result = await this.act(action); }
+        catch (cause) {
+          if (action.startsWith('profile-save:') && !this.context.destroyed && generation === this.context.generation) {
+            this.context.toast.show(cause instanceof Error ? cause.message : String(cause), 'profile-save-failed', 'profile');
+          }
+          throw cause;
+        }
         if (owner && owner === this.control && this.context.progressPopup === owner
           && (owner instanceof ToolControl ? !this.section.startsWith('tool-') : owner.viewType !== this.progressViewType())) await this.switchControl();
         if (result && generation === this.context.generation && !this.context.destroyed && !this.context.ads?.hasPendingReward()) {
@@ -425,7 +432,10 @@ export class ProgressPresentation {
     const p = this.context.progress!;
     const [kind, value] = action.split(':');
     if (kind === 'product-navigation' && !this.context.ads?.hasPendingReward()) { ModuleEntryGate.require('ant').requestNavigation?.(); return ''; }
-    if (this.context.ads?.hasPendingReward() && kind !== 'ad-supply' && kind !== 'ad-speed') return '奖励待保存，请重试原广告领取，无需再看视频';
+    if (this.context.ads?.hasPendingReward() && kind !== 'ad-supply' && kind !== 'ad-speed') {
+      if (kind === 'profile-save') throw new Error('奖励待保存，请重试原广告领取，无需再看视频');
+      return '奖励待保存，请重试原广告领取，无需再看视频';
+    }
     if (kind === 'profile-save' && this.section === 'settings') {
       const edit: unknown = JSON.parse(decodeURIComponent(value));
       if (!edit || typeof edit !== 'object' || !('nickname' in edit) || typeof edit.nickname !== 'string' || !('avatar' in edit) || typeof edit.avatar !== 'number' || !this.context.profile) throw new Error('资料输入无效，请重试');

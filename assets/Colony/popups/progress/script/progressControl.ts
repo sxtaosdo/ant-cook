@@ -26,6 +26,10 @@ export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderbo
 export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopupView> {
   private busy = false;
   private notified = false;
+  private queuedProfileAction: string | null = null;
+  private profileSaveInFlight = false;
+  private activeProfileAction: string | null = null;
+  private closeAfterProfileSave = false;
 
   public constructor(private readonly parent: Node, private readonly navigation: ProgressNavigation,
     public readonly viewType: ProgressViewType = ColonyProgressView) { super(); }
@@ -44,19 +48,40 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
   private async act(value: unknown): Promise<void> {
     if (typeof value !== 'string') return;
     const action = value;
-    if (this.busy || this.isClosing) return;
+    if (this.isClosing) return;
+    if (this.busy) {
+      if (action.startsWith('profile-save:') && this._view instanceof ColonySettingsView) {
+        this.queuedProfileAction = action === this.activeProfileAction ? null : action;
+      }
+      return;
+    }
     const model = this._model, view = this._view;
     this.busy = true;
+    this.profileSaveInFlight = action.startsWith('profile-save:');
+    this.activeProfileAction = this.profileSaveInFlight ? action : null;
+    let failed = false;
     try {
       const feedback = await this.navigation.act(action);
       if (this.isClosing || this._model !== model || this._view !== view || !view.isAvailable()) return;
       model.feedback = feedback ?? '';
       model.page = this.navigation.read();
     } catch (cause) {
+      failed = true;
       if (!this.isClosing && view.isAvailable()) model.feedback = cause instanceof Error ? cause.message : String(cause);
     } finally {
       this.busy = false;
+      this.profileSaveInFlight = false;
+      this.activeProfileAction = null;
       if (!this.isClosing && view.isAvailable()) view.render();
+      const queued = this.queuedProfileAction;
+      this.queuedProfileAction = null;
+      if (!this.isClosing && view.isAvailable()) {
+        if (queued) await this.act(queued);
+        else if (this.closeAfterProfileSave) {
+          this.closeAfterProfileSave = false;
+          if (!failed) await this.dismiss();
+        }
+      } else this.closeAfterProfileSave = false;
     }
   }
 
@@ -70,7 +95,11 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
   public suspend(): void { this._view?.suspend(); }
 
   private async dismiss(): Promise<void> {
-    if (this.busy || this.isClosing) return;
+    if (this.isClosing) return;
+    if (this.busy) {
+      if (this.profileSaveInFlight || this.queuedProfileAction) this.closeAfterProfileSave = true;
+      return;
+    }
     if (this.navigation.canClose?.() === false) {
       this._model.feedback = '奖励待保存，请重试领取，无需再看视频';
       this._view.render();
@@ -81,6 +110,7 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
 
   /** Terminal gameplay may supersede an operation popup while ants keep moving. */
   public async forceClose(): Promise<void> {
+    this.queuedProfileAction = null; this.closeAfterProfileSave = false;
     this.navigation.closing?.();
     await swallowMkInterrupt(Promise.resolve(this.close()));
     if (!this.notified) { this.notified = true; this.navigation.closed(); }

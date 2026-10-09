@@ -28,6 +28,12 @@ export class PlayerProfile {
     }
   }
   public snapshot(): PlayerProfileSnapshot { return { ...this.data }; }
+  /** Display only: compact base-36 projection of the identity's random suffix.
+   * Collisions are possible; associations and persistence always retain the full ID. */
+  public static displayId(playerId: string): string {
+    if (!/^local-[a-f0-9]{32}$/.test(playerId)) return playerId.slice(0, 10);
+    return Number.parseInt(playerId.slice(-13), 16).toString(36).padStart(10, '0').slice(-10);
+  }
   public save(nickname: string, avatar: number): PlayerProfileSnapshot {
     const next = { ...this.data, nickname: PlayerProfile.nickname(nickname), avatar };
     if (!Number.isSafeInteger(avatar) || avatar < 0 || avatar >= this.avatarCount) throw new Error('请选择有效头像');
