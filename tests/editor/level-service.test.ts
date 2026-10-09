@@ -11,7 +11,7 @@ test('isolated HTTP editor serves all browser modules and requires reviewed conf
   const base = `http://127.0.0.1:${port}`;
   const post = async (path: string, body: unknown, origin = base) => fetch(`${base}${path}`, {method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)});
   try {
-    for (const route of ['/', '/editor.js','/core.js','/groupsCore.js','/groupsEditor.js','/assets/Colony/scripts/application/levelCatalog.js']) assert.equal((await fetch(base+route)).status,200,route);
+    for (const route of ['/', '/editor.js','/core.js','/groupsCore.js','/groupsEditor.js','/groupsView.js','/playtest.js','/assets/Colony/scripts/gameModel.js','/assets/Colony/scripts/application/boardRoute','/assets/Colony/scripts/application/levelCatalog','/assets/Colony/scripts/application/levelCatalog.js','/examples/first-level-draft.json']) assert.equal((await fetch(base+route)).status,200,route);
     assert.match(await (await fetch(base+'/editor.js')).text(),/mountGroupsEditor/);
     assert.equal((await fetch(base+'/levelPipeline.js')).status,404);
     assert.equal((await post('/api/level/preview',{},'https://untrusted.example')).status,403);

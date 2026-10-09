@@ -1,0 +1,15 @@
+{
+  "schema": "colony-level-draft-v2",
+  "board": { "schema": "colony-board-v1", "rows": 3, "columns": 4, "boardCells": ".AB./.AB./...." },
+  "targetLevel": 7,
+  "queueColumns": 3,
+  "groups": [
+    { "id": "group-1", "color": "berry", "count": 1, "pile": 0, "depth": 0, "linkId": "pair1" },
+    { "id": "group-2", "color": "citrus", "count": 1, "pile": 1, "depth": 0, "linkId": "pair1" },
+    { "id": "group-3", "color": "berry", "count": 1, "pile": 2, "depth": 0, "mystery": true, "lockId": "key1" },
+    { "id": "group-4", "color": "citrus", "count": 1, "pile": 2, "depth": 1 }
+  ],
+  "cellOrder": ["0.1", "0.2", "1.1", "1.2"],
+  "cellKeys": { "1.1": "key1" },
+  "selectionOrder": ["group-1", "group-2", "group-3", "group-4"]
+}

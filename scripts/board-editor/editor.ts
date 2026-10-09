@@ -1,5 +1,6 @@
 import { DraftHistory, initialDraft, type LevelDraft } from './groupsCore.js';
 import { mountGroupsEditor } from './groupsEditor.js';
+import { COLOR_NAMES } from './groupsView.js';
 import { blank, counts, documentFor, imageBoard, importBoard, paintLine, paletteRGB, type Board, type PaletteColor, type Pixels } from './core.js';
 
 function element<T extends HTMLElement>(id: string, type: { new(): T }): T {
@@ -18,9 +19,10 @@ const history = new DraftHistory(initialDraft()); let board = history.current.bo
 let groupsEditor: {render(): void} | null = null;
 let palette: PaletteColor[] = [], symbol = 'A', erasing = false, ready = false, busy = false;
 let pointer: number | null = null, last: [number, number] | null = null;
+let foodPick: ((coordinate: string) => void) | null = null;
 let pending: { image: Pixels; url: string; rows: number; columns: number } | null = null, filled: Board | null = null;
 let referenceUrl = '', saved = JSON.stringify(history.current);
-const names = ['莓红', '柑橘', '叶绿', '紫色', '蓝色', '棕色', '金色', '橙色', '黄色', '白色', '奶油', '深灰'];
+const names = COLOR_NAMES;
 const message = (text: string, error = false): void => { status.textContent = text; status.classList.toggle('error', error); };
 const errorMessage = (cause: unknown): string => cause instanceof Error ? cause.message : '操作未完成，请重试';
 function dimensions(): Board { return blank(Number(rows.value), Number(columns.value)); }
@@ -40,6 +42,13 @@ function draw(target: HTMLCanvasElement, value: Board, size: number, grid: boole
     for (let c = 0; c <= value.columns; c++) { context.moveTo(c * unit + .5, 0); context.lineTo(c * unit + .5, target.height); }
     for (let r = 0; r <= value.rows; r++) { context.moveTo(0, r * unit + .5); context.lineTo(target.width, r * unit + .5); }
     context.stroke();
+    context.font = `bold ${Math.max(8, Math.floor(unit * .7))}px sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
+    for (const coordinate of Object.keys(history.current.cellKeys)) {
+      const [row, column] = coordinate.split('.').map(Number);
+      if (row === undefined || column === undefined || row < 0 || column < 0 || row >= value.rows || column >= value.columns || value.pixels[row * value.columns + column] === '.') continue;
+      context.fillStyle = '#fff'; context.fillRect(column * unit + 2, row * unit + 2, unit - 4, unit - 4);
+      context.fillStyle = '#213d3a'; context.fillText('钥', (column + .5) * unit, (row + .5) * unit);
+    }
   }
 }
 function controls(): void {
@@ -74,6 +83,10 @@ function cell(event: PointerEvent): [number, number] | null {
 canvas.addEventListener('pointerdown', event => {
   if (!ready || busy || dialog.open || pointer !== null || event.button !== 0) return;
   const at = cell(event); if (!at) return;
+  if (foodPick) {
+    if (board.pixels[at[0] * board.columns + at[1]] === '.') { message('钥匙需要放在有食物的格子上。', true); return; }
+    const picked = foodPick; foodPick = null; canvas.classList.remove('key-picking'); picked(`${at[0]}.${at[1]}`); event.preventDefault(); return;
+  }
   pointer = event.pointerId; last = at; canvas.setPointerCapture(pointer);
   paintLine(board, at, at, erasing ? '.' : symbol); render(); event.preventDefault();
 });
@@ -176,7 +189,8 @@ async function start(): Promise<void> {
       const count = document.createElement('div'), text = document.createElement('span'), number = document.createElement('strong'); count.className = 'count-row'; text.textContent = names[i]!; number.id = `count-${i}`;
       count.append(swatch(p.hex), text, number); element('counts', HTMLDivElement).append(count);
     });
-    groupsEditor = mountGroupsEditor({ read: () => ({...history.current, board: structuredClone(board)}), commit: (draft: LevelDraft) => { history.commit(draft); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); render(); }, markSaved: () => { saved = JSON.stringify({...history.current, board}); }, locked: () => !ready || busy || pointer !== null || dialog.open, palette, message });
+    groupsEditor = mountGroupsEditor({ read: () => ({...history.current, board: structuredClone(board)}), commit: (draft: LevelDraft) => { history.commit(draft); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); render(); }, markSaved: () => { saved = JSON.stringify({...history.current, board}); }, locked: () => !ready || busy || pointer !== null || dialog.open, palette, message,
+      pickFood: callback => { foodPick = callback; canvas.classList.add('key-picking'); message('点击上方有食物的格子放钥匙。'); }, cancelFoodPick: () => { foodPick = null; canvas.classList.remove('key-picking'); } });
     ready = true; render(); message('从空白开始绘制，或者导入参考图片生成初稿');
   } catch (cause) { message(errorMessage(cause), true); }
 }
