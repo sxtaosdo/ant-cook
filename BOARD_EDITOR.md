@@ -87,6 +87,31 @@ $levelWork = Join-Path $env:TEMP 'ant-level-example'
 
 见证使用实际 `ColonyFlowModel`，逐轮真实dispatch、路径检查与completeTransport，等该批次全部到达才继续点击；只有全清且 `SUCCESS` 才给出 `WITNESS_PASS_STABLE_BATCH`。这证明给定顺序在该策略下通关，不证明所有Runtime60ms调度/重叠到达顺序，也不是全局可解性搜索器。计数合法但给定顺序卡死会拒绝生成PASS；同一棋盘可能存在另一条合法顺序。候选生成和隔离模型加载不等于Creator画面验收。
 
+## 待选区公开证据与后续提案（2026-10-09）
+
+本节记录主线程公开研究回传的产品身份和画面观察；本线程未重新联网或重放这些来源。该次公开研究的连续视频未成功播放；截图只支持可见元素及所列状态对照，不采用攻略站对隐藏机制的解释。它不修改本页既有编译合同，也不替代原Food Hunt Owner录像及其Target Lock。
+
+| 产品 | 回传身份 |
+|---|---|
+| Food Hunt | EVERFUN / FUNFINITY PTE LTD；Android包 `com.vigafun.funfinity.foodhunt`（[Google Play](https://play.google.com/store/apps/details?id=com.vigafun.funfinity.foodhunt)）。 |
+| Colony Flow | Android：ABI GAMES PTE LTD，包 `com.abi.colony.flow`（[Google Play](https://play.google.com/store/apps/details?id=com.abi.colony.flow)）；iOS：ABI GLOBAL LTD，ID `6779167923`（[App Store](https://apps.apple.com/app/id6779167923)）。 |
+
+| 产品/关卡 | 回传的可见内容 | 不能由此确认 |
+|---|---|---|
+| Food Hunt Lv32 | 3列；记录黑78与黑70状态；取走黑70后，本列紫12前移，其他列不变。 | 连续视频派发节奏、其他关卡列数及所有补位情况。 |
+| Food Hunt Lv100 | 4列；问号牌面未显示颜色和数量数字；红黑连接杆在待选区及临时槽均出现；棕色上箭头节点显示2→1。 | 连接组是否一次同时占N槽、问号隐藏内容及揭示时机、箭头节点计数/触发语义。 |
+| Colony Flow Lv1/9、Lv200、Lv179 | 分别记录3列、4列、5列；公开画面含60数量、问号、连接杆、钥匙与锁。 | 各元素在所有版本/关卡的覆盖范围、连接行为及钥匙解锁的精确条件。 |
+| Colony Flow 槽区 | 5槽全占时仍可见搬运。 | 不能推导“只要满槽即失败”；准确无进展失败条件仍需完整操作证据。 |
+
+原始画面链接保留为研究来源组，Food Hunt逐条观察尚未在本次交接中绑定到具体帧号；后续应补充逐帧定位，不猜测文件与动作的对应关系：
+
+- Food Hunt：[截图1](https://cover.foodhuntlevel.com/answer_screenshots/20260826/de6b2bb6650adba8c301f441169b149e.webp)、[截图2](https://cover.foodhuntlevel.com/answer_screenshots/20260826/a3f6f89ed2fd19913107f7ad9ae76998.webp)。
+- Colony Flow：[Lv179 frame23](https://www.colonyflowlevels.com/levels/179/frames/colony-flow-level-179-frame-23.png)、[frame45](https://www.colonyflowlevels.com/levels/179/frames/colony-flow-level-179-frame-45.png)、[Lv200 frame1](https://www.colonyflowlevels.com/levels/200/frames/colony-flow-level-200-frame-1.png)。
+
+待选区是底部数字组 `groups`，不是顶端 `boardCells` 图案。当前浏览器只有棋盘画笔；规则JSON能配置组的颜色、数量、列及深度，遮挡/可点击状态由模型派生。当前五列、2–50数量是我方合同，不是两款竞品的通用限制；现模型也不是“满槽立即失败”，而是在无在途任务、所有槽占用且没有可派发目标时失败。
+
+后续建议先做基础可视化groups面板和可配置列数；若调整列数或数量范围，须同步确认产品规则并使模型、解析器、CSV编译器、布局及回归一致，不能只放宽editor。问号、连接组、钥匙锁及箭头节点另列机制提案，待连续操作证据和Owner批准后再接入；本轮没有实现或放开这些能力。已批准的棋盘→完整候选→明确隔离导入→真实纯模型见证链已完成，生产导入和Creator画面验收仍按前述边界处理。
+
 ## 来源与本次验证
 
 来源为 `P4000/colony-flow-food-hunt/scripts/board-editor/`（7 个文件）及 `Tests/editor/board-editor.test.ts`；逐文件 SHA256、来源提交与源说明文档 SHA 见 [SOURCE.json](scripts/board-editor/SOURCE.json)。工具与测试按原字节迁入，文档按 4060 路径改写；原工程未修改。使用现有 TypeScript/tsx 依赖，无新增运行依赖。
