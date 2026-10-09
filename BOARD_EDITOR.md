@@ -4,7 +4,7 @@
 
 项目入口：[README → 棋盘编辑器](README.md#棋盘编辑器)。本文件集中维护编辑器的详细使用说明，README 只保留入口与快速启动。
 
-这是 4060 的本地浏览器工具，用于制作棋盘图案；不进入 Cocos 游戏，也不改变现有第一关、底部方块和难度。Owner 已确认先选行列，再从空白绘制或用参考图片生成初稿，生成后继续逐格编辑。
+这是4060的本地浏览器关卡工具，可制作棋盘图案、初始数字组及规则，并编译仓外候选。实际游戏使用同一共享校验器和模型；生产关卡和真实存档不自动写入。
 
 ## 启动与停止
 
@@ -16,7 +16,7 @@ pnpm editor:board
 
 若本机使用 pnpm 12，请使用明确的 `pnpm run editor:board`（该版本简写会触发安装流程）；验证使用 `pnpm run verify:editor`。
 
-打开 <http://127.0.0.1:7468>。无需打开 Creator。首次安装依赖可运行 `pnpm install`；使用 Node 22 的终端运行以上命令。服务只监听本机；终端 Ctrl+C 停止。端口固定为 7468，没有自动换端口或 PORT 参数。若出现 EADDRINUSE，检查 `Get-NetTCPConnection -LocalPort 7468 -State Listen`，在旧编辑器终端按 Ctrl+C 停止后重启；不要结束不明进程。启动时编译编辑器 TypeScript，生成物在忽略的 `temp/board-editor/`。图片仅在浏览器内处理，不上传、不覆盖项目资源。
+打开 <http://127.0.0.1:7469>。无需Creator或安装依赖；使用本机既有Node22。服务只监听本机，Ctrl+C停止。默认7469，可用 `--port` 指定空闲端口，无自动换端口；不要结束不明进程或重启已有编辑器。启动时生成物放入新建系统Temp目录，图片仍只在浏览器处理。
 
 ## 编辑流程
 
@@ -50,9 +50,9 @@ pnpm editor:board
 
 ## 4060 主题关卡编译与隔离导入
 
-浏览器仍导出棋盘图案。完整配置还需规则JSON和目标关号；命令行将这三项与当前主题元数据合并，生成候选CSV、运行TS、完整60关JSON、差异和搬运见证。目标限制为既有1–60关，只替换该行的 `rows,columns,boardCells,cellOrder,groups`，保留主题、稳定sourceId、奖励、收集身份、图标及背景层。运行入口仍为 `LoadingState → createOperationalCatalog → operationalThemeData.ts → ColonyFlowModel`。
+浏览器可编辑完整初始草稿，也可沿用棋盘JSON、规则JSON和目标关号；编译链将这三项与当前主题元数据合并，生成候选CSV、运行TS、完整60关JSON、差异和搬运见证。目标限制为既有1–60关，只替换该行的 `rows,columns,boardCells,cellOrder,groups`，保留主题、稳定sourceId、奖励、收集身份、图标及背景层。运行入口仍为 `LoadingState → createOperationalCatalog → operationalThemeData.ts → ColonyFlowModel`。
 
-规则文件如下，配套棋盘见 [合成样例](tests/editor/fixtures/synthetic-board.json)。`cellOrder` 用 `row.column|...` 完整覆盖有效格且无重复，顺序会保留；`groups` 用 `颜色字母:数量:列:深度|...`，每组数量2–50、列0–4、同列深度从0连续，各色总数必须匹配棋盘。`selectionOrder` 是明确的、从0开始的数字组点击顺序，须完整且无重复。
+规则文件如下，配套棋盘见 [合成样例](tests/editor/fixtures/synthetic-board.json)。`cellOrder` 用 `row.column|...` 完整覆盖有效格且无重复，顺序会保留；`groups` 用 `颜色字母:数量:列:深度|...`，每组数量1–4096、列0–4（v2可配置3/4/5列）、同列深度从0连续，各色总数必须匹配棋盘。`selectionOrder` 是明确的、从0开始的数字组点击顺序，须完整且无重复。
 
 ```json
 {
@@ -87,7 +87,7 @@ $levelWork = Join-Path $env:TEMP 'ant-level-example'
 
 见证使用实际 `ColonyFlowModel`，逐轮真实dispatch、路径检查与completeTransport，等该批次全部到达才继续点击；只有全清且 `SUCCESS` 才给出 `WITNESS_PASS_STABLE_BATCH`。这证明给定顺序在该策略下通关，不证明所有Runtime60ms调度/重叠到达顺序，也不是全局可解性搜索器。计数合法但给定顺序卡死会拒绝生成PASS；同一棋盘可能存在另一条合法顺序。候选生成和隔离模型加载不等于Creator画面验收。
 
-## 待选区公开证据与后续提案（2026-10-09）
+## 待选区公开证据（2026-10-09）
 
 本节记录主线程公开研究回传的产品身份和画面观察；本线程未重新联网或重放这些来源。该次公开研究的连续视频未成功播放；截图只支持可见元素及所列状态对照，不采用攻略站对隐藏机制的解释。它不修改本页既有编译合同，也不替代原Food Hunt Owner录像及其Target Lock。
 
@@ -108,16 +108,36 @@ $levelWork = Join-Path $env:TEMP 'ant-level-example'
 - Food Hunt：[截图1](https://cover.foodhuntlevel.com/answer_screenshots/20260826/de6b2bb6650adba8c301f441169b149e.webp)、[截图2](https://cover.foodhuntlevel.com/answer_screenshots/20260826/a3f6f89ed2fd19913107f7ad9ae76998.webp)。
 - Colony Flow：[Lv179 frame23](https://www.colonyflowlevels.com/levels/179/frames/colony-flow-level-179-frame-23.png)、[frame45](https://www.colonyflowlevels.com/levels/179/frames/colony-flow-level-179-frame-45.png)、[Lv200 frame1](https://www.colonyflowlevels.com/levels/200/frames/colony-flow-level-200-frame-1.png)。
 
-待选区是底部数字组 `groups`，不是顶端 `boardCells` 图案。当前浏览器只有棋盘画笔；规则JSON能配置组的颜色、数量、列及深度，遮挡/可点击状态由模型派生。当前五列、2–50数量是我方合同，不是两款竞品的通用限制；现模型也不是“满槽立即失败”，而是在无在途任务、所有槽占用且没有可派发目标时失败。
+待选区是底部数字组 `groups`，不是顶端 `boardCells` 图案。公开截图观察不决定未核实的细节；以下规则是用户2026-10-09明确确认的我方设计选择，不声称竞品逐动作真值。
 
-后续建议先做基础可视化groups面板和可配置列数；若调整列数或数量范围，须同步确认产品规则并使模型、解析器、CSV编译器、布局及回归一致，不能只放宽editor。问号、连接组、钥匙锁及箭头节点另列机制提案，待连续操作证据和Owner批准后再接入；本轮没有实现或放开这些能力。已批准的棋盘→完整候选→明确隔离导入→真实纯模型见证链已完成，生产导入和Creator画面验收仍按前述边界处理。
+## 已确认规则与新版编辑器
+
+状态: Accepted（2026-10-09）。共享入口为 `levelCatalog.ts`、CSV编译器与实际 `ColonyFlowModel`。
+
+- 待选区3/4/5列，旧关缺省5；数量安全正整数1–4096、每色守恒、每列连续深度。工作槽独立，默认5，既有主线8/14/20初始6；每日挑战不按主线关号套用。
+- 问号真实内容提前配置，到队首揭示，reset不重抽。连体可含同列连续成员，全部前驱须属于同连体或已出队；配置数组顺序分配最左空槽，空槽不必相邻，不足则整组零变更。成员数不超过初始槽数。
+- 普通/连体成员均在未派发量=0且在途量=0时释放。钥匙绑定唯一有效食物坐标，锁引用稳定ID；实际食物清除提交时取得，包括铲子实际清除（明确边界选择）。重复完成不重复解锁，不依据动画INTERACT取得钥匙。
+- 满槽仍可搬运、或有在途交付时继续PLAYING。没有合法入槽、可派发搬运、在途交付及实际可执行的取钥匙铲子动作才FAIL；仅配置存在钥匙不阻止死局。普通可选道具仍不延长旧死局时机。
+- 不保存中途进度。撤销/重做深拷整份初始草稿，解法引用稳定组ID，重排后转换正确CSV索引。未知箭头与Runtime状态字段拒绝。
+
+新版默认7469；每次启动在新系统Temp目录编译并快照浏览器模块，不重启或覆盖旧7468服务、dist或浏览器草稿。可用 `pnpm run editor:board --port 7470` 显式选择另一个空闲端口，无自动换端口。源码变化后，旧服务拒绝继续preview/apply，应另启独立服务；这保护缓存执行代码与计划依赖哈希一致。
+
+页面底部数字组面板支持增删、真实颜色/数量/列、列内上下移动、问号/连体ID/锁ID、钥匙坐标、格子顺序及解法顺序。数量或格子顺序暂时失配的草稿仍可保存和重导入继续编辑，编译会阻止失配；运行态、重复组ID和列越界拒绝导入。完整草稿使用 `colony-level-draft-v2`，编译边界为 `colony-level-rules-v2`；旧rules-v1字段合同继续兼容。v2 CSV严格尾追加 `queueColumns,groupRules,cellKeys`，目标theme整表升级28列，其余关补5/空对象并保留身份、美术与运营元数据，生产数据不写。
+
+配置合法与已证明可解分开。显式解法保持全组排列；只有被较早原子SLOT事件覆盖的连体成员才跳过，trace记录成员。留空时最多搜索200状态/1000ms的确定性稳定批次；无见证或预算耗尽返回UNKNOWN，不判不可解。见证只证明无道具稳定批次的一条纯模型解，不证明所有60ms并行到达顺序；只有实际见证通过才生成可导入候选。
+
+编译候选会新建仓外sandbox及候选，展示验证与diff；确认差异后只导入该隔离副本。HTTP仅接收棋盘、规则、关号或服务生成的候选ID/确认SHA，不接收调用方路径，不开放生产apply。继续沿用标记、别名、源/依赖/候选哈希、最后重验和失败回滚；是互斥writer下的受检导入，非崩溃安全文件系统事务。
+
+源码/纯模型/隔离HTTP接线已执行验证。Creator750×1334三四五列布局、问号与徽标可读性、连体动画/中断仍待标准入口恢复，不能把独立测试当视觉验收。
 
 ## 来源与本次验证
 
 来源为 `P4000/colony-flow-food-hunt/scripts/board-editor/`（7 个文件）及 `Tests/editor/board-editor.test.ts`；逐文件 SHA256、来源提交与源说明文档 SHA 见 [SOURCE.json](scripts/board-editor/SOURCE.json)。工具与测试按原字节迁入，文档按 4060 路径改写；原工程未修改。使用现有 TypeScript/tsx 依赖，无新增运行依赖。
 
-初次迁入范围为编辑器类型检查、14项定向测试、本地HTTP资源及真实浏览器绘制、JSON下载与重新导入。后续增加本页说明的编译、见证和隔离导入；没有自动搬运顺序、数字组生成器或全局求解器。
+初次迁入范围为编辑器类型检查、14项定向测试、本地HTTP资源及真实浏览器绘制、JSON下载与重新导入。后续增加本页说明的编译、见证和隔离导入；没有自动数字组生成器或全局可解性证明器；新增有预算的稳定批次见证搜索。
 
 历史编辑器回执：Node22类型检查与14/14测试通过；HTTP资源200，Edge绘制、下载、清空与重导入32×32唯一A格，截图已回看，当次测试服务随后关闭；源码检查点 `5fcab3e`。这不是当前服务或当前浏览器状态的证明。
 
-编译器来源为原仓 `scripts/compileThemeCsv.mjs`，迁入时SHA256 `1d3a5ab54c441412ffcf1b71aa6820096a4eb0189ff07cb9460cf1f4df9b2d72`。保留原CSV领域校验与逐字节生成格式，新增只读默认入口、候选源参数及共享色表。当前60关、5主题40种收集物与68个图片引用通过一致性检查；实际数据未改。新增回归覆盖合法/非法配置、5/6槽差异、封闭洞卡死与替代解、过期/篡改拒绝、明确隔离导入和失败回滚；本机沙箱禁止创建硬链接，该项单独跳过并保留未验证标记。
+编译器来源为原仓 `scripts/compileThemeCsv.mjs`，迁入时SHA256 `1d3a5ab54c441412ffcf1b71aa6820096a4eb0189ff07cb9460cf1f4df9b2d72`。保留原CSV领域校验与逐字节生成格式，新增只读默认入口、候选源参数及共享色表。当前60关、5主题40种收集物与68个图片引用通过一致性检查；实际数据未改。新增回归覆盖合法/非法配置、5/6槽差异、封闭洞卡死与替代解、过期/篡改拒绝、明确隔离导入和失败回滚；历史默认沙箱曾禁止创建硬链接并单独跳过；本轮标准授权定向回归中该项实际执行通过。
+
+本轮执行回执：定向146/146，最后导入边界与编辑器/规则44/44，默认测试以 `--test-concurrency=1` 串行291/291；编辑器、编译链和Creator源码严格类型检查通过，旧60关生成TS逐字节复现及68图片引用检查通过。独立HTTP完整候选→审阅SHA→隔离apply已实际执行；普通只读复核发现并修复执行版本指纹、徽标/数量标签归属和草稿导入不可见组三项问题，未声称registered角色或Creator验收。保留默认并行测试一次shell保存时序失败和单独14项成功复验，不改该用例。
