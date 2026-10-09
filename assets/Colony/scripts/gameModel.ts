@@ -1,6 +1,6 @@
 import { boardRoute, type BoardBounds } from './application/boardRoute';
 import type { DevelopmentLevelCatalog, DevelopmentLevelConfig } from './application/levelCatalog';
-import { GAME_COLORS, type BoardShape, type GameColor } from './application/levelCatalog';
+import { GAME_COLORS, validateDevelopmentLevel, type QueueColumns, type BoardShape, type GameColor } from './application/levelCatalog';
 
 export { GAME_COLORS, type BoardShape, type GameColor } from './application/levelCatalog';
 /** 对局结果：进行中 / 成功 / 失败。 */
@@ -8,8 +8,8 @@ export type GameResult = "PLAYING" | "SUCCESS" | "FAIL";
 /** 本关一次性道具：铲子 / 扩槽 / 指南针。 */
 export type ColonyTool = 'trowel' | 'slot' | 'compass';
 
-export type BoardCellState = { id: string; row: number; column: number; color: GameColor; cleared: boolean };
-export type StackState = { id: string; color: GameColor; count: number; pile: number; depth: number; selected: boolean; accessible: boolean };
+export type BoardCellState = { id: string; row: number; column: number; color: GameColor; cleared: boolean; keyId?: string };
+export type StackState = { id: string; color: GameColor; count: number; pile: number; depth: number; selected: boolean; accessible: boolean; mystery?: true; revealed?: boolean; linkId?: string; lockId?: string; locked?: boolean };
 export type SlotStackState = { stackId: string; color: GameColor; remaining: number };
 export type RoutePoint = { row: number; column: number };
 /** 玩法只读快照，供 UI 投影。 */
@@ -23,6 +23,8 @@ export type GameSnapshot = {
   slots: Array<SlotStackState | null>;
   stacks: StackState[];
   transported: number;
+  queueColumns?: QueueColumns;
+  acquiredKeys?: string[];
 };
 
 export const EMPTY_GAME_SNAPSHOT: GameSnapshot = {
@@ -39,7 +41,7 @@ export const EMPTY_GAME_SNAPSHOT: GameSnapshot = {
 
 /** 可观察玩法事件，供表现层驱动动画与反馈。 */
 export type ObservableEvent = {
-  phase: "INPUT" | "SLOT" | "SPAWN" | "MOVE" | "INTERACT" | "COUNT" | "RELEASE" | "REVEAL" | "SUCCESS" | "FAIL";
+  phase: "INPUT" | "SLOT" | "SPAWN" | "MOVE" | "INTERACT" | "COUNT" | "RELEASE" | "REVEAL" | "GROUP_REVEAL" | "UNLOCK" | "SUCCESS" | "FAIL";
   color?: GameColor;
   stackId?: string;
   cellId?: string;
@@ -49,18 +51,20 @@ export type ObservableEvent = {
   message: string;
 };
 
-type StackDefinition = Readonly<Omit<StackState, "selected" | "accessible">>;
+type StackDefinition = Readonly<Omit<StackState, "selected" | "accessible" | "revealed" | "locked">>;
 type LevelDefinition = {
   readonly level: number;
   readonly shape: BoardShape;
   readonly board: readonly Readonly<BoardCellState>[];
   readonly stacks: readonly StackDefinition[];
   readonly initialSlots: 5 | 6;
+  readonly queueColumns: QueueColumns;
 };
 export const TRANSPORT_DISPATCH_INTERVAL_MS = 180;
 
 /** 将开发关卡配置冻结为关卡定义。 */
 function createDevelopmentLevel(config: DevelopmentLevelConfig): LevelDefinition {
+  config = validateDevelopmentLevel(config, config.level);
   const initialSlots = config.initialSlots ?? 5;
   if (initialSlots !== 5 && initialSlots !== 6) throw new Error(`Level ${config.level} initialSlots must be 5 or 6`);
   const cells = config.cells.map((cell) => Object.freeze({
@@ -69,11 +73,13 @@ function createDevelopmentLevel(config: DevelopmentLevelConfig): LevelDefinition
     column: cell.column,
     color: cell.color as GameColor,
     cleared: false,
+    ...(cell.keyId ? { keyId: cell.keyId } : {}),
   }));
   return Object.freeze({
     level: config.level,
     shape: config.shape,
     initialSlots,
+    queueColumns: config.queueColumns ?? 5,
     board: Object.freeze(cells),
     stacks: Object.freeze(config.groups.map((group) => Object.freeze({
       id: group.id,
@@ -81,6 +87,9 @@ function createDevelopmentLevel(config: DevelopmentLevelConfig): LevelDefinition
       count: group.count,
       pile: group.pile,
       depth: group.depth,
+      ...(group.mystery ? { mystery: true as const } : {}),
+      ...(group.linkId ? { linkId: group.linkId } : {}),
+      ...(group.lockId ? { lockId: group.lockId } : {}),
     }))),
   });
 }
@@ -102,6 +111,9 @@ export class ColonyFlowModel {
   private slots: Array<SlotStackState | null> = [];
   private stacks: StackState[] = [];
   private transported = 0;
+  private queueColumns: QueueColumns = 5;
+  private readonly acquiredKeys = new Set<string>();
+  private readonly inFlight = new Map<string, number>();
   /** 已派出蚂蚁、尚未清除的棋盘格预约。 */
   private reservations = new Map<string, { slotIndex: number; color: GameColor; stackId: string }>();
   private readonly usedTools = new Set<ColonyTool>();
@@ -133,6 +145,9 @@ export class ColonyFlowModel {
     this.result = "PLAYING";
     const definition = this.definitions[this.level - 1]!;
     this.shape = definition.shape;
+    this.queueColumns = definition.queueColumns;
+    this.acquiredKeys.clear();
+    this.inFlight.clear();
     this.board = definition.board.map((cell) => ({ ...cell, cleared: false }));
     this.activeCoordinates = new Set(this.board.map(cell => `${cell.row}:${cell.column}`));
     this.exposedCache = null;
@@ -144,6 +159,8 @@ export class ColonyFlowModel {
     this.usedTools.clear();
     this.extraSupplyUsed = false;
     this.clearTransient();
+    this.refreshQueue([]);
+    this.finalize([]);
     return this.snapshot();
   }
 
@@ -159,6 +176,8 @@ export class ColonyFlowModel {
       slots: this.slots.map((slot) => slot ? { ...slot } : null),
       stacks: this.stacks.map((stack) => ({ ...stack })),
       transported: this.transported,
+      queueColumns: this.queueColumns,
+      acquiredKeys: [...this.acquiredKeys],
     };
   }
 
@@ -187,29 +206,68 @@ export class ColonyFlowModel {
     return this.suggestedStackId;
   }
 
-  /** 将可取出的数字组放入首个空暂存槽。 */
+  /** 连体先完成整组预检，再按配置顺序原子入槽；失败不改变状态。 */
   selectStack(stackId: string): ObservableEvent[] {
-    this.clearTransient();
     if (this.result !== "PLAYING") throw new Error(`Cannot select a Stack after ${this.result}`);
-    const stack = this.stacks.find((candidate) => candidate.id === stackId);
+    const stack = this.stacks.find(candidate => candidate.id === stackId);
     if (!stack) throw new Error(`Unknown Stack: ${stackId}`);
     if (stack.selected) throw new Error(`Stack was already selected: ${stackId}`);
-    if (!stack.accessible) throw new Error(`Stack is still covered: ${stackId}`);
-    const slotIndex = this.slots.findIndex((slot) => slot === null);
-    if (slotIndex < 0) throw new Error("No empty holding slot");
-    stack.selected = true;
-    stack.accessible = false;
-    const next = this.stacks.filter((candidate) => candidate.pile === stack.pile && !candidate.selected && candidate.count > 0)
-      .sort((a, b) => a.depth - b.depth)[0];
-    if (next) next.accessible = true;
-    this.slots[slotIndex] = { stackId: stack.id, color: stack.color, remaining: stack.count };
-    const events: ObservableEvent[] = [
-      { phase: "INPUT", color: stack.color, stackId, message: `${stackId} selected from pile ${stack.pile + 1}` },
-      { phase: "SLOT", color: stack.color, stackId, slotIndex, remaining: stack.count, message: `${stackId} entered holding slot ${slotIndex + 1}` },
-    ];
+    const members = this.members(stack);
+    if (!this.frontAvailable(members)) throw new Error(`Stack is covered, selected or locked: ${stackId}`);
+    const empty = this.slots.flatMap((slot, index) => slot === null ? [index] : []);
+    if (empty.length < members.length) throw new Error('Not enough empty holding slots for the whole linked group');
+    this.clearTransient();
+    const events: ObservableEvent[] = [];
+    for (const [index, member] of members.entries()) {
+      const slotIndex = empty[index]!;
+      member.selected = true;
+      member.accessible = false;
+      if (member.mystery && !member.revealed) {
+        member.revealed = true;
+        events.push({ phase: 'GROUP_REVEAL', stackId: member.id, message: `${member.id} revealed its configured contents` });
+      }
+      this.slots[slotIndex] = { stackId: member.id, color: member.color, remaining: member.count };
+      events.push({ phase: 'INPUT', color: member.color, stackId: member.id, message: `${member.id} selected` },
+        { phase: 'SLOT', color: member.color, stackId: member.id, slotIndex, remaining: member.count, message: `${member.id} entered holding slot ${slotIndex + 1}` });
+    }
+    this.refreshQueue(events);
     this.finalize(events);
     this.lastEvents = events;
     return this.lastEventList();
+  }
+
+  private members(stack: StackState): StackState[] {
+    return stack.linkId ? this.stacks.filter(candidate => candidate.linkId === stack.linkId && !candidate.selected && candidate.count > 0) : [stack];
+  }
+  private frontAvailable(members: readonly StackState[]): boolean {
+    const ids = new Set(members.map(member => member.id));
+    return members.length > 0 && members.every(member => !member.selected && member.count > 0
+      && (!member.lockId || this.acquiredKeys.has(member.lockId))
+      && !this.stacks.some(predecessor => predecessor.pile === member.pile && predecessor.depth < member.depth
+        && !predecessor.selected && predecessor.count > 0 && !ids.has(predecessor.id)));
+  }
+  private refreshQueue(events: ObservableEvent[]): void {
+    for (const stack of this.stacks) {
+      stack.locked = Boolean(stack.lockId && !this.acquiredKeys.has(stack.lockId));
+      const head = !this.stacks.some(previous => previous.pile === stack.pile && previous.depth < stack.depth && !previous.selected && previous.count > 0);
+      if (!stack.revealed && (!stack.mystery || stack.selected || head)) {
+        stack.revealed = true;
+        if (stack.mystery) events.push({ phase: 'GROUP_REVEAL', stackId: stack.id, message: `${stack.id} reached the queue head` });
+      }
+      stack.accessible = !stack.selected && this.frontAvailable(this.members(stack));
+    }
+  }
+  private acquireKey(cell: BoardCellState, events: ObservableEvent[]): void {
+    if (!cell.keyId || this.acquiredKeys.has(cell.keyId)) return;
+    this.acquiredKeys.add(cell.keyId);
+    events.push({ phase: 'UNLOCK', cellId: cell.id, message: `Key ${cell.keyId} unlocked its configured groups` });
+    this.refreshQueue(events);
+  }
+  private releaseCompleted(slotIndex: number, events: ObservableEvent[]): void {
+    const slot = this.slots[slotIndex];
+    if (!slot || slot.remaining !== 0 || (this.inFlight.get(slot.stackId) ?? 0) !== 0) return;
+    this.slots[slotIndex] = null;
+    events.push({ phase: 'RELEASE', color: slot.color, stackId: slot.stackId, slotIndex, remaining: 0, message: `${slot.stackId} completed every unit` });
   }
 
   /** 若存在匹配，派发一次「槽位 → 暴露格」搬运。 */
@@ -236,7 +294,7 @@ export class ColonyFlowModel {
     return this.lastDispatchRoundList().map((round) => [...round]);
   }
 
-  /** 蚂蚁到达：清除格子并结算胜负；槽位已在最后一只蚂蚁出发时释放。 */
+  /** 蚂蚁到达：清除格子并结算胜负；最后一份食物实际清除后释放槽位。 */
   completeTransport(cellId: string): ObservableEvent[] {
     this.clearTransient();
     const reservation = this.reservations.get(cellId);
@@ -244,6 +302,7 @@ export class ColonyFlowModel {
     if (!reservation || !cell || cell.cleared) return [];
     const exposedBefore = new Set(this.exposedCells().map((candidate) => candidate.id));
     this.reservations.delete(cellId);
+    this.inFlight.set(reservation.stackId, (this.inFlight.get(reservation.stackId) ?? 1) - 1);
     cell.cleared = true;
     this.activeCoordinates.delete(`${cell.row}:${cell.column}`);
     this.exposedCache = null;
@@ -256,6 +315,8 @@ export class ColonyFlowModel {
       slotIndex: reservation.slotIndex,
       message: `${cellId} cleared after its ant arrived`,
     }];
+    this.acquireKey(cell, events);
+    this.releaseCompleted(reservation.slotIndex, events);
     const newlyExposed = this.exposedCells().filter((candidate) => !exposedBefore.has(candidate.id));
     if (newlyExposed.length > 0) events.push({ phase: "REVEAL", cellId: newlyExposed[0]!.id, message: `${newlyExposed.length} covered board cells became reachable` });
     this.finalize(events);
@@ -293,10 +354,7 @@ export class ColonyFlowModel {
       const slot = this.slots[slotIndex]!;
       slot.remaining -= 1;
       events.push({ phase: "COUNT", color: slot.color, stackId: slot.stackId, slotIndex, remaining: slot.remaining, message: `${slot.stackId} has ${slot.remaining} units left` });
-      if (slot.remaining === 0) {
-        this.slots[slotIndex] = null;
-        events.push({ phase: "RELEASE", color: slot.color, stackId: slot.stackId, slotIndex, remaining: 0, message: `${slot.stackId} emptied by trowel` });
-      }
+      this.releaseCompleted(slotIndex, events);
     } else {
       const stack = this.stacks.find((candidate) => !candidate.selected && candidate.color === cell.color && candidate.count > 0);
       if (stack) {
@@ -304,12 +362,12 @@ export class ColonyFlowModel {
         if (stack.count === 0) {
           stack.selected = true;
           stack.accessible = false;
-          const next = this.stacks.filter((candidate) => candidate.pile === stack.pile && !candidate.selected)
-            .sort((a, b) => a.depth - b.depth)[0];
-          if (next) next.accessible = true;
+
         }
       }
     }
+    this.acquireKey(cell, events);
+    this.refreshQueue(events);
     this.finalize(events);
     return events;
   }
@@ -328,7 +386,8 @@ export class ColonyFlowModel {
   autoSelectableStackId(): string | null {
     if (this.result !== "PLAYING" || !this.slots.some((slot) => slot === null)) return null;
     const exposedColors = new Set(this.exposedCells().map((cell) => cell.color));
-    return this.stacks.find((stack) => stack.accessible && !stack.selected && stack.count > 0 && exposedColors.has(stack.color))?.id ?? null;
+    const empty = this.slots.filter(slot => slot === null).length;
+    return this.stacks.find(stack => stack.accessible && this.members(stack).length <= empty && exposedColors.has(stack.color))?.id ?? null;
   }
 
   /** 消耗指南针，并向 Presenter 写入建议选取的数字组 id。 */
@@ -388,16 +447,13 @@ export class ColonyFlowModel {
     const slot = this.slots[slotIndex]!;
     const route = this.routeTo(cell, slotIndex);
     this.reservations.set(cell.id, { slotIndex, color: slot.color, stackId: slot.stackId });
+    this.inFlight.set(slot.stackId, (this.inFlight.get(slot.stackId) ?? 0) + 1);
     const events: ObservableEvent[] = [
       { phase: "SPAWN", color: slot.color, stackId: slot.stackId, cellId: cell.id, slotIndex, remaining: slot.remaining, message: `${slot.color} unit spawned from ${slot.stackId}` },
       { phase: "MOVE", color: slot.color, stackId: slot.stackId, cellId: cell.id, slotIndex, remaining: slot.remaining, route, message: `${slot.color} unit crawled through blank space` },
     ];
     slot.remaining -= 1;
     events.push({ phase: "COUNT", color: slot.color, stackId: slot.stackId, cellId: cell.id, slotIndex, remaining: slot.remaining, message: `${slot.stackId} has ${slot.remaining} units left` });
-    if (slot.remaining === 0) {
-      this.slots[slotIndex] = null;
-      events.push({ phase: "RELEASE", color: slot.color, stackId: slot.stackId, cellId: cell.id, slotIndex, remaining: 0, message: `${slot.stackId} dispatched its last unit and released slot ${slotIndex + 1}` });
-    }
     return events;
   }
 
@@ -407,9 +463,9 @@ export class ColonyFlowModel {
     if (remainingCells === 0) {
       this.result = "SUCCESS";
       events.push({ phase: "SUCCESS", message: "Every board cell was transported" });
-    } else if (this.reservations.size === 0 && this.slots.every(Boolean) && !this.findDispatch()) {
+    } else if (this.reservations.size === 0 && !(this.canUseTool('trowel') && this.exposedCells()[0]?.keyId && !this.acquiredKeys.has(this.exposedCells()[0]!.keyId!)) && !this.findDispatch() && !this.stacks.some(stack => this.frontAvailable(this.members(stack)) && this.members(stack).length <= this.slots.filter(slot => slot === null).length)) {
       this.result = "FAIL";
-      events.push({ phase: "FAIL", message: `${this.slots.length} occupied stacks cannot reach an exposed matching cell` });
+      events.push({ phase: "FAIL", message: "No legal queue selection, transport or pending delivery remains" });
     }
   }
 

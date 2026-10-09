@@ -11,7 +11,7 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "editor:board": "node scripts/board-editor/serve.mjs",
+    "editor:board": "node --import tsx scripts/board-editor/serve.mjs",
     "editor:typecheck": "tsc -p scripts/board-editor/tsconfig.json --noEmit && tsc -p scripts/board-editor/tsconfig.level.json",
     "editor:test": "node --import tsx --test tests/editor/*.test.ts",
     "editor:levels": "node --import tsx scripts/board-editor/compile-level.ts",

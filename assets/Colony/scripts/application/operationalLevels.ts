@@ -1,3 +1,4 @@
+import { MAIN_SUPPLY_LEVELS } from './levelCatalog';
 import { GAME_COLORS, type DevelopmentLevelCatalog, type DevelopmentLevelCell } from './levelCatalog';
 import { OPERATIONAL_THEME_DATA } from './operationalThemeData';
 import { DAILY_DIFFICULTY_GROUPS } from './dailyDifficultyGroups';
@@ -5,7 +6,7 @@ import { DAILY_DIFFICULTY_GROUPS } from './dailyDifficultyGroups';
 export const OPERATIONAL_CONTENT_VERSION = 'night-market-1';
 export const THEME_BASKETS = OPERATIONAL_THEME_DATA.themes;
 /** Sparse relief rounds use the existing sixth slot; ordinary and daily rounds remain unchanged. */
-export const MAIN_SUPPLY_LEVELS = [8, 14, 20] as const;
+export { MAIN_SUPPLY_LEVELS } from './levelCatalog';
 
 export function themeForLevel(levelId: number) {
   if (!Number.isInteger(levelId) || levelId < 1 || levelId > OPERATIONAL_THEME_DATA.levels.length) return null;

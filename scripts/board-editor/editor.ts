@@ -1,4 +1,6 @@
-import { blank, counts, documentFor, History, imageBoard, importBoard, paintLine, paletteRGB, type Board, type PaletteColor, type Pixels } from './core.js';
+import { DraftHistory, initialDraft, type LevelDraft } from './groupsCore.js';
+import { mountGroupsEditor } from './groupsEditor.js';
+import { blank, counts, documentFor, imageBoard, importBoard, paintLine, paletteRGB, type Board, type PaletteColor, type Pixels } from './core.js';
 
 function element<T extends HTMLElement>(id: string, type: { new(): T }): T {
   const node = document.getElementById(id); if (!(node instanceof type)) throw new Error(`缺少编辑器控件：${id}`); return node;
@@ -12,11 +14,12 @@ const dialog = element('image-dialog', HTMLDialogElement), removeWhite = input('
 const colorCount = element('image-color-count', HTMLSelectElement);
 const imagePreview = element('image-preview', HTMLCanvasElement), imageOriginal = element('image-original', HTMLImageElement);
 const reference = element('reference', HTMLImageElement), imageStatus = element('image-status', HTMLParagraphElement);
-const history = new History(blank(32, 32)); let board = history.current;
+const history = new DraftHistory(initialDraft()); let board = history.current.board;
+let groupsEditor: {render(): void} | null = null;
 let palette: PaletteColor[] = [], symbol = 'A', erasing = false, ready = false, busy = false;
 let pointer: number | null = null, last: [number, number] | null = null;
 let pending: { image: Pixels; url: string; rows: number; columns: number } | null = null, filled: Board | null = null;
-let referenceUrl = '', saved = JSON.stringify(board);
+let referenceUrl = '', saved = JSON.stringify(history.current);
 const names = ['莓红', '柑橘', '叶绿', '紫色', '蓝色', '棕色', '金色', '橙色', '黄色', '白色', '奶油', '深灰'];
 const message = (text: string, error = false): void => { status.textContent = text; status.classList.toggle('error', error); };
 const errorMessage = (cause: unknown): string => cause instanceof Error ? cause.message : '操作未完成，请重试';
@@ -60,9 +63,9 @@ function render(): void {
   const totals = counts(board); element('total', HTMLElement).textContent = String(totals.reduce((a, b) => a + b, 0));
   for (const [i, total] of totals.entries()) element(`count-${i}`, HTMLElement).textContent = String(total);
   config.value = board.pixels.some(p => p !== '.') ? JSON.stringify(documentFor(board), null, 2) : '棋盘为空，请先绘制图案。';
-  controls();
+  controls(); groupsEditor?.render();
 }
-function commit(next: Board): void { history.commit(next); board = history.current; rows.value = String(board.rows); columns.value = String(board.columns); preset.value = board.rows === board.columns && [20, 32, 48, 64].includes(board.rows) ? String(board.rows) : ''; render(); }
+function commit(next: Board): void { history.commit({...history.current, board: next}); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); preset.value = board.rows === board.columns && [20, 32, 48, 64].includes(board.rows) ? String(board.rows) : ''; render(); }
 function run(action: () => void): void { try { action(); } catch (cause) { message(errorMessage(cause), true); } }
 function cell(event: PointerEvent): [number, number] | null {
   const rect = canvas.getBoundingClientRect(), c = Math.floor((event.clientX - rect.left) * board.columns / rect.width), r = Math.floor((event.clientY - rect.top) * board.rows / rect.height);
@@ -88,8 +91,8 @@ button('brush').onclick = () => { erasing = false; controls(); };
 button('eraser').onclick = () => { erasing = true; controls(); };
 button('new-board').onclick = () => run(() => { commit(dimensions()); message('已生成空白棋盘，可绘制或导入图片'); });
 button('clear').onclick = () => { commit(blank(board.rows, board.columns)); message('已清空棋盘，可撤销'); };
-const undo = (): void => { history.undo(); board = history.current; commit(board); message('已撤销'); };
-const redo = (): void => { history.redo(); board = history.current; commit(board); message('已重做'); };
+const undo = (): void => { history.undo(); board = history.current.board; commit(board); message('已撤销'); };
+const redo = (): void => { history.redo(); board = history.current.board; commit(board); message('已重做'); };
 button('undo').onclick = undo; button('redo').onclick = redo;
 document.addEventListener('keydown', event => {
   if (!ready || busy || pointer !== null || dialog.open || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
@@ -102,7 +105,7 @@ button('export-json').onclick = () => run(() => {
   const blob = new Blob([JSON.stringify(documentFor(board), null, 2) + '\n'], { type: 'application/json' });
   const url = URL.createObjectURL(blob), link = document.createElement('a');
   link.href = url; link.download = `board-${board.rows}x${board.columns}.json`; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000); saved = JSON.stringify(board); message('已导出棋盘配置，可重新导入继续编辑');
+  setTimeout(() => URL.revokeObjectURL(url), 1000); message('已导出棋盘配置，可重新导入继续编辑');
 });
 button('copy-csv').onclick = async () => {
   const doc = documentFor(board), csv = `rows,columns,boardCells\n${doc.rows},${doc.columns},${doc.boardCells}`;
@@ -115,7 +118,7 @@ input('json-file').onchange = async () => {
   busy = true; controls();
   try {
     if (file.size > 1024 * 1024) throw new Error('棋盘配置文件不能超过1MB');
-    const next = importBoard(JSON.parse(await file.text()) as unknown); commit(next); saved = JSON.stringify(board); message('已导入棋盘配置');
+    const next = importBoard(JSON.parse(await file.text()) as unknown); commit(next); message('已导入棋盘配置');
   } catch (cause) { message(errorMessage(cause), true); }
   finally { busy = false; controls(); }
 };
@@ -156,7 +159,7 @@ button('apply-image').onclick = () => {
 };
 button('cancel-image').onclick = () => dialog.close();
 dialog.addEventListener('close', () => { if (pending) URL.revokeObjectURL(pending.url); pending = null; filled = null; controls(); });
-window.addEventListener('beforeunload', event => { if (JSON.stringify(board) !== saved) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', event => { if (JSON.stringify({...history.current, board}) !== saved) { event.preventDefault(); event.returnValue = ''; } });
 
 async function start(): Promise<void> {
   controls();
@@ -173,6 +176,7 @@ async function start(): Promise<void> {
       const count = document.createElement('div'), text = document.createElement('span'), number = document.createElement('strong'); count.className = 'count-row'; text.textContent = names[i]!; number.id = `count-${i}`;
       count.append(swatch(p.hex), text, number); element('counts', HTMLDivElement).append(count);
     });
+    groupsEditor = mountGroupsEditor({ read: () => ({...history.current, board: structuredClone(board)}), commit: (draft: LevelDraft) => { history.commit(draft); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); render(); }, markSaved: () => { saved = JSON.stringify({...history.current, board}); }, locked: () => !ready || busy || pointer !== null || dialog.open, palette, message });
     ready = true; render(); message('从空白开始绘制，或者导入参考图片生成初稿');
   } catch (cause) { message(errorMessage(cause), true); }
 }

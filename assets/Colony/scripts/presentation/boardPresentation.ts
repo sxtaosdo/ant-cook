@@ -152,14 +152,15 @@ export class BoardPresentation {
 
   /** 应用入槽选择事件，刷新槽位与数字组。 */
   public applySelection(events: readonly ObservableEvent[], readModel: ColonyReadModel): void {
-    const slot = events.find((event) => event.phase === 'SLOT');
-    if (slot?.slotIndex !== undefined && slot.color && slot.remaining !== undefined && slot.stackId) {
+    for (const slot of events.filter(event => event.phase === 'SLOT')) {
+    if (slot.slotIndex !== undefined && slot.color && slot.remaining !== undefined && slot.stackId) {
       this.displaySlots[slot.slotIndex] = {
         stackId: slot.stackId,
         color: slot.color,
         remaining: slot.remaining,
       };
       this.renderSlots();
+    }
     }
     this.renderStacks(readModel, true);
   }
@@ -299,6 +300,9 @@ export class BoardPresentation {
       this.factory.token(node, this.produce
         ? new Color(Math.round(166 + color.r * 0.35), Math.round(166 + color.g * 0.35), Math.round(166 + color.b * 0.35))
         : color, this.squareTile ?? puzzleFrame ?? this.cellFrame);
+      let keyBadge = node.getChildByName('KeyBadge');
+      if (cell.keyId && !keyBadge) { keyBadge = this.factory.label('钥', node, cellSize, cellSize, Math.max(12, Math.min(20, cellSize * 0.65)), Color.WHITE).node; keyBadge.name = 'KeyBadge'; }
+      if (keyBadge) keyBadge.active = Boolean(cell.keyId);
       let picture = node.getChildByName('ProducePicture');
       if (this.produce) {
         if (!picture) {
@@ -312,6 +316,7 @@ export class BoardPresentation {
         picture.getComponent(UITransform)!.setContentSize(cellSize, cellSize);
         this.factory.token(picture, Color.WHITE, this.produce.piece(cell.row, cell.column));
       } else if (picture) picture.active = false;
+      if (keyBadge) keyBadge.setSiblingIndex(node.children.length - 1);
       this.cellNodes.set(cell.id, node);
     }
     this.renderExposure(readModel);
@@ -341,7 +346,7 @@ export class BoardPresentation {
     const stacks = [...readModel.snapshot.stacks].sort((left, right) => right.depth - left.depth);
     const heads = stackPileHeads(stacks);
     for (const stack of stacks) {
-      const position = stackPilePosition(stack, stacks, heads);
+      const position = stackPilePosition(stack, stacks, heads, readModel.snapshot.queueColumns);
       const node = this.factory.acquire(
         this.stackPool,
         `stack-${stack.id}`,
@@ -360,14 +365,21 @@ export class BoardPresentation {
         }
         this.selectStack(stack.id);
       });
-      const label = node.getComponentInChildren(Label)
+      const label = node.getChildByName('StackCountLabel')?.getComponent(Label)
         ?? this.factory.label(String(stack.count), node, 82, 38, 31, Color.WHITE);
-      label.string = String(stack.count);
+      label.node.name = 'StackCountLabel';
+      label.overflow = Label.Overflow.SHRINK;
+      label.string = stack.mystery && !stack.revealed ? '?' : String(stack.count);
       label.color = ['white', 'cream', 'yellow', 'gold', 'orange', 'citrus'].includes(stack.color) ? new Color('#493F53') : Color.WHITE;
       if (this.stackChain && !node.getChildByName('UnlockHint')) {
         const hint = new Node('UnlockHint'); hint.layer = node.layer; hint.parent = node;
         hint.addComponent(UITransform).setContentSize(80, 80);
         this.factory.token(hint, Color.WHITE, this.stackChain);
+      }
+      for (const [name, text, show] of [['LinkBadge', '连', Boolean(stack.linkId)], ['LockBadge', '锁', Boolean(stack.locked)]] as const) {
+        let badge = node.getChildByName(name);
+        if (!badge && show) { badge = this.factory.label(text, node, 26, 26, 17, Color.WHITE).node; badge.name = name; badge.setPosition(name === 'LinkBadge' ? -30 : 30, 30); }
+        if (badge) badge.active = show;
       }
       label.node.setSiblingIndex(node.children.length - 1);
       this.stackNodes.set(stack.id, node);
@@ -442,7 +454,7 @@ export class BoardPresentation {
         if (node.active) node.active = false;
         continue;
       }
-      const position = stackPilePosition(stack, readModel.snapshot.stacks, heads);
+      const position = stackPilePosition(stack, readModel.snapshot.stacks, heads, readModel.snapshot.queueColumns);
       const y = position.y + this.queueOffset;
       const visible = this.stackTile ? y >= -260 && y <= 64 : y >= -112 && y <= 112;
       if (node.active !== visible) node.active = visible;
@@ -454,15 +466,18 @@ export class BoardPresentation {
       } else {
         node.setPosition(target);
       }
-      const label = node.getComponentInChildren(Label);
-      if (label) label.string = String(stack.count);
+      const label = node.getChildByName('StackCountLabel')?.getComponent(Label);
+      if (label) { label.color = stack.mystery && !stack.revealed ? Color.WHITE : ['white', 'cream', 'yellow', 'gold', 'orange', 'citrus'].includes(stack.color) ? new Color('#493F53') : Color.WHITE; }
+      if (label) label.string = stack.mystery && !stack.revealed ? '?' : String(stack.count);
       const button = node.getComponent(Button);
       const enabled = stack.accessible && !this.moving.has(stackId);
       if (button) { button.interactable = true; button.transition = enabled ? Button.Transition.SCALE : Button.Transition.NONE; }
       node.setScale(Vec3.ONE);
       const sprite = node.getComponent(Sprite);
-      const color = colonyColor(stack.color);
+      const color = stack.mystery && !stack.revealed ? new Color('#6D777A') : colonyColor(stack.color);
       if (sprite) sprite.color = color;
+      const lockBadge = node.getChildByName('LockBadge');
+      if (lockBadge) lockBadge.active = Boolean(stack.locked);
       const hint = node.getChildByName('UnlockHint');
       if (hint) hint.active = Boolean(this.stackTile && !enabled);
     }

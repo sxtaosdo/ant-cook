@@ -59,7 +59,7 @@ test('missing/duplicate/outside order and invalid group count, pile, depth or co
   for (const change of [
     { cellOrder:'0.1' }, { cellOrder:'0.1|0.1|0.3|0.4|1.1|1.2|1.3|1.4' },
     { cellOrder:'0.1|0.2|0.3|0.4|1.1|1.2|1.3|9.9' },
-    { groups:'A:1:0:0|A:1:0:1|B:2:1:0|C:2:2:0|J:2:3:0' },
+    { groups:'A:0:0:0|A:2:0:1|B:2:1:0|C:2:2:0|J:2:3:0' },
     { groups:'A:51:0:0|B:2:1:0|C:2:2:0|J:2:3:0' },
     { groups:'A:2:5:0|B:2:1:0|C:2:2:0|J:2:3:0' },
     { groups:'A:2:0:1|B:2:1:0|C:2:2:0|J:2:3:0' },
@@ -69,7 +69,7 @@ test('missing/duplicate/outside order and invalid group count, pile, depth or co
 
 test('board/rules schemas, unknown fields and incomplete/duplicate solution permutations do not produce false PASS', () => {
   assert.throws(() => rootPipeline.compile({ schema:'colony-board-v1',rows:1,columns:1,boardCells:'.' }, rules, 7), /棋盘为空/);
-  for (const change of [{ schema:'bad' }, { sourceId:'replacement' }, { selectionOrder:[] },
+  for (const change of [{ schema:'bad' }, { sourceId:'replacement' }, { selectionOrder:[0,1] },
     { selectionOrder:[0,0,2,3] }, { selectionOrder:[0,1,2,4] }, { selectionOrder:[-1,1,2,3] }]) {
     assert.throws(() => rootPipeline.compile(board, { ...ruleFields, ...change }, 7));
   }

@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022", "module": "ES2022", "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"], "strict": true, "noUncheckedIndexedAccess": true,
-    "rootDir": ".", "outDir": "../../temp/board-editor", "types": []
+    "rootDir": "../..", "outDir": "../../temp/board-editor-v2", "types": []
   },
-  "include": ["core.ts", "editor.ts"]
+  "include": ["core.ts", "editor.ts", "groupsCore.ts", "groupsEditor.ts"]
 }

@@ -5,6 +5,15 @@ export const GAME_COLORS = [
 
 export type GameColor = typeof GAME_COLORS[number];
 export type BoardShape = 'PROVISIONAL_ORANGE_POP' | 'PROVISIONAL_FOX' | 'NIGHT_MARKET';
+export const MAX_BOARD_SIDE = 64;
+export const MAX_GROUP_COUNT = MAX_BOARD_SIDE * MAX_BOARD_SIDE;
+export type QueueColumns = 3 | 4 | 5;
+export const MAIN_SUPPLY_LEVELS = [8, 14, 20] as const;
+
+export function queueColumns(value: unknown = 5): QueueColumns {
+  if (value !== 3 && value !== 4 && value !== 5) throw new Error('queueColumns must be 3, 4 or 5');
+  return value;
+}
 
 /** 单关开发配置。 */
 export interface DevelopmentLevelConfig {
@@ -18,6 +27,7 @@ export interface DevelopmentLevelConfig {
   readonly cells: readonly DevelopmentLevelCell[];
   readonly groups: readonly DevelopmentLevelGroup[];
   readonly initialSlots?: 5 | 6;
+  readonly queueColumns?: QueueColumns;
 }
 
 /** 棋盘单元格配置。 */
@@ -26,6 +36,7 @@ export interface DevelopmentLevelCell {
   readonly row: number;
   readonly column: number;
   readonly color: GameColor;
+  readonly keyId?: string;
 }
 
 /** 可选取数字组配置。 */
@@ -35,6 +46,9 @@ export interface DevelopmentLevelGroup {
   readonly count: number;
   readonly pile: number;
   readonly depth: number;
+  readonly mystery?: true;
+  readonly linkId?: string;
+  readonly lockId?: string;
 }
 
 /** 开发关卡目录。 */
@@ -54,12 +68,12 @@ export function parseDevelopmentLevelCatalog(raw: unknown): DevelopmentLevelCata
   if (!Array.isArray(document.levels) || document.levels.length === 0) {
     throw new Error('Development level catalog must contain levels');
   }
-  const levels = document.levels.map((value, index) => parseLevel(value, index + 1));
+  const levels = document.levels.map((value, index) => validateDevelopmentLevel(value, index + 1));
   return Object.freeze({ levels: Object.freeze(levels) });
 }
 
 /** 解析单关并校验颜色计数一致性。 */
-function parseLevel(raw: unknown, expectedLevel: number): DevelopmentLevelConfig {
+export function validateDevelopmentLevel(raw: unknown, expectedLevel: number): DevelopmentLevelConfig {
   const value = record(raw, `level ${expectedLevel}`);
   const level = integer(value.level, `level ${expectedLevel}.level`, 1);
   if (level !== expectedLevel) throw new Error(`Level index ${level} must equal ${expectedLevel}`);
@@ -73,12 +87,33 @@ function parseLevel(raw: unknown, expectedLevel: number): DevelopmentLevelConfig
   if (initialSlots !== undefined && initialSlots !== 5 && initialSlots !== 6) throw new Error(`Level ${level} initialSlots must be 5 or 6`);
   const columns = integer(value.columns, `level ${level}.columns`, 1);
   const rows = integer(value.rows, `level ${level}.rows`, 1);
+  if (rows > MAX_BOARD_SIDE || columns > MAX_BOARD_SIDE) throw new Error(`Level ${level} board exceeds ${MAX_BOARD_SIDE}`);
+  const queues = queueColumns(value.queueColumns);
   const cells = array(value.cells, `level ${level}.cells`).map((cell) => parseCell(cell, level, columns, rows));
-  const groups = array(value.groups, `level ${level}.groups`).map((group) => parseGroup(group, level));
+  const groups = parseInitialGroups(value.groups, level, queues);
   if (cells.length === 0 || groups.length === 0) throw new Error(`Level ${level} must contain cells and groups`);
   unique(cells.map((cell) => cell.id), `Level ${level} cell ids`);
   unique(cells.map((cell) => `${cell.row}:${cell.column}`), `Level ${level} cell coordinates`);
   unique(groups.map((group) => group.id), `Level ${level} group ids`);
+  if (groups.length > MAX_GROUP_COUNT) throw new Error(`Level ${level} has too many groups`);
+  for (let pile = 0; pile < queues; pile++) {
+    const depths = groups.filter(group => group.pile === pile).map(group => group.depth).sort((a, b) => a - b);
+    if (depths.some((depth, index) => depth !== index)) throw new Error(`Level ${level} queue depths must be unique and contiguous`);
+  }
+  if (groups.some(group => group.pile >= queues)) throw new Error(`Level ${level} group pile exceeds queueColumns`);
+  const links = new Map<string, DevelopmentLevelGroup[]>();
+  for (const group of groups) if (group.linkId) links.set(group.linkId, [...(links.get(group.linkId) ?? []), group]);
+  for (const members of links.values()) {
+    if (members.length < 2 || members.length > (initialSlots ?? 5)) throw new Error('Linked groups require 2 through initialSlots members');
+    for (let pile = 0; pile < queues; pile++) {
+      const depths = members.filter(group => group.pile === pile).map(group => group.depth).sort((a, b) => a - b);
+      if (depths.some((depth, index) => depth !== depths[0]! + index)) throw new Error('Same-column linked members must be consecutive');
+    }
+  }
+  unique(cells.flatMap(cell => cell.keyId ? [cell.keyId] : []), 'Key anchors');
+  const locks = new Set(groups.flatMap(group => group.lockId ? [group.lockId] : []));
+  const keys = new Set(cells.flatMap(cell => cell.keyId ? [cell.keyId] : []));
+  if ([...locks].some(id => !keys.has(id)) || [...keys].some(id => !locks.has(id))) throw new Error('Keys and locks must explicitly reference each other');
   const cellCounts = countColors(cells);
   const groupCounts = countColors(groups);
   for (const color of GAME_COLORS) {
@@ -92,6 +127,7 @@ function parseLevel(raw: unknown, expectedLevel: number): DevelopmentLevelConfig
     shape: shape as BoardShape,
     ...(themeId ? { themeId, targetItemId } : {}),
     ...(initialSlots === undefined ? {} : { initialSlots }),
+    ...(queues === 5 ? {} : { queueColumns: queues }),
     columns,
     rows,
     cells: Object.freeze(cells),
@@ -110,18 +146,32 @@ function parseCell(raw: unknown, level: number, columns: number, rows: number): 
     row,
     column,
     color: color(value.color, `level ${level} cell.color`),
+    ...(value.keyId === undefined ? {} : { keyId: ruleId(value.keyId, 'keyId') }),
   });
 }
 
 /** 解析数字组配置。 */
+export function parseInitialGroups(raw: unknown, level = 1, columns: QueueColumns = 5): DevelopmentLevelGroup[] {
+  const values = array(raw, `level ${level}.groups`);
+  if (values.length > MAX_GROUP_COUNT) throw new Error('Too many initial groups');
+  const groups = values.map(group => parseGroup(group, level));
+  unique(groups.map(group => group.id), 'Initial group ids');
+  if (groups.some(group => group.pile >= queueColumns(columns))) throw new Error('Initial group pile exceeds queueColumns');
+  return groups;
+}
+
 function parseGroup(raw: unknown, level: number): DevelopmentLevelGroup {
   const value = record(raw, `level ${level} group`);
+  if (Object.keys(value).some(key => !['id','color','count','pile','depth','mystery','linkId','lockId'].includes(key))) throw new Error('Unknown group rule or runtime state');
   return Object.freeze({
     id: text(value.id, `level ${level} group.id`),
     color: color(value.color, `level ${level} group.color`),
-    count: integer(value.count, `level ${level} group.count`, 2),
+    count: boundedCount(value.count, `level ${level} group.count`),
     pile: integer(value.pile, `level ${level} group.pile`, 0),
     depth: integer(value.depth, `level ${level} group.depth`, 0),
+    ...(value.mystery === undefined ? {} : { mystery: mystery(value.mystery) }),
+    ...(value.linkId === undefined ? {} : { linkId: ruleId(value.linkId, 'linkId') }),
+    ...(value.lockId === undefined ? {} : { lockId: ruleId(value.lockId, 'lockId') }),
   });
 }
 
@@ -141,8 +191,23 @@ function text(value: unknown, label: string): string {
 }
 
 function integer(value: unknown, label: string, minimum: number): number {
-  if (!Number.isInteger(value) || (value as number) < minimum) throw new Error(`${label} must be an integer >= ${minimum}`);
+  if (!Number.isSafeInteger(value) || (value as number) < minimum) throw new Error(`${label} must be a safe integer >= ${minimum}`);
   return value as number;
+}
+
+function boundedCount(value: unknown, label: string): number {
+  const count = integer(value, label, 1);
+  if (count > MAX_GROUP_COUNT) throw new Error(`${label} exceeds ${MAX_GROUP_COUNT}`);
+  return count;
+}
+function ruleId(value: unknown, label: string): string {
+  const id = text(value, label);
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(id)) throw new Error(`${label} requires a stable ID (1–64 letters, digits, _ or -)`);
+  return id;
+}
+function mystery(value: unknown): true {
+  if (value !== true) throw new Error('mystery must be true or omitted');
+  return true;
 }
 
 function color(value: unknown, label: string): GameColor {

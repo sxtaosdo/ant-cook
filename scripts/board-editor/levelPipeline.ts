@@ -3,10 +3,10 @@ import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathS
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { compileThemeCsv, columns, csvRows, renderThemeData, themeIds } from '../compileThemeCsv.mjs';
+import { compileThemeCsv, columns, ruleColumns, csvRows, renderThemeData, themeIds } from '../compileThemeCsv.mjs';
 import { documentFor, importBoard } from './core.ts';
 import { ColonyFlowModel } from '../../assets/Colony/scripts/gameModel.ts';
-import { parseDevelopmentLevelCatalog, type DevelopmentLevelCatalog } from '../../assets/Colony/scripts/application/levelCatalog.ts';
+import { parseDevelopmentLevelCatalog, queueColumns, type QueueColumns, type DevelopmentLevelCatalog, type DevelopmentLevelConfig } from '../../assets/Colony/scripts/application/levelCatalog.ts';
 import { MAIN_SUPPLY_LEVELS } from '../../assets/Colony/scripts/application/operationalLevels.ts';
 
 const sourceRoot = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
@@ -14,21 +14,54 @@ const generated = 'assets/Colony/scripts/application/operationalThemeData.ts';
 const configRelative = 'assets/Colony/config/themes';
 const sandboxMarker = '.ant-level-sandbox.json';
 const baseFiles = [...themeIds.map(id => `${configRelative}/${id}/levels.csv`), generated];
-const dependencies = ['scripts/compileThemeCsv.mjs', 'scripts/board-editor/core.ts', 'scripts/board-editor/levelPipeline.ts',
+const dependencies = ['scripts/compileThemeCsv.mjs', 'scripts/board-editor/core.ts', 'scripts/board-editor/groupsCore.ts', 'scripts/board-editor/levelPipeline.ts',
   'assets/Colony/scripts/gameModel.ts', 'assets/Colony/scripts/application/boardRoute.ts',
   'assets/Colony/scripts/application/levelCatalog.ts', 'assets/Colony/scripts/application/operationalLevels.ts',
   'assets/Colony/scripts/presentation/pageStates/playState.ts'];
 
-interface Rules { schema: 'colony-level-rules-v1'; cellOrder: string; groups: string; selectionOrder: number[]; initialSlots: 5 | 6 }
+interface Rules { schema: 'colony-level-rules-v1' | 'colony-level-rules-v2'; queueColumns?: QueueColumns; groupRules?: Record<string, unknown>; cellKeys?: Record<string, unknown>; cellOrder: string; groups: string; selectionOrder: number[]; initialSlots: 5 | 6 }
 interface Transport { cellId: string; route: { row: number; column: number }[] }
 interface Witness {
   status: 'WITNESS_PASS_STABLE_BATCH'; targetLevel: number; sourceId: string; initialSlots: 5 | 6;
-  transported: number; selectionOrder: number[]; trace: { group: string; batches: Transport[][] }[];
+  transported: number; selectionOrder: number[]; trace: { group: string; members: string[]; batches: Transport[][] }[];
   scope: string;
 }
 interface Candidate {
   level: number; themeId: string; csv: string; output: string; board: ReturnType<typeof documentFor>; rules: Rules;
   witness: Witness; catalog: DevelopmentLevelCatalog;
+}
+
+/** A bounded search over stable batches. Failure to find a witness is always UNKNOWN. */
+export function findStableBatchWitness(config: DevelopmentLevelConfig, limits = { states: 200, milliseconds: 1000 }):
+  { status: 'WITNESS_FOUND'; selectionOrder: number[]; states: number } | { status: 'UNKNOWN'; states: number } {
+  const started = performance.now(); let states = 0;
+  const pending: number[][] = [[]];
+  while (pending.length && states < limits.states && performance.now() - started < limits.milliseconds) {
+    const order = pending.pop()!; states++;
+    const model = new ColonyFlowModel({levels: [{...config, level: 1}]});
+    let valid = true;
+    try {
+      for (const index of order) {
+        if (performance.now() - started >= limits.milliseconds) return {status: 'UNKNOWN', states};
+        model.selectStack(config.groups[index]!.id);
+        for (let tick = 0; tick <= config.cells.length; tick++) {
+          if (performance.now() - started >= limits.milliseconds) return {status: 'UNKNOWN', states};
+          const rounds = model.dispatchReady(); if (!rounds.length) break;
+          for (const events of rounds) { const cell = events.find(event => event.phase === 'MOVE')?.cellId; if (cell) model.completeTransport(cell); }
+        }
+      }
+    } catch { valid = false; }
+    if (!valid) continue;
+    const snapshot = model.snapshot();
+    if (snapshot.result === 'SUCCESS') return {status: 'WITNESS_FOUND', states,
+      selectionOrder: [...order, ...config.groups.flatMap((_, index) => order.includes(index) ? [] : [index])]};
+    if (snapshot.result !== 'PLAYING') continue;
+    // Reverse push preserves deterministic configuration-order traversal.
+    for (let index = config.groups.length - 1; index >= 0; index--) {
+      if (snapshot.stacks[index]?.accessible && !snapshot.stacks[index]?.selected) pending.push([...order, index]);
+    }
+  }
+  return {status: 'UNKNOWN', states};
 }
 
 /** Only this class stages/imports candidates; the browser editor remains a board-pattern tool. */
@@ -80,8 +113,8 @@ export class LevelPipeline {
   }
   private rules(value: unknown, slots: 5 | 6): Rules {
     const raw = LevelPipeline.record(value, 'rules');
-    if (Object.keys(raw).some(key => !['schema', 'cellOrder', 'groups', 'selectionOrder', 'initialSlots'].includes(key))
-      || raw.schema !== 'colony-level-rules-v1' || typeof raw.cellOrder !== 'string' || typeof raw.groups !== 'string') {
+    if (Object.keys(raw).some(key => !['schema', 'cellOrder', 'groups', 'selectionOrder', 'initialSlots', 'queueColumns', 'groupRules', 'cellKeys'].includes(key))
+      || !['colony-level-rules-v1', 'colony-level-rules-v2'].includes(String(raw.schema)) || typeof raw.cellOrder !== 'string' || typeof raw.groups !== 'string') {
       throw new Error('Expected colony-level-rules-v1 with cellOrder/groups');
     }
     if (raw.initialSlots !== undefined && raw.initialSlots !== slots) throw new Error(`Target Runtime requires ${slots} slots`);
@@ -89,7 +122,10 @@ export class LevelPipeline {
       throw new Error('selectionOrder must explicitly list nonnegative group indices');
     }
     const selectionOrder: number[] = raw.selectionOrder.map(index => Number(index));
-    return { schema: 'colony-level-rules-v1', cellOrder: raw.cellOrder, groups: raw.groups, selectionOrder, initialSlots: slots };
+    const queues = queueColumns(raw.queueColumns);
+    if (raw.schema === 'colony-level-rules-v1' && (raw.queueColumns !== undefined || raw.groupRules !== undefined || raw.cellKeys !== undefined)) throw new Error('Extended rules require v2');
+    return { schema: raw.schema as Rules['schema'], cellOrder: raw.cellOrder, groups: raw.groups, selectionOrder, initialSlots: slots,
+      ...(raw.schema === 'colony-level-rules-v2' ? {queueColumns: queues, groupRules: LevelPipeline.record(raw.groupRules ?? {}, 'groupRules'), cellKeys: LevelPipeline.record(raw.cellKeys ?? {}, 'cellKeys')} : {}) };
   }
 
   public compile(boardValue: unknown, rulesValue: unknown, level: number): Candidate {
@@ -106,21 +142,36 @@ export class LevelPipeline {
     const original = readFileSync(csvPath, 'utf8');
     const localRow = (level - 1) % 12 + 1;
     const table = csvRows(original.replace(/^\uFEFF/, ''));
+    const extended = rules.schema === 'colony-level-rules-v2' || table[0]?.length === ruleColumns.length;
+    let upgraded = original;
+    if (extended && table[0]?.length === columns.length) {
+      // Upgrade one complete theme table. Identity/art columns are retained verbatim in value.
+      const eol = original.includes('\r\n') ? '\r\n' : '\n';
+      table[0] = [...ruleColumns];
+      for (const row of table.slice(1)) row.push('5', '{}', '{}');
+      upgraded = table.map(row => row.map(LevelPipeline.csvField).join(',')).join(eol) + (original.endsWith('\n') ? eol : '');
+    }
+    const header = extended ? ruleColumns : columns;
     const values = table[localRow]?.slice();
     if (!values) throw new Error('Target CSV row missing');
     for (const [name, value] of Object.entries({ rows: String(board.rows), columns: String(board.columns),
-      boardCells: board.boardCells, cellOrder: rules.cellOrder, groups: rules.groups })) {
-      const column = columns.indexOf(name);
+      boardCells: board.boardCells, cellOrder: rules.cellOrder, groups: rules.groups, ...(extended ? {queueColumns: String(rules.queueColumns ?? 5), groupRules: JSON.stringify(rules.groupRules ?? {}), cellKeys: JSON.stringify(rules.cellKeys ?? {})} : {}) })) {
+      const column = header.indexOf(name);
       if (column < 0) throw new Error('CSV schema missing board field');
       values[column] = value;
     }
-    const csv = LevelPipeline.replaceRow(original, localRow, values);
+    const csv = LevelPipeline.replaceRow(upgraded, localRow, values);
     const data = compileThemeCsv({ inputRoot, sources: new Map([[themeId, csv]]) });
     // The migrated JS compiler retains original domain validation; the shared TS parser is
     // the unknown/schema boundary before any data reaches the actual gameplay model.
-    const parsed = parseDevelopmentLevelCatalog({ schema: 'food-hunt-development-level-catalog-v1', levels: data.levels });
+    const parsed = parseDevelopmentLevelCatalog({ schema: 'food-hunt-development-level-catalog-v1', levels: data.levels.map(item => MAIN_SUPPLY_LEVELS.some(id => id === item.level) ? {...item, initialSlots: 6} : item) });
     const catalog: DevelopmentLevelCatalog = { levels: parsed.levels.map(item => MAIN_SUPPLY_LEVELS.some(id => id === item.level)
       ? { ...item, initialSlots: 6 } : item) };
+    if (rules.selectionOrder.length === 0) {
+      const search = findStableBatchWitness(catalog.levels[level - 1]!);
+      if (search.status !== 'WITNESS_FOUND') throw new Error(`UNKNOWN: configuration is structurally valid; bounded stable-batch search found no witness (${search.states} states). This does not prove unsolvable.`);
+      rules.selectionOrder = search.selectionOrder;
+    }
     const witness = this.replay(catalog, level, rules);
     return { level, themeId, csv, output: renderThemeData(data), board, rules, witness, catalog };
   }
@@ -134,11 +185,18 @@ export class LevelPipeline {
     model.reset(target);
     const trace: Witness['trace'] = [];
     const completed = new Set<string>();
+    const covered = new Set<string>();
     for (const index of rules.selectionOrder) {
       const group = config.groups[index];
       if (!group) throw new Error('Solution group missing');
-      model.selectStack(group.id);
-      const step: Witness['trace'][number] = { group: group.id, batches: [] };
+      if (model.snapshot().stacks.find(stack => stack.id === group.id)?.selected) {
+        if (!covered.has(group.id)) throw new Error('Skipped group was not covered by an atomic selection');
+        continue;
+      }
+      const selection = model.selectStack(group.id);
+      const members = selection.flatMap(event => event.phase === 'SLOT' && event.stackId ? [event.stackId] : []);
+      for (const id of members) covered.add(id);
+      const step: Witness['trace'][number] = { group: group.id, members, batches: [] };
       trace.push(step);
       // Choose the next group only after every transport in the previous batch arrived.
       while (model.snapshot().result === 'PLAYING') {
@@ -167,7 +225,7 @@ export class LevelPipeline {
       if (model.snapshot().result === 'FAIL') throw new Error('Declared solution deadlocked under stable-batch replay');
     }
     const result = model.snapshot();
-    if (result.result !== 'SUCCESS' || result.transported !== config.cells.length || result.remainingCells !== 0) {
+    if (covered.size !== config.groups.length || result.result !== 'SUCCESS' || result.transported !== config.cells.length || result.remainingCells !== 0) {
       throw new Error('Declared solution did not clear the board; no solvability PASS');
     }
     return { status: 'WITNESS_PASS_STABLE_BATCH', targetLevel: target, sourceId: config.sourceId, initialSlots: rules.initialSlots,
@@ -176,7 +234,7 @@ export class LevelPipeline {
   }
 
   private hashes(): Record<string, string> { return Object.fromEntries(baseFiles.map(path => [path, LevelPipeline.fileHash(join(this.root, path))])); }
-  private static dependencyHashes(): Record<string, string> { return Object.fromEntries(dependencies.map(path => [path, this.fileHash(join(sourceRoot, path))])); }
+  public static dependencyHashes(): Record<string, string> { return Object.fromEntries(dependencies.map(path => [path, this.fileHash(join(sourceRoot, path))])); }
   private validateDestinations(root: string): void {
     if (LevelPipeline.outsideSource(realpathSync(this.root)) !== root) throw new Error('Sandbox target changed during import');
     for (const path of baseFiles) {

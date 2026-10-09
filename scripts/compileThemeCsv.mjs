@@ -1,5 +1,5 @@
 // Migrated from colony-flow-food-hunt; source SHA256 1d3a5ab54c441412ffcf1b71aa6820096a4eb0189ff07cb9460cf1f4df9b2d72.
-import { GAME_COLORS } from '../assets/Colony/scripts/application/levelCatalog.ts';
+import { GAME_COLORS, MAIN_SUPPLY_LEVELS, MAX_GROUP_COUNT, queueColumns, validateDevelopmentLevel } from '../assets/Colony/scripts/application/levelCatalog.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,7 @@ const outputPath = join(projectRoot, 'assets/Colony/scripts/application/operatio
 export const themeIds = ['tropical-fruit', 'tropical-vegetable', 'orchard-fruit', 'root-vegetable', 'leafy-vegetable'];
 const colors = [...GAME_COLORS];
 export const columns = ['themeId', 'themeName', 'level', 'sourceId', 'itemId', 'itemName', 'itemKind', 'targetCount', 'iconPath', 'boardPath', 'farPath', 'farX', 'farY', 'midPath', 'midX', 'midY', 'nearPath', 'nearX', 'nearY', 'rows', 'columns', 'boardCells', 'cellOrder', 'groups', 'boardRender'];
+export const ruleColumns = [...columns, 'queueColumns', 'groupRules', 'cellKeys'];
 const itemOrder = [0, 1, 2, 3, 4, 5, 1, 2, 3, 4, 6, 7];
 
 function fail(message) { throw new Error(message); }
@@ -31,6 +32,14 @@ export function csvRows(source) {
   if (quoted) fail('Unclosed CSV quote');
   if (row.length || field) { row.push(field.replace(/\r$/, '')); rows.push(row); }
   return rows;
+}
+
+function ruleMap(value, label) {
+  if (value === undefined || value === '') return {};
+  let result;
+  try { result = JSON.parse(value); } catch { fail(`${label} must be a JSON object`); }
+  if (!result || typeof result !== 'object' || Array.isArray(result)) fail(`${label} must be a JSON object`);
+  return result;
 }
 
 function number(value, label, minimum = -Infinity) {
@@ -64,14 +73,15 @@ export function compileThemeCsv({ checkAssets = false, inputRoot = configRoot, a
     const path = join(inputRoot, themeId, 'levels.csv');
     if (!existsSync(path)) fail(`Missing theme CSV: ${path}`);
     const table = csvRows((sources.get(themeId) ?? readFileSync(path, 'utf8')).replace(/^\uFEFF/, ''));
-    if (table[0]?.join(',') !== columns.join(',')) fail(`${themeId}: header differs from schema`);
+    const header = table[0];
+    if (![columns.join(','), ruleColumns.join(',')].includes(header?.join(','))) fail(`${themeId}: header differs from schema`);
     if (table.length !== 13) fail(`${themeId}: expected exactly 12 levels`);
     const items = new Map();
     let themeName = '';
     for (let localIndex = 0; localIndex < 12; localIndex += 1) {
       const values = table[localIndex + 1];
-      if (values.length !== columns.length) fail(`${themeId} row ${localIndex + 2}: expected ${columns.length} columns`);
-      const record = Object.fromEntries(columns.map((column, index) => [column, values[index]]));
+      if (values.length !== header.length) fail(`${themeId} row ${localIndex + 2}: expected ${header.length} columns`);
+      const record = Object.fromEntries(header.map((column, index) => [column, values[index]]));
       const level = themeIndex * 12 + localIndex + 1;
       if (record.themeId !== themeId || number(record.level, `${themeId} level`, 1) !== level) fail(`${themeId} row ${localIndex + 2}: theme or level order mismatch`);
       if (!record.themeName || (themeName && themeName !== record.themeName)) fail(`${themeId}: inconsistent theme name`);
@@ -114,19 +124,31 @@ export function compileThemeCsv({ checkAssets = false, inputRoot = configRoot, a
         const [row, column] = coordinate.split('.').map(Number);
         return { row, column, id: `cell-${row}-${column}`, color: matrixCells.get(coordinate) };
       });
-      const depths = [0, 0, 0, 0, 0], counts = new Map();
+      const queues = queueColumns(record.queueColumns === undefined ? 5 : number(record.queueColumns, `Level ${level} queueColumns`));
+      const groupRules = ruleMap(record.groupRules, "groupRules");
+      const cellKeys = ruleMap(record.cellKeys, "cellKeys");
+      const depths = Array.from({length: queues}, () => 0), counts = new Map();
       const groups = record.groups.split('|').map((token, index) => {
         const parts = token.split(':');
         if (parts.length !== 4 || !/^[A-L]$/.test(parts[0])) fail(`Level ${level}: invalid group ${token}`);
         const color = colors[parts[0].charCodeAt(0) - 65];
-        const count = number(parts[1], `Level ${level} group ${index} count`, 2);
-        if (count > 50) fail(`Level ${level} group ${index} count exceeds 50`);
+        const count = number(parts[1], `Level ${level} group ${index} count`, 1);
+        if (count > MAX_GROUP_COUNT) fail(`Level ${level} group ${index} count exceeds ${MAX_GROUP_COUNT}`);
         const pile = number(parts[2], `Level ${level} group ${index} pile`, 0);
         const depth = number(parts[3], `Level ${level} group ${index} depth`, 0);
-        if (pile > 4 || depth !== depths[pile]++) fail(`Level ${level}: invalid group pile or depth`);
+        if (pile >= queues || depth !== depths[pile]++) fail(`Level ${level}: invalid group pile or depth`);
         counts.set(color, (counts.get(color) ?? 0) + count);
-        return { id: `delivery-${index}`, color, count, pile, depth };
+        const rules = groupRules[String(index)] ?? {};
+        if (!rules || typeof rules !== "object" || Array.isArray(rules) || Object.keys(rules).some(key => !["mystery", "linkId", "lockId"].includes(key))) fail("Unknown group rule");
+        return { id: `delivery-${index}`, color, count, pile, depth, ...rules };
       });
+      if (Object.keys(groupRules).some(index => !/^(0|[1-9]\d*)$/.test(index) || Number(index) >= groups.length)) fail('groupRules references unknown group');
+      for (const [coordinate, keyId] of Object.entries(cellKeys)) {
+        const cell = cells.find(cell => `${cell.row}.${cell.column}` === coordinate);
+        if (!cell) fail('cellKeys references unknown cell');
+        cell.keyId = keyId;
+      }
+      validateDevelopmentLevel({level, sourceId: record.sourceId, shape: 'NIGHT_MARKET', rows, columns: cols, cells, groups, queueColumns: queues, initialSlots: MAIN_SUPPLY_LEVELS.includes(level) ? 6 : 5}, level);
       for (const color of colors) {
         if ((counts.get(color) ?? 0) !== cells.filter((cell) => cell.color === color).length) fail(`Level ${level}: ${color} group count mismatch`);
       }
@@ -142,7 +164,7 @@ export function compileThemeCsv({ checkAssets = false, inputRoot = configRoot, a
         assertAsset(midPath, undefined, undefined, assetRoot);
         assertAsset(nearPath, undefined, undefined, assetRoot);
       }
-      levels.push({ level, sourceId: record.sourceId, shape: 'NIGHT_MARKET', themeId, targetItemId: record.itemId, iconPath, boardPath, boardRender: record.boardRender, background, rows, columns: cols, cells, groups });
+      levels.push({ level, sourceId: record.sourceId, shape: 'NIGHT_MARKET', themeId, targetItemId: record.itemId, iconPath, boardPath, boardRender: record.boardRender, background, rows, columns: cols, cells, groups, ...(queues === 5 ? {} : {queueColumns: queues}) });
     }
     if (items.size !== 8 || [...items.values()].some((item) => item.count !== item.target)) fail(`${themeId}: expected one stall, four produce twice, and three decorations`);
     const orderedItems = ['stall', 'produce', 'decoration'].flatMap(kind => [...items.values()].filter(item => item.kind === kind));

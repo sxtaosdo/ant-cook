@@ -233,26 +233,24 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     try {
       play.selectStack(stackId);
     } catch {
-      session.toast.show('先选择本列前方方块', 'stack-locked', stackId);
+      session.toast.show('方块未解锁，或空槽不足以容纳整组', 'stack-locked', stackId);
       return;
     }
     const generation = session.generation;
     const read = PlayState.read(session);
     const events = read.lastEvents;
-    const slot = events.find((event) => event.phase === 'SLOT');
-    board.markMoving(stackId, true);
-    this.waitingStacks.add(stackId);
+    const slots = events.filter(event => event.phase === 'SLOT' && event.stackId !== undefined && event.slotIndex !== undefined);
+    for (const slot of slots) { board.markMoving(slot.stackId!, true); this.waitingStacks.add(slot.stackId!); }
     this.pendingSelections += 1;
     try {
     void this.playSound('click');
     board.applySelection(events, read);
-    if (slot?.slotIndex !== undefined) {
-      await board.moveStackToSlot(stackId, slot.slotIndex);
-      await board.pulseSlot(slot.slotIndex);
-    }
+    await Promise.all(slots.map(async slot => {
+      await board.moveStackToSlot(slot.stackId!, slot.slotIndex!);
+      await board.pulseSlot(slot.slotIndex!);
+    }));
     if (generation !== session.generation || session.destroyed) return;
-    board.markMoving(stackId, false);
-    this.waitingStacks.delete(stackId);
+    for (const slot of slots) { board.markMoving(slot.stackId!, false); this.waitingStacks.delete(slot.stackId!); }
     if (events.some((event) => event.phase === 'FAIL')) await this.showResult(false);
     else if (events.some((event) => event.phase === 'SUCCESS')) await this.showResult(true);
     else void this.runTransportLoop();

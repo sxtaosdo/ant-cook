@@ -56,6 +56,7 @@ test('slot counters retain tokens through COUNT, replace ownership on RELEASE an
 
 test('queue visibility never reactivates offscreen stacks and preserves moving/reflow behavior', () => {
   class Label {}
+  class Color { static WHITE = {}; constructor(value) { this.value = value; } }
   class Sprite {}
   class Button { static Transition = { SCALE: 1, NONE: 0 }; }
   class Vec3 {
@@ -66,7 +67,7 @@ test('queue visibility never reactivates offscreen stacks and preserves moving/r
   const animations = [], stops = [];
   const geometry = load('boardGeometry', {});
   const { BoardPresentation } = load('boardPresentation', {
-    cc: { Label, Sprite, Button, Vec3, Tween: { stopAllByTarget: n => stops.push(n) }, tween: node => ({
+    cc: { Label, Color, Sprite, Button, Vec3, Tween: { stopAllByTarget: n => stops.push(n) }, tween: node => ({
       to(duration, properties, options) { animations.push({ node, duration, properties, options }); return this; },
       start() { return this; },
     }) },
@@ -83,7 +84,7 @@ test('queue visibility never reactivates offscreen stacks and preserves moving/r
     set active(value) { if (active !== value) transitions.push([active, value]); active = value; },
     getComponent(kind) { return kind === Button ? button : kind === Sprite ? sprite : null; },
     getComponentInChildren(kind) { return kind === Label ? label : null; },
-    getChildByName(name) { return name === 'UnlockHint' ? hint : null; },
+    getChildByName(name) { return name === 'UnlockHint' ? hint : name === 'StackCountLabel' ? { getComponent: kind => kind === Label ? label : null } : null; },
     setPosition(value) { this.position = value; },
     setScale(value) { this.scale = value; },
   };

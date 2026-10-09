@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createChallengeCatalog, createChallengePool, createOperationalCatalog, THEME_BASKETS, themeForLevel } from '../../assets/Colony/scripts/application/operationalLevels.js';
-import { ColonyFlowModel } from '../../assets/Colony/scripts/gameModel.js';
-import { deriveBoardGeometry, stackPilePosition } from '../../assets/Colony/scripts/presentation/boardGeometry.js';
-import type { DevelopmentLevelCatalog, DevelopmentLevelGroup, GameColor } from '../../assets/Colony/scripts/application/levelCatalog.js';
+import { createChallengeCatalog, createChallengePool, createOperationalCatalog, THEME_BASKETS, MAIN_SUPPLY_LEVELS, themeForLevel } from '../../../assets/Colony/scripts/application/operationalLevels.js';
+import { ColonyFlowModel } from '../../../assets/Colony/scripts/gameModel.js';
+import { deriveBoardGeometry, stackPilePosition } from '../../../assets/Colony/scripts/presentation/boardGeometry.js';
+import type { DevelopmentLevelCatalog, DevelopmentLevelGroup, GameColor } from '../../../assets/Colony/scripts/application/levelCatalog.js';
 
 const main = createOperationalCatalog();
 const challenges = createChallengePool();
@@ -75,15 +75,15 @@ test('trowel removes a covered zero group without uncovering a later delivery ea
 });
 
 for (const count of [1, 2]) {
-  test(`trowel preserves in-flight transport after its matching slot was released at remaining ${count - 1}`, () => {
+  test(`trowel preserves occupied in-flight transport at remaining ${count - 1}`, () => {
     const groups: DevelopmentLevelGroup[] = [{ id: 'flying', color: 'berry', count, pile: 0, depth: 0 }];
     if (count === 1) groups.push({ id: 'waiting', color: 'berry', count: 1, pile: 1, depth: 0 });
     const model = fixture(['berry', 'berry'], groups);
     model.selectStack('flying');
     const move = model.dispatchOne().find((event) => event.phase === 'MOVE')!;
-    if (count === 1) assert.equal(model.snapshot().slots[0], null);
+    if (count === 1) assert.equal(model.snapshot().slots[0]!.remaining, 0);
     model.useTrowel();
-    assert.equal(model.snapshot().slots[0], null);
+    assert.equal(model.snapshot().slots[0]!.remaining, 0);
     assert.equal(model.snapshot().result, 'PLAYING');
     model.completeTransport(move.cellId!);
     assert.equal(model.snapshot().result, 'SUCCESS');
@@ -92,7 +92,7 @@ for (const count of [1, 2]) {
   });
 }
 
-test('last dispatch releases its slot immediately and an old transport cannot clear the replacement', () => {
+test('last completion releases its slot and a duplicate old completion cannot clear the replacement', () => {
   const model = fixture(['berry', 'gold'], [
     { id: 'first', color: 'berry', count: 1, pile: 0, depth: 0 },
     { id: 'replacement', color: 'gold', count: 1, pile: 1, depth: 0 },
@@ -100,10 +100,11 @@ test('last dispatch releases its slot immediately and an old transport cannot cl
   model.selectStack('first');
   const firstEvents = model.dispatchOne();
   const firstMove = firstEvents.find((event) => event.phase === 'MOVE')!;
-  assert.equal(firstEvents.some((event) => event.phase === 'RELEASE' && event.slotIndex === 0), true);
-  assert.equal(model.snapshot().slots[0], null);
+  assert.equal(firstEvents.some((event) => event.phase === 'RELEASE'), false);
+  assert.equal(model.snapshot().slots[0]!.stackId, 'first');
   assert.equal(model.snapshot().result, 'PLAYING');
 
+  assert.equal(model.completeTransport(firstMove.cellId!).some(event => event.phase === 'RELEASE'), true);
   model.selectStack('replacement');
   assert.equal(model.snapshot().slots[0]!.stackId, 'replacement');
   model.completeTransport(firstMove.cellId!);
@@ -111,7 +112,7 @@ test('last dispatch releases its slot immediately and an old transport cannot cl
   assert.equal(model.snapshot().result, 'PLAYING');
 
   const replacementMove = model.dispatchOne().find((event) => event.phase === 'MOVE')!;
-  assert.equal(model.snapshot().slots[0], null);
+  assert.equal(model.snapshot().slots[0]!.remaining, 0);
   assert.equal(model.snapshot().result, 'PLAYING');
   model.completeTransport(replacementMove.cellId!);
   assert.equal(model.snapshot().result, 'SUCCESS');
@@ -128,11 +129,11 @@ test('one non-slot extra supply preserves free tools and the six-slot limit', ()
   assert.throws(() => model.useExtraSupply('trowel'));
   assert.ok(model.useCompass());
   assert.equal(model.canUseExtraSupply('compass'), false);
-  model.useExtraSlot();
+  assert.throws(() => model.useExtraSlot(), /not available/);
   assert.equal(model.snapshot().slots.length, 6);
   assert.equal(model.addExtraSlot(), false);
   model.reset(20);
-  assert.equal(model.snapshot().slots.length, 5);
+  assert.equal(model.snapshot().slots.length, 6);
   model.useCompass();
   assert.equal(model.canUseExtraSupply('compass'), true);
   model.useExtraSupply('compass');
@@ -264,7 +265,7 @@ for (const [mode, catalog] of [['main', main], ['challenge', challenges]] as con
       assert.equal(final.remainingCells, 0);
       assert.equal(final.transported, level.cells.length);
       assert.equal(final.slots.filter(Boolean).length, 0);
-      assert.equal(final.slots.length, 5);
+      assert.equal(final.slots.length, level.initialSlots ?? 5);
     });
   }
 }

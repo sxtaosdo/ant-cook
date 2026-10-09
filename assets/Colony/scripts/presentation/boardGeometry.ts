@@ -57,11 +57,11 @@ export function stackPileHeads(stacks: readonly Readonly<StackState>[]): Readonl
   return heads;
 }
 
-export function stackPilePosition(stack: Readonly<StackState>, stacks: readonly Readonly<StackState>[], heads?: ReadonlyMap<number, number>): BoardPosition {
+export function stackPilePosition(stack: Readonly<StackState>, stacks: readonly Readonly<StackState>[], heads?: ReadonlyMap<number, number>, queueColumns: 3 | 4 | 5 = 5): BoardPosition {
   const head = heads ? heads.get(stack.pile) ?? Infinity : Math.min(...stacks.filter((item) => item.pile === stack.pile && !item.selected).map((item) => item.depth));
   const row = Math.max(0, stack.depth - head);
   return {
-    x: -205 + stack.pile * STACK_COLUMN_GAP,
+    x: -(queueColumns - 1) * STACK_COLUMN_GAP / 2 + (queueColumns === 5 ? -1 : 0) + stack.pile * STACK_COLUMN_GAP,
     y: row === 0 ? 0 : -row * STACK_ROW_GAP,
   };
 }
