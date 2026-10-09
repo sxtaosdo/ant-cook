@@ -1,5 +1,5 @@
 import { ColonyFlowModel } from '../../assets/Colony/scripts/gameModel.js';
-import { configForDraft, colorHex, colorName, friendlyError } from './groupsView.js';
+import { configForDraft, colorHex, colorLabel, colorStatistics, friendlyError, linkGroupLabel } from './groupsView.js';
 import type { LevelDraft } from './groupsCore.js';
 import type { PaletteColor } from './core.js';
 
@@ -23,12 +23,14 @@ export function openDraftPlaytest(draft: LevelDraft, palette: PaletteColor[]): v
   const title = document.createElement('h2'); title.textContent = '试玩这份草稿';
   const note = document.createElement('p'); note.textContent = '点待选方块让它出发。这里只测试临时草稿，不保存进度、不替换正式关卡；搬运按批次立即完成，游戏动画仍需单独验证。';
   const status = document.createElement('p'); status.setAttribute('role', 'status');
+  const legend = document.createElement('div'); legend.className = 'playtest-legend'; legend.setAttribute('aria-label', '固定颜色字母图例');
+  for (const item of colorStatistics(draft).filter(item => item.board > 0 || item.supplied > 0)) { const label = document.createElement('span'), swatch = document.createElement('span'); swatch.className = 'swatch'; swatch.style.backgroundColor = colorHex(item.color, palette); label.append(swatch, item.label); legend.append(label); }
   const board = document.createElement('div'); board.className = 'playtest-board';
   const slots = document.createElement('div'); slots.className = 'playtest-slots';
   const queues = document.createElement('div'); queues.className = 'group-columns';
   const restart = document.createElement('button'); restart.textContent = '重新试玩'; restart.onclick = () => { session.reset(); render(); };
   const close = document.createElement('button'); close.textContent = '回到编辑'; close.onclick = () => dialog.close();
-  dialog.append(title, note, status, board, slots, queues, restart, close);
+  dialog.append(title, note, status, legend, board, slots, queues, restart, close);
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   function render(): void {
     const state = session.snapshot();
@@ -41,7 +43,7 @@ export function openDraftPlaytest(draft: LevelDraft, palette: PaletteColor[]): v
       if (cell?.keyId && !cell.cleared) tile.textContent = '钥'; board.append(tile);
     }
     slots.replaceChildren();
-    state.slots.forEach(slot => { const box = document.createElement('span'); box.textContent = slot ? `${colorName(slot.color)} ${slot.remaining}` : '空槽'; if (slot) box.style.backgroundColor = colorHex(slot.color, palette); slots.append(box); });
+    state.slots.forEach(slot => { const box = document.createElement('span'); box.textContent = slot ? `${colorLabel(slot.color)} ${slot.remaining}` : '空槽'; if (slot) box.style.backgroundColor = colorHex(slot.color, palette); slots.append(box); });
     queues.replaceChildren(); queues.style.gridTemplateColumns = `repeat(${state.queueColumns}, minmax(80px, 1fr))`;
     for (let pile = 0; pile < (state.queueColumns ?? 5); pile++) {
       const column = document.createElement('div');
@@ -49,7 +51,7 @@ export function openDraftPlaytest(draft: LevelDraft, palette: PaletteColor[]): v
         const button = document.createElement('button'); button.className = 'queue-block';
         const concealed = stack.mystery && !stack.revealed;
         button.style.backgroundColor = concealed ? '#dce2de' : colorHex(stack.color, palette);
-        button.textContent = `${stack.locked ? '锁 ' : ''}${concealed ? '?' : stack.count}${stack.linkId ? ' ↔' : ''}`;
+        button.textContent = `${stack.locked ? '锁 ' : ''}${concealed ? '?' : `${colorLabel(stack.color)} ${stack.count}`}${stack.linkId ? ` · ${linkGroupLabel(draft, stack.linkId)}` : ''}`;
         button.disabled = state.result !== 'PLAYING' || !stack.accessible || Boolean(stack.locked);
         button.onclick = () => { try { session.choose(stack.id); render(); } catch (error) { status.textContent = friendlyError(error); } }; column.append(button);
       }); queues.append(column);

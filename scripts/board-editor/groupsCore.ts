@@ -4,8 +4,38 @@ import { blank, documentFor, importBoard, validate, type Board } from './core.js
 export interface LevelDraft {
   board: Board; targetLevel: number; queueColumns: QueueColumns;
   groups: DevelopmentLevelGroup[]; cellOrder: string[]; cellKeys: Record<string, string>; selectionOrder: string[];
+  editorState?: DraftEditorState;
 }
-export const initialDraft = (board = blank(32, 32)): LevelDraft => ({ board, targetLevel: 7, queueColumns: 5, groups: [], cellOrder: [], cellKeys: {}, selectionOrder: [] });
+export interface DraftEditorState {
+  autoFillOnEnter: boolean;
+  boardStamp: string | null;
+  linkGroups: { id: string; number: number }[];
+}
+export const boardStamp = (board: Board): string => JSON.stringify([board.rows, board.columns, board.pixels]);
+export const initialDraft = (board = blank(32, 32)): LevelDraft => ({ board, targetLevel: 7, queueColumns: 5, groups: [], cellOrder: [], cellKeys: {}, selectionOrder: [], editorState: { autoFillOnEnter: true, boardStamp: null, linkGroups: [] } });
+/** Editor-only intent and empty link definitions never enter rulesFor()/the runtime catalog. */
+export function editorStateFor(draft: LevelDraft): DraftEditorState {
+  const state: DraftEditorState = draft.editorState ? structuredClone(draft.editorState) : { autoFillOnEnter: false, boardStamp: boardStamp(draft.board), linkGroups: [] };
+  for (const id of new Set(draft.groups.flatMap(group => group.linkId ? [group.linkId] : []))) {
+    if (!state.linkGroups.some(group => group.id === id)) state.linkGroups.push({ id, number: Math.max(0, ...state.linkGroups.map(group => group.number)) + 1 });
+  }
+  return state;
+}
+function importEditorState(raw: unknown): DraftEditorState {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('编辑状态格式无效');
+  const value = raw as Record<string, unknown>;
+  if (Object.keys(value).some(key => !['autoFillOnEnter', 'boardStamp', 'linkGroups'].includes(key)) || typeof value.autoFillOnEnter !== 'boolean'
+    || !(value.boardStamp === null || typeof value.boardStamp === 'string' && value.boardStamp.length <= 40000) || !Array.isArray(value.linkGroups) || value.linkGroups.length > 4096) throw new Error('编辑状态字段无效');
+  const groups = value.linkGroups.map(rawGroup => {
+    if (!rawGroup || typeof rawGroup !== 'object' || Array.isArray(rawGroup)) throw new Error('一起出发分组格式无效');
+    const group = rawGroup as Record<string, unknown>;
+    if (Object.keys(group).some(key => !['id', 'number'].includes(key)) || typeof group.id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(group.id)
+      || !Number.isSafeInteger(group.number) || Number(group.number) < 1 || Number(group.number) > 4096) throw new Error('一起出发分组编号无效');
+    return { id: group.id, number: Number(group.number) };
+  });
+  if (new Set(groups.map(group => group.id)).size !== groups.length || new Set(groups.map(group => group.number)).size !== groups.length) throw new Error('一起出发分组编号不能重复');
+  return { autoFillOnEnter: value.autoFillOnEnter, boardStamp: value.boardStamp as string | null, linkGroups: groups };
+}
 const clone = (draft: LevelDraft): LevelDraft => structuredClone(draft);
 
 /** History contains only initial configuration, never a model snapshot or in-flight state. */
@@ -66,14 +96,16 @@ export function draftDocument(draft: LevelDraft) {
 export function importDraft(raw: unknown): LevelDraft {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('关卡草稿必须是对象');
   const value = raw as Record<string, unknown>;
-  if (value.schema !== 'colony-level-draft-v2' || Object.keys(value).some(key => !['schema', 'board', 'targetLevel', 'queueColumns', 'groups', 'cellOrder', 'cellKeys', 'selectionOrder'].includes(key))) throw new Error('不支持的初始草稿格式');
+  if (value.schema !== 'colony-level-draft-v2' || Object.keys(value).some(key => !['schema', 'board', 'targetLevel', 'queueColumns', 'groups', 'cellOrder', 'cellKeys', 'selectionOrder', 'editorState'].includes(key))) throw new Error('不支持的初始草稿格式');
   if (!Array.isArray(value.groups) || !Array.isArray(value.cellOrder) || !value.cellOrder.every(id => typeof id === 'string')
     || !Array.isArray(value.selectionOrder) || !value.selectionOrder.every(id => typeof id === 'string')
     || !value.cellKeys || typeof value.cellKeys !== 'object' || Array.isArray(value.cellKeys) || !Object.values(value.cellKeys).every(id => typeof id === 'string')) throw new Error('草稿配置字段无效');
   if (!Number.isSafeInteger(value.targetLevel) || Number(value.targetLevel) < 1 || Number(value.targetLevel) > 60) throw new Error('Invalid target level');
   const draft = { board: importBoard(value.board), targetLevel: Number(value.targetLevel), queueColumns: queueColumns(value.queueColumns),
-    groups: parseInitialGroups(value.groups, Number(value.targetLevel), queueColumns(value.queueColumns)), cellOrder: value.cellOrder as string[], cellKeys: value.cellKeys as Record<string, string>, selectionOrder: value.selectionOrder as string[] };
+    groups: parseInitialGroups(value.groups, Number(value.targetLevel), queueColumns(value.queueColumns)), cellOrder: value.cellOrder as string[], cellKeys: value.cellKeys as Record<string, string>, selectionOrder: value.selectionOrder as string[], ...(value.editorState === undefined ? {} : {editorState: importEditorState(value.editorState)}) };
   // Intermediate color/order mismatches remain editable. Compilation still requires rulesFor().
   // Shared parsing rejects unknown mechanics and runtime state even in an unfinished draft.
+  // Whole-draft import preserves intentional emptiness even if saved before the first entry.
+  if (draft.editorState && draft.groups.length === 0) draft.editorState.autoFillOnEnter = false;
   return clone(draft);
 }

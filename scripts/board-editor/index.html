@@ -10,15 +10,15 @@
     <button id="new-board">新建棋盘</button><span class="divider"></span>
     <button id="import-image">导入图片</button><button id="import-json">导入配置</button>
     <button id="export-json">仅保存食物图案</button>
-    <a href="#groups-editor" class="editor-jump">编辑底部待选区 ↓</a>
+    <a href="#groups-editor" class="editor-jump">完成棋盘，配置待选区 ↓</a>
   </nav>
   <details class="beginner-help" open><summary>第一次使用：从一块方块开始</summary>
-    <ol><li>在上方画一格莓红食物；点“编辑底部待选区 ↓”。也可以直接点下方“载入普通示例”。</li>
-      <li>点“＋添加方块”，点击彩色方块，在右侧设置“颜色”和“数字”；两边同色数量要一致。</li>
+    <ol><li>在上方画出食物；点“完成棋盘，配置待选区 ↓”，首次按各色总数生成普通方块。也可以直接点下方“载入普通示例”。</li>
+      <li>点击彩色方块，在右侧设置颜色和数字；统计卡对照“棋盘 / 待选”数量。后续改棋盘会保留手调方块，需要替换时点“按棋盘更新方块”。</li>
       <li>勾选“问号方块”即可隐藏；编辑时保留真实颜色和数字供修改，试玩时按游戏规则揭示。</li>
       <li>点“检查关卡”，再点“试玩”。试玩中点击列首方块，搬完全部食物后会提示通关。</li>
       <li>用下方“保存整份草稿”保存图案、方块及规则；之后用“打开草稿”继续编辑。</li></ol>
-    <p>进阶区域提供一起出发和钥匙操作，内部编号由工具管理。高级候选编译在下方折叠设置中。<a href="/examples/first-level-draft.json" download="first-level-draft.json">下载连体／问号／钥匙教学草稿</a>后用“打开草稿”查看。</p>
+    <p>“一起出发”面板中先新建或选择组，再点方块加入或移出；组号和符号不会改变方块的游戏底色。“全部删除”只清下方方块及关联，可撤销，重新进入不会自动长回。钥匙和候选编译在折叠设置中。<a href="/examples/first-level-draft.json" download="first-level-draft.json">下载连体／问号／钥匙教学草稿</a>后用“打开草稿”查看。</p>
     <p>试玩只使用临时内存，不写玩家存档或正式关卡；游戏画面和动画仍需单独验证。</p>
   </details>
   <p id="status" role="status" aria-live="polite">正在读取游戏调色板…</p>

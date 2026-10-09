@@ -1,6 +1,6 @@
 import { DraftHistory, initialDraft, type LevelDraft } from './groupsCore.js';
 import { mountGroupsEditor } from './groupsEditor.js';
-import { COLOR_NAMES } from './groupsView.js';
+import { colorLabel, colorSymbol, renderColorStatistics } from './groupsView.js';
 import { blank, counts, documentFor, imageBoard, importBoard, paintLine, paletteRGB, type Board, type PaletteColor, type Pixels } from './core.js';
 
 function element<T extends HTMLElement>(id: string, type: { new(): T }): T {
@@ -16,13 +16,12 @@ const colorCount = element('image-color-count', HTMLSelectElement);
 const imagePreview = element('image-preview', HTMLCanvasElement), imageOriginal = element('image-original', HTMLImageElement);
 const reference = element('reference', HTMLImageElement), imageStatus = element('image-status', HTMLParagraphElement);
 const history = new DraftHistory(initialDraft()); let board = history.current.board;
-let groupsEditor: {render(): void} | null = null;
+let groupsEditor: {render(): void; enterConfiguration(): void} | null = null;
 let palette: PaletteColor[] = [], symbol = 'A', erasing = false, ready = false, busy = false;
 let pointer: number | null = null, last: [number, number] | null = null;
 let foodPick: ((coordinate: string) => void) | null = null;
 let pending: { image: Pixels; url: string; rows: number; columns: number } | null = null, filled: Board | null = null;
 let referenceUrl = '', saved = JSON.stringify(history.current);
-const names = COLOR_NAMES;
 const message = (text: string, error = false): void => { status.textContent = text; status.classList.toggle('error', error); };
 const errorMessage = (cause: unknown): string => cause instanceof Error ? cause.message : '操作未完成，请重试';
 function dimensions(): Board { return blank(Number(rows.value), Number(columns.value)); }
@@ -70,11 +69,11 @@ function render(): void {
   element('dimensions', HTMLSpanElement).textContent = `${board.rows} × ${board.columns}`;
   element('zoom-value', HTMLOutputElement).textContent = `${zoom.value}px / 格`;
   const totals = counts(board); element('total', HTMLElement).textContent = String(totals.reduce((a, b) => a + b, 0));
-  for (const [i, total] of totals.entries()) element(`count-${i}`, HTMLElement).textContent = String(total);
+  renderColorStatistics(element('counts', HTMLDivElement), {...history.current, board}, palette);
   config.value = board.pixels.some(p => p !== '.') ? JSON.stringify(documentFor(board), null, 2) : '棋盘为空，请先绘制图案。';
   controls(); groupsEditor?.render();
 }
-function commit(next: Board): void { history.commit({...history.current, board: next}); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); preset.value = board.rows === board.columns && [20, 32, 48, 64].includes(board.rows) ? String(board.rows) : ''; render(); }
+function commit(next: Board): void { const current = history.current; history.commit({...current, board: next, selectionOrder: JSON.stringify(current.board) === JSON.stringify(next) ? current.selectionOrder : []}); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); preset.value = board.rows === board.columns && [20, 32, 48, 64].includes(board.rows) ? String(board.rows) : ''; render(); }
 function run(action: () => void): void { try { action(); } catch (cause) { message(errorMessage(cause), true); } }
 function cell(event: PointerEvent): [number, number] | null {
   const rect = canvas.getBoundingClientRect(), c = Math.floor((event.clientX - rect.left) * board.columns / rect.width), r = Math.floor((event.clientY - rect.top) * board.rows / rect.height);
@@ -182,15 +181,14 @@ async function start(): Promise<void> {
     if (!Array.isArray(data) || !data.every(p => p && typeof p === 'object' && typeof p.id === 'string' && typeof p.hex === 'string')) throw new Error('调色板数据无效');
     palette = data as PaletteColor[]; paletteRGB(palette);
     const swatch = (hex: string): HTMLSpanElement => { const s = document.createElement('span'); s.className = 'swatch'; s.style.backgroundColor = hex; return s; };
-    palette.forEach((p, i) => {
-      const node = document.createElement('button'), name = document.createElement('span'); node.className = 'color-button'; node.dataset.symbol = String.fromCharCode(65 + i);
-      name.textContent = names[i]!; node.title = `${p.id} ${p.hex}`; node.setAttribute('aria-label', `画笔颜色：${names[i]}`); node.append(swatch(p.hex), name);
+    palette.forEach(p => {
+      const node = document.createElement('button'), name = document.createElement('span'); node.className = 'color-button'; node.dataset.symbol = colorSymbol(p.id);
+      name.textContent = colorLabel(p.id); node.title = `${colorLabel(p.id)} ${p.hex}`; node.setAttribute('aria-label', `画笔颜色：${colorLabel(p.id)}`); node.append(swatch(p.hex), name);
       node.onclick = () => { symbol = node.dataset.symbol!; erasing = false; controls(); }; element('palette', HTMLDivElement).append(node);
-      const count = document.createElement('div'), text = document.createElement('span'), number = document.createElement('strong'); count.className = 'count-row'; text.textContent = names[i]!; number.id = `count-${i}`;
-      count.append(swatch(p.hex), text, number); element('counts', HTMLDivElement).append(count);
     });
     groupsEditor = mountGroupsEditor({ read: () => ({...history.current, board: structuredClone(board)}), commit: (draft: LevelDraft) => { history.commit(draft); board = history.current.board; rows.value = String(board.rows); columns.value = String(board.columns); render(); }, markSaved: () => { saved = JSON.stringify({...history.current, board}); }, locked: () => !ready || busy || pointer !== null || dialog.open, palette, message,
       pickFood: callback => { foodPick = callback; canvas.classList.add('key-picking'); message('点击上方有食物的格子放钥匙。'); }, cancelFoodPick: () => { foodPick = null; canvas.classList.remove('key-picking'); } });
+    document.querySelector<HTMLAnchorElement>('.editor-jump')!.onclick = () => groupsEditor?.enterConfiguration();
     ready = true; render(); message('从空白开始绘制，或者导入参考图片生成初稿');
   } catch (cause) { message(errorMessage(cause), true); }
 }

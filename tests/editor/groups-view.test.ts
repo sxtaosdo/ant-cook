@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { addBlock, basicExample, changeBlock, configForDraft, draftProblems, friendlyError, keyForBlock, linkBlocks, moveBlock, prepareDraft, unlockBlock } from '../../scripts/board-editor/groupsView.js';
+import { addBlock, basicExample, changeBlock, colorStatistics, configForDraft, draftProblems, friendlyError, keyForBlock, linkBlocks, moveBlock, prepareDraft, unlockBlock } from '../../scripts/board-editor/groupsView.js';
 import { DraftPlaytest } from '../../scripts/board-editor/playtest.js';
 import { draftDocument, importDraft, initialDraft } from '../../scripts/board-editor/groupsCore.js';
 
@@ -21,8 +21,10 @@ test('empty/add/property changes are private drafts and basic mode supplies food
   assert.deepEqual(prepareDraft(draft).cellOrder, ['0.0', '0.1', '0.2']); assert.deepEqual(draft.cellOrder, []);
   assert.deepEqual(prepareDraft(draft, true).cellOrder, []);
   const changed = changeBlock(draft, 'group-1', { color: 'citrus', count: 2 });
-  assert.equal(draft.groups[0]!.color, 'berry'); assert.match(draftProblems(changed).join('；'), /莓红.*上方2.*合计1/);
-  assert.match(draftProblems(changed).join('；'), /柑橘.*上方1.*合计3/);
+  assert.equal(draft.groups[0]!.color, 'berry'); assert.match(draftProblems(changed).join('；'), /统计卡/);
+  const stats = colorStatistics(changed);
+  assert.deepEqual([stats[0]!.label, stats[0]!.board, stats[0]!.supplied, stats[0]!.status], ['A 莓红', 2, 1, 'short']);
+  assert.deepEqual([stats[1]!.label, stats[1]!.board, stats[1]!.supplied, stats[1]!.status], ['B 柑橘', 1, 3, 'extra']);
 });
 test('moving a block preserves stable identifiers and clears the outdated witness', () => {
   let draft = addBlock(basicExample(), 0); draft.selectionOrder = draft.groups.map(item => item.id);
