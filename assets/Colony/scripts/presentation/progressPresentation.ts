@@ -15,6 +15,7 @@ import { swallowMkInterrupt } from '../../popups/resultPopupNav';
 import { ACHIEVEMENTS, COLLECTIONS, SEASON_XP_PER_TIER, WEEKEND_THRESHOLDS, TOOL_PRODUCTS } from '../application/playerProgress';
 import type { SupplyTool } from '../application/playerProgress';
 import { COLONY_BUILD_VERSION } from '../application/buildInfo';
+import { AD_BOOST_MS, FREE_BOOST_MS } from '../application/speedBoost';
 import { DAILY_TASKS } from '../application/dailyTasks';
 import { DIAMOND_PRODUCTS } from '../application/payment';
 import { themeForLevel } from '../application/operationalLevels';
@@ -354,12 +355,30 @@ export class ProgressPresentation {
           shopProduct: { diamonds: product.diamonds, priceYuan: product.priceYuan, claimed: false, image: (['diamonds-small', 'diamonds-bag', 'diamonds-chest'] as const)[index]! } })));
         break;
       case 'speed': {
-        title = '加速时间已用完';
-        summary = '每天0点赠送3分钟\n2倍、3倍共用时间，仅搬运时消耗';
+        const remainingMs = p.readSpeedBoost().remainingMs;
+        const clockRolledBack = p.snapshot().clockRolledBack;
         const pending = Boolean(this.context.ads?.pendingRequestKey('speed'));
+        const otherPending = !pending && Boolean(this.context.ads?.hasPendingReward());
+        const showing = this.context.ads?.isShowing() ?? false;
         const available = this.context.ads?.available('speed') ?? false;
-        rows = [row('增加2分钟加速时间', pending ? '奖励待保存，重试无需再看视频' : '完整观看视频后到账', 'ad-speed', pending ? '重试领取' : available ? '观看视频' : '视频暂不可用', pending || available)];
-        break;
+        const durationText = `${AD_BOOST_MS / 60000}分钟`;
+        const seconds = Math.ceil(remainingMs / 1000);
+        const remainingText = `剩余 ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+        let detail = '完整观看视频后到账';
+        if (pending) detail = '奖励待保存，重试无需再看视频';
+        else if (otherPending) detail = '其他奖励待保存，请先重试原奖励';
+        else if (clockRolledBack) detail = '时间回退，恢复正常时间后可领取';
+        let button = '视频暂不可用';
+        if (pending) button = '重试领取';
+        else if (otherPending) button = '奖励待保存';
+        else if (showing) button = '视频播放中';
+        else if (clockRolledBack) button = '暂不可领取';
+        else if (available) button = '观看视频';
+        return { title: remainingMs === 0 ? '加速时间已用完' : '加速时间',
+          summary: `每天0点赠送${FREE_BOOST_MS / 60000}分钟\n2倍、3倍共用时间，仅搬运时消耗`,
+          rows: [row(`增加${durationText}加速时间`, detail, 'ad-speed', button,
+            !showing && !otherPending && !clockRolledBack && (pending || available))],
+          layout: 'speed', showBack: false, speed: { durationText, remainingText } };
       }
       case 'settings': {
         const inRound = Boolean(PlayState.current(this.context) && this.context.round);
@@ -526,13 +545,19 @@ export class ProgressPresentation {
     if (kind === 'ad-speed') {
       const ads = this.context.ads;
       if (!ads) return '视频暂不可用';
+      if (ads.hasPendingReward() && !ads.pendingRequestKey('speed')) return '其他奖励待保存，请先重试原奖励';
+      if (ads.isShowing()) return '视频播放中';
+      // Re-evaluate the day/clock through the budget owner before offering a fresh video.
+      p.readSpeedBoost();
       const s = p.snapshot();
+      if (s.clockRolledBack) return '时间回退，恢复正常时间后可领取';
       const rewardId = ads.pendingRequestKey('speed') ?? `${s.daily.day}:${s.daily.boostAds}`;
       const page = PlayState.current(this.context), roundId = this.context.round?.id, generation = this.context.generation;
+      const popupOwner = this.control;
       const status = await ads.request('speed', () => { p.grantSpeedBoostReward(rewardId); }, rewardId);
       if (status === 'completed') {
         if (page !== PlayState.current(this.context) || roundId !== this.context.round?.id || generation !== this.context.generation) return '';
-        if (this.context.progressPopup === this.control) {
+        if (popupOwner && !this.cancelled && this.control === popupOwner && this.context.progressPopup === popupOwner) {
           await this.close();
           if (page !== PlayState.current(this.context) || generation !== this.context.generation) return '';
           this.onClosed?.();

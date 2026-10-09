@@ -25,7 +25,8 @@ export interface ProgressPage {
   readonly title: string;
   readonly summary: string;
   readonly rows: readonly ProgressRow[];
-  readonly layout?: 'confirm' | 'collection' | 'leaderboard' | 'social' | 'settings' | 'shop' | 'gm';
+  readonly layout?: 'confirm' | 'collection' | 'leaderboard' | 'social' | 'settings' | 'shop' | 'speed' | 'gm';
+  readonly speed?: { readonly durationText: string; readonly remainingText: string };
   readonly settings?: { readonly soundEnabled: boolean; readonly musicEnabled: boolean; readonly inRound: boolean; readonly version: string; readonly userId: string; readonly gmAvailable: boolean;
     readonly profile?: PlayerProfileSnapshot & { readonly avatarColor: string; readonly avatarColors: readonly string[] } };
   readonly leaderboard?: { readonly entries: readonly LeaderboardEntry[]; readonly self: LeaderboardEntry; readonly canVisit?: boolean };
