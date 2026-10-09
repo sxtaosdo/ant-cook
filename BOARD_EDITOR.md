@@ -46,19 +46,53 @@ pnpm editor:board
 
 ## 验证
 
-运行 `pnpm verify:editor` 验证编辑器类型、棋盘序列化、输入拒绝、画笔插值、撤销容量、裁边、白底与内部白色、面积采样和极细图案。此检查也纳入 `pnpm verify`。浏览器验收需实际完成新建、画/擦、撤销/重做、图片预览/取消/应用、应用后编辑、JSON下载/重导入、非法配置保留原棋盘及64×64滚动/缩放。
+在Node22下运行 `pnpm run verify:editor`，检查编辑器与关卡编译链类型、棋盘序列化、输入拒绝、画笔插值、撤销容量、裁边、颜色采样、CSV编译一致性、关卡规则和隔离导入。浏览器验收需实际完成新建、画/擦、撤销/重做、图片预览/取消/应用、应用后编辑、JSON下载/重导入、非法配置保留原棋盘及64×64滚动/缩放。
 
-## 4060 主题关卡接入边界
+## 4060 主题关卡编译与隔离导入
 
-1. 从导出 JSON 或“复制棋盘CSV字段”取得 `rows`、`columns`、`boardCells`。
-2. 将这些字段接入本工程 `assets/Colony/config/themes/<themeId>/levels.csv` 的目标关卡行，保留稳定关号、sourceId、奖励和收集身份。CSV 为 UTF-8；不要将棋盘 JSON 直接覆盖完整关卡配置。
-3. 另行重建 `cellOrder`（`row.column` 用 `|` 分隔，完整无重复覆盖有效格）与 `groups`（`颜色字母:数量:列:深度` 用 `|` 分隔，各色数量与棋盘相等），验证既有槽位和实际搬运规则下可解。
-4. 游戏当前读取 `assets/Colony/scripts/application/operationalThemeData.ts`。本次只迁入棋盘编辑器，原仓 `scripts/compileThemeCsv.mjs` 未迁入；修改 CSV 不会自动更新运行数据。CSV 编译接入和完整关卡运行验收属于后续内容任务，不要直接手改生成文件来绕过合同。
+浏览器仍导出棋盘图案。完整配置还需规则JSON和目标关号；命令行将这三项与当前主题元数据合并，生成候选CSV、运行TS、完整60关JSON、差异和搬运见证。目标限制为既有1–60关，只替换该行的 `rows,columns,boardCells,cellOrder,groups`，保留主题、稳定sourceId、奖励、收集身份、图标及背景层。运行入口仍为 `LoadingState → createOperationalCatalog → operationalThemeData.ts → ColonyFlowModel`。
+
+规则文件如下，配套棋盘见 [合成样例](tests/editor/fixtures/synthetic-board.json)。`cellOrder` 用 `row.column|...` 完整覆盖有效格且无重复，顺序会保留；`groups` 用 `颜色字母:数量:列:深度|...`，每组数量2–50、列0–4、同列深度从0连续，各色总数必须匹配棋盘。`selectionOrder` 是明确的、从0开始的数字组点击顺序，须完整且无重复。
+
+```json
+{
+  "schema": "colony-level-rules-v1",
+  "cellOrder": "0.1|0.2|0.3|0.4|1.1|1.2|1.3|1.4",
+  "groups": "A:2:0:0|B:2:1:0|C:2:2:0|J:2:3:0",
+  "initialSlots": 5,
+  "selectionOrder": [0, 1, 2, 3]
+}
+```
+
+槽位由实际 `MAIN_SUPPLY_LEVELS` 决定：8、14、20关初始6槽，其他关5槽。`initialSlots` 可省略；提供时必须一致。编译器与编辑器共用实际12色表，不自动排序、生成数字组、重新设计难度或奖励。
+
+本机已有Node22，无需安装。PowerShell在本工程执行以下命令；候选和隔离目录必须是工程外的新目录，请按任务更换名称：
+
+```powershell
+$node22 = 'D:/code/shidai3/P8000/dual-game-build/node_modules/node/bin/node.exe'
+$levelWork = Join-Path $env:TEMP 'ant-level-example'
+& $node22 --import tsx scripts/compileThemeCsv.mjs --check --assets
+& $node22 --import tsx scripts/board-editor/compile-level.ts preview --board tests/editor/fixtures/synthetic-board.json --rules tests/editor/fixtures/synthetic-rules.json --level 7 --out "$levelWork/source-preview"
+& $node22 --import tsx scripts/board-editor/compile-level.ts sandbox --out "$levelWork/sandbox"
+& $node22 --import tsx scripts/board-editor/compile-level.ts preview --project "$levelWork/sandbox" --board tests/editor/fixtures/synthetic-board.json --rules tests/editor/fixtures/synthetic-rules.json --level 7 --out "$levelWork/import-preview"
+```
+
+先审阅 `import-preview/preview.diff`、`validation.json` 和 `plan.json`，然后使用该次preview输出的完整 `confirm` SHA256明确执行：
+
+```powershell
+& $node22 --import tsx scripts/board-editor/compile-level.ts apply --project "$levelWork/sandbox" --plan "$levelWork/import-preview/plan.json" --confirm '<本次已审阅plan的完整SHA256>'
+```
+
+`preview` 不写真实CSV/运行TS；编译器无参数和 `--check` 均只读。`apply` 只允许工具创建的工程外标记隔离副本，拒绝真实工程及其路径别名。它核对源数据、代码与候选指纹，重编译并回放后再次检查，才写入隔离副本的两个文件；第二次写入失败时尝试回滚。此操作应在隔离副本无其他writer时执行，不能替代操作系统事务。生产导入仍须在Owner明确释放的写入窗口按候选差异处理，本工具不开放生产写入开关。
+
+见证使用实际 `ColonyFlowModel`，逐轮真实dispatch、路径检查与completeTransport，等该批次全部到达才继续点击；只有全清且 `SUCCESS` 才给出 `WITNESS_PASS_STABLE_BATCH`。这证明给定顺序在该策略下通关，不证明所有Runtime60ms调度/重叠到达顺序，也不是全局可解性搜索器。计数合法但给定顺序卡死会拒绝生成PASS；同一棋盘可能存在另一条合法顺序。候选生成和隔离模型加载不等于Creator画面验收。
 
 ## 来源与本次验证
 
 来源为 `P4000/colony-flow-food-hunt/scripts/board-editor/`（7 个文件）及 `Tests/editor/board-editor.test.ts`；逐文件 SHA256、来源提交与源说明文档 SHA 见 [SOURCE.json](scripts/board-editor/SOURCE.json)。工具与测试按原字节迁入，文档按 4060 路径改写；原工程未修改。使用现有 TypeScript/tsx 依赖，无新增运行依赖。
 
-本次验收范围是编辑器类型检查、14 项定向测试、本地 HTTP 资源和调色板，以及真实浏览器绘制、JSON 下载与重新导入。启动成功和棋盘导出不代表完整关卡可玩；没有迁入自动搬运顺序、数字组或可解性生成器。
+初次迁入范围为编辑器类型检查、14项定向测试、本地HTTP资源及真实浏览器绘制、JSON下载与重新导入。后续增加本页说明的编译、见证和隔离导入；没有自动搬运顺序、数字组生成器或全局求解器。
 
-验证回执：Node 22 类型检查与14/14测试通过；HTTP首页、CSS、JS与调色板返回200，真实Edge浏览器绘制一格、下载board-32x32.json、清空后重导入保持32×32与唯一A格；截图已回看。测试服务验收后关闭。源码检查点 `5fcab3e`。OCR使用共享规则做范围筛选并由主代理审查，未发现阻断项；未调用注册 reviewer。
+历史编辑器回执：Node22类型检查与14/14测试通过；HTTP资源200，Edge绘制、下载、清空与重导入32×32唯一A格，截图已回看，当次测试服务随后关闭；源码检查点 `5fcab3e`。这不是当前服务或当前浏览器状态的证明。
+
+编译器来源为原仓 `scripts/compileThemeCsv.mjs`，迁入时SHA256 `1d3a5ab54c441412ffcf1b71aa6820096a4eb0189ff07cb9460cf1f4df9b2d72`。保留原CSV领域校验与逐字节生成格式，新增只读默认入口、候选源参数及共享色表。当前60关、5主题40种收集物与68个图片引用通过一致性检查；实际数据未改。新增回归覆盖合法/非法配置、5/6槽差异、封闭洞卡死与替代解、过期/篡改拒绝、明确隔离导入和失败回滚；本机沙箱禁止创建硬链接，该项单独跳过并保留未验证标记。
