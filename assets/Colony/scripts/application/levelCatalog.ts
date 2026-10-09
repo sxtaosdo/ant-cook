@@ -43,7 +43,7 @@ export interface DevelopmentLevelCatalog {
 }
 
 const COLORS = new Set<string>(GAME_COLORS);
-const SHAPES = new Set<string>(['PROVISIONAL_ORANGE_POP', 'PROVISIONAL_FOX']);
+const SHAPES = new Set<string>(['PROVISIONAL_ORANGE_POP', 'PROVISIONAL_FOX', 'NIGHT_MARKET']);
 
 /** 解析并校验开发关卡 JSON 目录。 */
 export function parseDevelopmentLevelCatalog(raw: unknown): DevelopmentLevelCatalog {

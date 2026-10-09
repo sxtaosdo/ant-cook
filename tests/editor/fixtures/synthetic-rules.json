@@ -1,0 +1,7 @@
+{
+  "schema": "colony-level-rules-v1",
+  "cellOrder": "0.1|0.2|0.3|0.4|1.1|1.2|1.3|1.4",
+  "groups": "A:2:0:0|B:2:1:0|C:2:2:0|J:2:3:0",
+  "initialSlots": 5,
+  "selectionOrder": [0,1,2,3]
+}
