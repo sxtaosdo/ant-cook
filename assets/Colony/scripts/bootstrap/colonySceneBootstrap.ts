@@ -40,6 +40,7 @@ import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { ColonyToastView } from '../../popups/toast/script/toastView';
 import { ToastPresentation } from '../presentation/toastPresentation';
+import { GuidePresentation } from '../presentation/guidePresentation';
 import type { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import type { DevelopmentLevelCatalog } from '../application/levelCatalog';
@@ -128,6 +129,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
   public ads: RewardedAds | null = null;
   public progressPopup: ProgressControl | ToolControl | CommunityControl | null = null;
   public readonly toast = new ToastPresentation(this);
+  public readonly guide = new GuidePresentation(this);
 
   @property
   public clearAdUnitId = '';
@@ -306,7 +308,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
     if (!this.cleanupSteps) this.cleanupSteps = new Map<string, () => void | Promise<void>>([
       ['daily', () => this.dailyActivity?.dispose(false)],
       ['events', () => { game.off(Game.EVENT_HIDE, this.cancelAd, this); game.off(Game.EVENT_SHOW, this.advanceSocial, this); this.unschedule(this.advanceSocial); }],
-      ['ads', () => this.ads?.dispose()], ['progressPopup', () => this.progressPopup?.forceClose()],
+      ['ads', () => this.ads?.dispose()], ['guide', () => this.guide?.cancel()], ['progressPopup', () => this.progressPopup?.forceClose()],
       ['states', () => this.StateMachine.releaseAllStates()],
       ['currency', () => { this.currencyView?.node.destroy(); this.currencyView = null; }],
       ['success', () => mk.uiManage.unregis(ColonyResultSuccessView, this.popupRoot)], ['fail', () => mk.uiManage.unregis(ColonyResultFailView, this.popupRoot)],
@@ -315,7 +317,7 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
       ['toast', async () => { await this.toast.flush(); await mk.uiManage.unregis(ColonyToastView, this.popupRoot); }],
     ]);
     const errors: unknown[] = [];
-    for (const phase of [['daily', 'events', 'ads'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'community', 'settings', 'confirm', 'shop', 'tools', 'toast', 'testBridge', 'currency']]) {
+    for (const phase of [['daily', 'events', 'ads', 'guide'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'community', 'settings', 'confirm', 'shop', 'tools', 'toast', 'testBridge', 'currency']]) {
       await Promise.all(phase.map(async key => {
         const operation = this.cleanupSteps!.get(key);
         if (!operation) return;

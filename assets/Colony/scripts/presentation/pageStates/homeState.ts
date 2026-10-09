@@ -34,11 +34,13 @@ export class HomeState implements IState<ColonySceneBootstrap> {
         if (session.homeView?.node.activeInHierarchy && session.app.error) session.homeView.setFeedback(session.app.error.message);
       });
     });
+    session.guide?.open('home');
   }
 
   /** 隐藏首页。 */
-  public exit(): void {
+  public async exit(): Promise<void> {
     this.context.toast.clear();
+    await this.context.guide?.cancel();
     this.context.homeView!.setVisible(false);
   }
 }

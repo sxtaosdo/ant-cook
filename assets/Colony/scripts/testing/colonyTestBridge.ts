@@ -167,27 +167,29 @@ export class ColonyTestBridge {
     tab.emit(Button.EventType.CLICK);
   }
   /** Isolated browser fixture only; never emits Creator's persistent device option change. */
-  public fitToastViewportPreview(): void {
+  public fitToastViewportPreview(width = 750, height = 1334): void {
     if (!PREVIEW) throw new Error('Preview only');
+    if (![width, height].every(v => Number.isInteger(v) && v >= 240 && v <= 4096)) throw Error('Invalid Preview viewport');
     game.frameRate = 60;
     const toolbar = document.querySelector<HTMLElement>('.toolbar');
     if (toolbar) toolbar.style.display = 'none';
     const profilerBadge = document.getElementById('__cocos_profiler_status_badge__');
     if (profilerBadge) profilerBadge.style.display = 'none';
     for (const element of [game.frame, game.container]) if (element) {
-      element.style.width = '750px'; element.style.height = '1334px';
+      element.style.width = `${width}px`; element.style.height = `${height}px`;
       element.style.position = 'fixed'; element.style.left = '0'; element.style.top = '0';
       element.style.margin = '0'; element.style.transform = 'none';
     }
-    view.setFrameSize(750, 1334);
+    view.setFrameSize(width, height);
     view.setDesignResolutionSize(750, 1334, ResolutionPolicy.FIXED_WIDTH);
-    if (game.canvas) { game.canvas.style.width = '750px'; game.canvas.style.height = '1334px'; }
+    if (game.canvas) { game.canvas.style.width = `${width}px`; game.canvas.style.height = `${height}px`; }
+    const visibleHeight = height * 750 / width;
     const canvas = this.ctx.node.parent;
-    canvas?.getComponent(UITransform)?.setContentSize(750, 1334);
-    canvas?.setWorldPosition(375, 667, 0);
+    canvas?.getComponent(UITransform)?.setContentSize(750, visibleHeight);
+    canvas?.setWorldPosition(375, visibleHeight / 2, 0);
     if (this.ctx.mainCamera) {
-      this.ctx.mainCamera.orthoHeight = 667;
-      this.ctx.mainCamera.node.setWorldPosition(375, 667, 1000);
+      this.ctx.mainCamera.orthoHeight = visibleHeight / 2;
+      this.ctx.mainCamera.node.setWorldPosition(375, visibleHeight / 2, 1000);
     }
   }
   public showToastPreview(text: string, object = ''): void {

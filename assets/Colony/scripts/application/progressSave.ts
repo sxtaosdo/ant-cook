@@ -5,6 +5,7 @@ import { AD_BOOST_MS, FREE_BOOST_MS } from './speedBoost';
 import { freshDailyTasks, isDailyTasks } from './dailyTasks';
 import { collectionObject } from './collectionObject';
 import { isPartnerDialogue } from './partnerDialogue';
+import { isGuideProgress } from './guideProgress';
 
 const DAY = 86400000;
 const dayOf = (at: number): string => new Date(at + 8 * 3600000).toISOString().slice(0, 10);
@@ -23,7 +24,7 @@ export function fresh(now: number, config: LeaderboardConfig): PlayerProgressSna
     totals: { wins: 0, validWins: 0, failures: 0, transported: 0, challenges: 0, builds: 0, orders: 0, events: 0 },
     daily: { day: dayOf(now), orders: ordersFor(dayOf(now), false), rerolled: false, claimed: false, adClears: 0, adSupplies: 0, boostRemainingMs: FREE_BOOST_MS, boostAds: 0, tasks: freshDailyTasks() },
     dailyCompleted: [], weekends: {}, seasons: {}, returnVisit: null, rounds: {}, rewardLedger: [], nextRound: 1,
-    lastSeen: now, maxTime: now, clockRolledBack: false, tutorialDays: {}, pendingMessages: [], trackedObjectId: null, partnerDialogue: null, toolInventory: { trowel: 0, compass: 0 }, toolTransactions: {}, social: createSocial(now), leaderboard: createLeaderboard(config, now, now, 0, now) };
+    lastSeen: now, maxTime: now, clockRolledBack: false, tutorialDays: {}, pendingMessages: [], trackedObjectId: null, partnerDialogue: null, guide: { status: 'pending', segment: 0 }, toolInventory: { trowel: 0, compass: 0 }, toolTransactions: {}, social: createSocial(now), leaderboard: createLeaderboard(config, now, now, 0, now) };
 }
 const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const validTime = (value: unknown): value is number => integer(value) && value <= Date.UTC(9999, 11, 31, 15, 59, 59, 999);
@@ -39,6 +40,8 @@ export function parseSave(raw: string | null, config: LeaderboardConfig, socialC
     const s = parsed as unknown as PlayerProgressSnapshot;
     if (s.trackedObjectId === undefined) s.trackedObjectId = null;
     if (s.partnerDialogue === undefined) s.partnerDialogue = null;
+    if (s.guide === undefined) s.guide = { status: 'pending', segment: 0 };
+    if (!isGuideProgress(s.guide)) return null;
     if (s.trackedObjectId !== null && (typeof s.trackedObjectId !== 'string' || !collectionObject(s.trackedObjectId))) return null;
     // Existing v6 archives predate permanent tools; absent fields mean zero stock.
     if (s.toolInventory === undefined) s.toolInventory = { trowel: 0, compass: 0 };

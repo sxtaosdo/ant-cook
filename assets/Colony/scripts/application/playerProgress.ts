@@ -1,6 +1,7 @@
 import { THEME_BASKETS, themeForLevel } from './operationalLevels';
 import { collectionObject, readCollectionObject } from './collectionObject';
 import type { PartnerDialogue } from './partnerDialogue';
+import { guideCanAdvance, type GuideProgress, type GuideTransportReceipt } from './guideProgress';
 import { advanceLeaderboard, readLeaderboard, recordLeaderboardFirstClear, type LeaderboardConfig, type LeaderboardEntry, type LeaderboardState } from './leaderboard/leaderboard';
 import { fresh, ordersFor, parseSave } from './progressSave';
 import { claimDailyTask, completeDailyTasks, freshDailyTasks, recordDailyTime, recordDailyTool, type DailyTasksState, type DailyTimeReceipt } from './dailyTasks';
@@ -41,6 +42,7 @@ export interface PlayerProgressSnapshot {
   pendingMessages: string[];
   trackedObjectId: string | null;
   partnerDialogue: PartnerDialogue | null;
+  guide: GuideProgress;
   toolInventory: Record<SupplyTool, number>;
   toolTransactions: Record<string, ToolTransaction>;
   leaderboard: LeaderboardState;
@@ -315,6 +317,17 @@ export class PlayerProgress {
     return state.trackedObjectId ? readCollectionObject(state.clearedLevels, state.trackedObjectId) : null;
   }
   public readPartnerDialogue(): PartnerDialogue | null { return clone(this.data.partnerDialogue); }
+  public readGuide(): GuideProgress { return clone(this.data.guide); }
+  public canAdvanceGuide(receipt?: GuideTransportReceipt): boolean { return guideCanAdvance(this.data, receipt) && (this.data.guide.segment !== 3 || this.socialAvailable()); }
+  public advanceGuide(segment: number, receipt?: GuideTransportReceipt): boolean {
+    if (this.data.guide.status !== 'pending' || this.data.guide.segment !== segment) return false;
+    if (!this.canAdvanceGuide(receipt)) throw new Error('请先完成当前引导中的实际操作');
+    return this.change(s => { s.guide.segment++; if (s.guide.segment === 4) s.guide.status = 'done'; return true; });
+  }
+  public skipGuide(): boolean {
+    if (this.data.guide.status !== 'pending') return false;
+    return this.change(s => { s.guide.status = 'skipped'; return true; });
+  }
   public beginPartnerDialogue(partnerId: string): void {
     if (!this.socialAvailable()) throw new Error(this.socialUnlockHint());
     if (this.data.partnerDialogue) {

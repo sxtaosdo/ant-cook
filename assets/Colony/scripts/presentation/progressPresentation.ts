@@ -65,6 +65,10 @@ export class ProgressPresentation {
   }
 
   public static async open(context: ColonySceneBootstrap, section: ProgressSection, onClosed?: () => void): Promise<void> {
+    const generation = context.generation;
+    const page = context.StateMachine?.current;
+    await context.guide?.cancel();
+    if (context.destroyed || generation !== context.generation || page !== context.StateMachine?.current) return;
     if (section === 'market') { await ConstructionState.open(context); return; }
     if (context.destroyed || !context.progress) return;
     if (context.progressPopup) {
@@ -136,6 +140,7 @@ export class ProgressPresentation {
           this.context.homeView?.refresh(this.context.progress!);
           this.context.constructionView?.refreshSocialNotice(this.context.progress!.readSocial().unread);
           this.onClosed?.();
+          if (this.context.homeView?.node?.activeInHierarchy && !this.context.progressPopup) this.context.guide?.open('home');
         } catch (cause) {
           this.context.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
           this.context.hudView?.setFeedback('页面刷新未完成，请重试');

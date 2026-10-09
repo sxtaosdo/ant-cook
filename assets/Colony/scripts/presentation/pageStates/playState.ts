@@ -194,11 +194,13 @@ export class PlayState implements IState<ColonySceneBootstrap> {
       if (this.board === board && !session.destroyed) session.inputLocked = false;
     }
     if (this.board === board && !session.destroyed) ProgressPresentation.notifyPartnerUnlock(session);
+    if (this.board === board && !session.destroyed) session.guide?.open('play');
   }
 
   /** 退出对局：回收表现、关闭结算弹窗。 */
   public async exit(): Promise<void> {
     const session = this.context;
+    await session.guide?.cancel();
     this.pendingStoredPresentation = null;
     this.storedPresentationInFlight = null;
     session.generation++; this.hardNotice.dispose(); this.waitingStacks.clear();
