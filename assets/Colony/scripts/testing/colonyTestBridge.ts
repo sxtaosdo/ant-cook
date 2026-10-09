@@ -1,5 +1,5 @@
 import type { GameColor } from '../application/levelCatalog';
-import { Button, Component, director, Director, game, Game, Label, Node, ResolutionPolicy, Sprite, UITransform, UIOpacity, view } from 'cc';
+import { Button, Component, director, Director, game, Game, Label, Node, ResolutionPolicy, Sprite, sys, UITransform, UIOpacity, view, Widget } from 'cc';
 import { PREVIEW } from 'cc/env';
 import mk from 'mk';
 import type { ColonySceneBootstrap } from '../bootstrap/colonySceneBootstrap';
@@ -132,10 +132,13 @@ export class ColonyTestBridge {
   public profileEvidencePreview(): unknown {
     if (!PREVIEW) throw new Error('Preview only');
     const settings = this.ctx.popupRoot?.getComponentInChildren(ColonySettingsView);
+    const rect = (node: Node | null | undefined): unknown => node?.getComponent(UITransform)?.getBoundingBoxToWorld();
     const nickname = (node?: Node): unknown => node?.getComponentsInChildren(Label).filter(label => ['ProfileNickname', 'ProfileBuildVersion'].includes(label.node.name)).map(label => ({ name: label.node.name, text: label.string, size: label.node.getComponent(UITransform)?.contentSize, position: label.node.worldPosition }));
     return { profile: this.ctx.profile?.snapshot(), hud: nickname(this.ctx.hudView?.node), home: nickname(this.ctx.homeView?.node),
       settings: settings?.node.activeInHierarchy ? { nickname: settings.nicknameEdit?.string, playerId: settings.userIdLabel?.string,
-        registered: settings.registeredLabel?.string, avatar: settings.profileAvatar?.color, feedback: settings.noticeLabel?.string } : null,
+        registered: settings.registeredLabel?.string, avatar: settings.profileAvatar?.color, feedback: settings.noticeLabel?.string,
+        layout: { registered: rect(settings.registeredLabel?.node), save: rect(settings.saveProfileButton), userId: rect(settings.userIdLabel?.node),
+          close: rect(settings.closeButton), nickname: rect(settings.nicknameEdit?.node) } } : null,
       projectedSelf: this.ctx.profile && this.ctx.progress && this.ctx.leaderboardConfig ? this.ctx.profile.leaderboard(this.ctx.progress.readLeaderboard(), this.ctx.leaderboardConfig.avatarColors).find(entry => entry.isSelf) : null };
   }
 
@@ -144,7 +147,10 @@ export class ColonyTestBridge {
     const overlay = this.ctx.currencyView;
     const shops = mk.uiManage.get([ColonyShopView]);
     const button = (node: Node | null | undefined): unknown => node ? { position: node.worldPosition.clone(), size: node.getComponent(UITransform)?.contentSize } : null;
+    const rect = (node: Node | null | undefined): unknown => node?.getComponent(UITransform)?.getBoundingBoxToWorld();
     return { visible: overlay?.bars?.activeInHierarchy, coins: overlay?.coins?.string, diamonds: overlay?.diamonds?.string,
+      layout: { parent: overlay?.node.parent?.name, root: rect(overlay?.node), bars: rect(overlay?.bars), profile: rect(overlay?.profileStrip),
+        topInset: overlay?.bars?.getComponent(Widget)?.top, safeArea: sys.getSafeAreaRect(false), visibleSize: view.getVisibleSize() },
       wallet: this.ctx.progress?.wallet(), profile: { nickname: overlay?.nicknameLabel?.string, version: overlay?.versionLabel?.string },
       shopCount: shops.length, popups: mk.uiManage.get().map(item => item.constructor.name),
       diamondButton: button(overlay?.diamondButton?.node), plusButton: button(overlay?.plusButton?.node),

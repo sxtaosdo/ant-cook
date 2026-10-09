@@ -1,4 +1,4 @@
-import { _decorator, Button, Label, Node, tween, Tween, Vec3 } from 'cc';
+import { _decorator, Button, Label, Node, sys, tween, Tween, UITransform, Vec3, view, Widget } from 'cc';
 import mk from 'mk';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
 import { ColonyCommunityView } from '../../popups/progress/script/communityView';
@@ -36,9 +36,32 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
       button.node.targetOff(this); button.node.on(Button.EventType.CLICK, onShop, this);
     }
     Tween.stopAllByTarget(this.bars);
-    this.restingPosition ??= this.bars.position.clone();
-    this.bars.setPosition(this.restingPosition);
+    this.fitSafeArea();
+    view.off('canvas-resize', this.fitSafeArea, this);
+    view.on('canvas-resize', this.fitSafeArea, this);
     this.bars.active = false;
+    this.profileStrip!.active = false;
+  }
+
+  /** Saved Widgets own screen placement; code only supplies the device's safe-area inset. */
+  private fitSafeArea(): void {
+    const screenWidget = this.node.getComponent(Widget);
+    const transform = this.node.getComponent(UITransform);
+    const barsWidget = this.bars?.getComponent(Widget);
+    const profileWidget = this.profileStrip?.getComponent(Widget);
+    if (!screenWidget || !transform || !barsWidget || !profileWidget) throw new Error('Currency overlay layout bindings are missing');
+    screenWidget.updateAlignment();
+    const top = transform.convertToWorldSpaceAR(new Vec3(0, transform.height * (1 - transform.anchorY), 0)).y;
+    const safeArea = sys.getSafeAreaRect(false);
+    const origin = transform.convertToNodeSpaceAR(new Vec3(0, top, 0));
+    const safe = transform.convertToNodeSpaceAR(new Vec3(0, Math.min(top, safeArea.y + safeArea.height), 0));
+    barsWidget.top = Math.max(0, origin.y - safe.y);
+    Tween.stopAllByTarget(this.bars!);
+    barsWidget.enabled = true;
+    barsWidget.updateAlignment();
+    this.restingPosition = this.bars!.position.clone();
+    profileWidget.top = barsWidget.top + this.bars!.getComponent(UITransform)!.height * Math.abs(this.bars!.scale.y) + 8;
+    profileWidget.updateAlignment();
   }
 
   public hasBusinessPopup(): boolean {
@@ -72,10 +95,14 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
     if (visible !== this.bars.active) {
       Tween.stopAllByTarget(this.bars);
       const end = this.restingPosition!;
+      const barsWidget = this.bars.getComponent(Widget)!;
+      // Widget's first visible-frame alignment must not overwrite the tween's start.
+      barsWidget.enabled = !visible;
       this.bars.active = visible;
       if (visible) {
         this.bars.setPosition(end.x, end.y + 100, end.z);
-        tween(this.bars).to(0.32, { position: end.clone() }, { easing: 'quadOut' }).start();
+        tween(this.bars).to(0.32, { position: end.clone() }, { easing: 'quadOut' })
+          .call(() => { if (barsWidget.isValid) barsWidget.enabled = true; }).start();
       } else this.bars.setPosition(end);
     }
     if (this.profileStrip) this.profileStrip.active = this.bars.active;
@@ -85,6 +112,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   }
 
   protected onDestroy(): void {
+    view.off('canvas-resize', this.fitSafeArea, this);
     if (this.bars?.isValid) Tween.stopAllByTarget(this.bars);
     this.readWallet = null; this.popupOwner = null; this.switchHolds.clear();
     for (const button of [this.diamondButton, this.plusButton]) if (button?.node?.isValid) button.node.targetOff(this);

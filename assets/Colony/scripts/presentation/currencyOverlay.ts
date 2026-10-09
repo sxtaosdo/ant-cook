@@ -18,11 +18,14 @@ export async function mountCurrencyOverlay(session: ColonySceneBootstrap): Promi
   const overlay = node.getComponent(ColonyCurrencyOverlayView);
   if (!overlay) { node.destroy(); throw new Error('货币栏 Prefab 缺少绑定'); }
   try {
+    const canvas = session.node.parent;
+    if (!canvas?.isValid) throw new Error('货币栏 Canvas 未就绪');
+    node.parent = canvas;
+    node.setPosition(0, 0, 0);
     overlay.bind(session.popupRoot!, () => session.destroyed ? null : session.progress?.wallet() ?? null,
       () => { void ProgressPresentation.open(session, 'shop'); });
     const profile = session.profile?.snapshot();
     if (profile) overlay.setProfile(profile.nickname, COLONY_BUILD_VERSION);
-    node.parent = session.node;
     session.currencyView = overlay;
   } catch (cause) { node.destroy(); throw cause; }
 }

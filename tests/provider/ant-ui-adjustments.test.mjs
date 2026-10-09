@@ -48,19 +48,36 @@ test('actual currency entrance starts on visibility edges, survives switch holds
   let business = false, started = 0, stopped = 0, animation;
   class Vec3 { constructor(x, y, z) { Object.assign(this, { x, y, z }); } clone() { return new Vec3(this.x, this.y, this.z); } }
   class Button { static EventType = { CLICK: 'click' }; }
+  class Widget {} class UITransform {}
   const Subject = subject('assets/Colony/scripts/views/currencyOverlayView.ts', { Node: class {}, Label: class {}, Button, Vec3,
+    Widget, UITransform, sys: { getSafeAreaRect: () => ({ y: 0, height: 1334 }) }, view: { on() {}, off() {} },
     mk: { StaticViewBase: class {} }, Tween: { stopAllByTarget() { stopped++; } },
-    tween: target => ({ to(duration, props) { animation = { target, duration, props }; return this; }, start() { started++; } }) });
+    tween: target => ({ to(duration, props) { animation = { target, duration, props }; return this; },
+      call(complete) { animation.complete = complete; return this; }, start() { started++; } }) });
   const view = new Subject();
-  view.bars = { isValid: true, active: true, position: new Vec3(0, 548, 0), setPosition(x, y, z) { this.position = typeof x === 'object' ? x.clone() : new Vec3(x, y, z); } };
+  view.node = { getComponent: type => type === Widget ? { updateAlignment() {} } : { height: 1334, anchorY: 0.5,
+    convertToWorldSpaceAR: p => new Vec3(p.x, p.y + 667, p.z), convertToNodeSpaceAR: p => new Vec3(p.x, p.y - 667, p.z) } };
+  const barsWidget = { top: 0, enabled: true, isValid: true, updateAlignment() { view.bars.setPosition(0, 634.5 - this.top, 0); } };
+  view.bars = { isValid: true, active: true, scale: new Vec3(0.65, 0.65, 1), getComponent: type => type === Widget ? barsWidget : { height: 100 },
+    position: new Vec3(0, 548, 0), setPosition(x, y, z) { this.position = typeof x === 'object' ? x.clone() : new Vec3(x, y, z); } };
+  view.profileStrip = { getComponent: () => ({ updateAlignment() {} }) };
   view.coins = {}; view.diamonds = {}; view.diamondButton = view.plusButton = { node: { isValid: true, targetOff() {}, on() {} } };
   view.hasBusinessPopup = () => business; view.bind({}, () => ({ coins: 40, diamonds: 30 }), () => {});
   view.lateUpdate(); assert.equal(started, 0);
-  business = true; view.lateUpdate(); assert.equal(view.bars.position.y, 648); assert.equal(animation.props.position.y, 548);
+  business = true; view.lateUpdate(); assert.equal(view.bars.position.y, 734.5); assert.equal(animation.props.position.y, 634.5);
+  assert.equal(barsWidget.enabled, false);
+  // Simulate WidgetManager's AFTER_UPDATE pass before the tween samples its start.
+  if (barsWidget.enabled) barsWidget.updateAlignment();
+  assert.equal(view.bars.position.y, 734.5);
+  view.bars.setPosition(animation.props.position); animation.complete();
+  assert.equal(barsWidget.enabled, true);
   for (let i = 0; i < 20; i++) view.lateUpdate(); assert.equal(started, 1);
   const release = view.holdDuringSwitch(); business = false; view.lateUpdate(); assert.equal(view.bars.active, true); assert.equal(started, 1);
-  release(); view.lateUpdate(); assert.equal(view.bars.active, false); assert.equal(view.bars.position.y, 548);
-  business = true; view.lateUpdate(); assert.equal(started, 2); view.onDestroy(); assert.ok(stopped >= 4);
+  release(); view.lateUpdate(); assert.equal(view.bars.active, false); assert.equal(view.bars.position.y, 634.5);
+  assert.equal(barsWidget.enabled, true);
+  business = true; view.lateUpdate(); assert.equal(barsWidget.enabled, false);
+  business = false; view.lateUpdate(); assert.equal(barsWidget.enabled, true);
+  business = true; view.lateUpdate(); assert.equal(started, 3); view.onDestroy(); assert.ok(stopped >= 4);
   // MK may clear the referenced component node before the view's destroy callback.
   view.diamondButton = { node: null }; view.plusButton = null; view.bars = null;
   assert.doesNotThrow(() => view.onDestroy());

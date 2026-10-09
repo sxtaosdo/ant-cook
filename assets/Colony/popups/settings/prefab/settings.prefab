@@ -2697,7 +2697,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 225,
+      "y": 217,
       "z": 0
     },
     "_lrot": {
@@ -4998,7 +4998,7 @@
     "_string": "蚂",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 0,
+    "_actualFontSize": 42,
     "_fontSize": 42,
     "_fontFamily": "Arial",
     "_lineHeight": 47,
@@ -5299,7 +5299,7 @@
     "_string": "点击换头像",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 0,
+    "_actualFontSize": 20,
     "_fontSize": 20,
     "_fontFamily": "Arial",
     "_lineHeight": 25,
@@ -5677,7 +5677,7 @@
     "_string": "输入昵称",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 0,
+    "_actualFontSize": 26,
     "_fontSize": 26,
     "_fontFamily": "Arial",
     "_lineHeight": 31,
@@ -5888,7 +5888,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 185,
-      "y": 292,
+      "y": 267,
       "z": 0
     },
     "_lrot": {
@@ -6017,7 +6017,7 @@
     "_string": "保存",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 0,
+    "_actualFontSize": 26,
     "_fontSize": 26,
     "_fontFamily": "Arial",
     "_lineHeight": 31,
@@ -6238,8 +6238,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -12,
-      "y": 292,
+      "x": 45,
+      "y": 313,
       "z": 0
     },
     "_lrot": {
@@ -6279,7 +6279,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 250,
+      "width": 350,
       "height": 32
     },
     "_anchorPoint": {
@@ -6318,7 +6318,7 @@
     "_string": "注册时间：未记录",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 0,
+    "_actualFontSize": 20,
     "_fontSize": 20,
     "_fontFamily": "Arial",
     "_lineHeight": 25,

@@ -6,24 +6,39 @@ import ts from 'typescript';
 
 function fixture() {
   class Vec3 { constructor(x=0,y=0,z=0) { Object.assign(this,{x,y,z}); } clone() { return new Vec3(this.x,this.y,this.z); } }
+  class Widget {} class UITransform {}
+  let height = 1334, safeTop = height;
+  const callbacks = new Map();
   const stack = []; class Business {} class Progress { countsAsBusinessPopup() { return !this.gm; } } class Toast {}
   const source = readFileSync(new URL('../../assets/Colony/scripts/views/currencyOverlayView.ts', import.meta.url), 'utf8');
   const exports = {}, decorator = () => () => {};
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
     target: ts.ScriptTarget.ES2022, experimentalDecorators: true, useDefineForClassFields: false } }).outputText,
   { exports, require: name => name === 'cc' ? { _decorator: { ccclass: decorator, property: decorator }, Button: { EventType: { CLICK: 'click' } }, Vec3,
-    Tween: { stopAllByTarget() {} }, tween: () => ({ to() { return this; }, start() {} }) }
+    Widget, UITransform, sys: { getSafeAreaRect: () => ({ y: 0, height: safeTop }) },
+    view: { on(name, callback) { callbacks.set(name, callback); }, off(name) { callbacks.delete(name); } },
+    Tween: { stopAllByTarget() {} }, tween: () => ({ to() { return this; }, call() { return this; }, start() {} }) }
     : name === 'mk' ? { default: { StaticViewBase: class {}, uiManage: { get: () => stack } } }
     : name.includes('progressView') ? { ColonyProgressView: Progress }
     : Object.fromEntries(['ColonyCommunityView','ColonySettingsView','ColonyConfirmView','ColonyShopView','ColonyToolView','ColonyResultSuccessView','ColonyResultFailView'].map(key => [key, Business])) });
   const owner = { isValid: true }, overlay = new exports.ColonyCurrencyOverlayView();
   const listeners = [], button = { node: { isValid: true, targetOff() {}, on(_event, action) { listeners.push(action); } } };
-  overlay.bars = { active: true, position: new Vec3(0,548), setPosition(x,y,z) { this.position = typeof x === 'object' ? x.clone() : new Vec3(x,y,z); } }; overlay.coins = { string: '' }; overlay.diamonds = { string: '' };
+  const screenWidget = { updateAlignment() {} }, transform = { get height() { return height; }, anchorY: 0.5,
+    convertToWorldSpaceAR: p => new Vec3(p.x, p.y + height / 2), convertToNodeSpaceAR: p => new Vec3(p.x, p.y - height / 2) };
+  overlay.node = { getComponent: type => type === Widget ? screenWidget : transform };
+  const barsWidget = { top: 0, enabled: true, isValid: true, updateAlignment() { overlay.bars.setPosition(0, height / 2 - this.top - 32.5, 0); } };
+  const profileWidget = { top: 73, updateAlignment() { overlay.profileStrip.position = new Vec3(0, height / 2 - this.top - 14); } };
+  overlay.bars = { isValid: true, active: true, scale: new Vec3(0.65, 0.65, 1), getComponent: type => type === Widget ? barsWidget : { height: 100 },
+    position: new Vec3(0,548), setPosition(x,y,z) { this.position = typeof x === 'object' ? x.clone() : new Vec3(x,y,z); } };
+  overlay.profileStrip = { active: true, getComponent: () => profileWidget };
+  overlay.coins = { string: '' }; overlay.diamonds = { string: '' };
   overlay.diamondButton = button; overlay.plusButton = button;
   let wallet = { coins: 40, diamonds: 30 }, clicks = 0;
   overlay.bind(owner, () => wallet, () => clicks++);
   const popup = (Type = Business, parent = owner) => Object.assign(new Type(), { node: { parent, activeInHierarchy: false } });
-  return { stack, overlay, popup, Progress, Toast, owner, listeners, setWallet: value => { wallet = value; }, clicks: () => clicks };
+  return { stack, overlay, popup, Progress, Toast, owner, listeners, barsWidget, profileWidget, callbacks,
+    resize(nextHeight, nextSafeTop = nextHeight) { height = nextHeight; safeTop = nextSafeTop; callbacks.get('canvas-resize').call(overlay); },
+    setWallet: value => { wallet = value; }, clicks: () => clicks };
 }
 
 test('actual manager stack excludes Toast, GM and foreign owners, including a hidden underlying business popup', () => {
@@ -37,6 +52,26 @@ test('actual manager stack excludes Toast, GM and foreign owners, including a hi
   f.stack.pop(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, false);
 });
 
+test('top placement follows the Canvas and safe-area inset instead of the old fixed y, including resize', () => {
+  const f = fixture();
+  assert.equal(f.overlay.bars.position.y, 634.5);
+  assert.equal(f.barsWidget.top, 0);
+  assert.equal(f.profileWidget.top, 73);
+  assert.equal(f.overlay.profileStrip.active, false);
+  f.stack.push(f.popup()); f.overlay.lateUpdate();
+  f.resize(1334, 1290);
+  assert.equal(f.barsWidget.enabled, true);
+  assert.equal(f.barsWidget.top, 44);
+  assert.equal(f.overlay.bars.position.y, 590.5);
+  assert.equal(f.overlay.profileStrip.position.y, 536);
+  assert.equal(f.overlay.bars.active, true);
+  f.resize(1600);
+  assert.equal(f.overlay.bars.position.y, 767.5);
+  assert.equal(f.barsWidget.top, 0);
+  f.overlay.onDestroy();
+  assert.equal(f.callbacks.size, 0);
+});
+
 test('popup replacement holds only an existing real business stack, releases after success or failure, and reads the wallet authority', () => {
   const f = fixture(); const emptyRelease = f.overlay.holdDuringSwitch(); f.overlay.lateUpdate();
   assert.equal(f.overlay.bars.active, false); emptyRelease();
@@ -46,4 +81,26 @@ test('popup replacement holds only an existing real business stack, releases aft
   release(); release(); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, false);
   f.listeners.forEach(action => action()); assert.equal(f.clicks(), 2);
   f.overlay.onDestroy(); f.stack.push(f.popup()); f.overlay.lateUpdate(); assert.equal(f.overlay.bars.active, false);
+});
+
+test('actual mount attaches to the Canvas and clears instance offset before layout binding', async () => {
+  const source = readFileSync(new URL('../../assets/Colony/scripts/presentation/currencyOverlay.ts', import.meta.url), 'utf8');
+  const canvas = { isValid: true }, popupRoot = {}, session = { node: { parent: canvas }, popupRoot, profile: { snapshot: () => ({ nickname: '小蚂蚁' }) } };
+  const node = { parent: null, position: { x: 50, y: 80, z: 0 }, setPosition(x, y, z) { this.position = { x, y, z }; }, getComponent: () => overlay, destroy() { this.destroyed = true; } };
+  let bound = 0;
+  const overlay = { bind(owner) { assert.equal(owner, popupRoot); assert.equal(node.parent, canvas); assert.deepEqual(node.position, { x: 0, y: 0, z: 0 }); bound++; },
+    setProfile(nickname) { assert.equal(nickname, '小蚂蚁'); } };
+  const exports = {};
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
+    { exports, require: name => name === 'cc' ? { Prefab: class {}, instantiate: () => node }
+      : name === 'mk' ? { default: { asset: { get: async () => ({}) }, Release: { followRelease() {} } } }
+      : name.includes('colonyUtil') ? { ColonyUtil: { applyUiLayer() {} } }
+      : name.includes('buildInfo') ? { COLONY_BUILD_VERSION: '0.3.0.43' }
+      : {} });
+  await exports.mountCurrencyOverlay(session);
+  assert.equal(session.currencyView, overlay); assert.equal(bound, 1);
+  await exports.mountCurrencyOverlay(session); assert.equal(bound, 1);
+  session.currencyView = null; session.node.parent = null;
+  await assert.rejects(exports.mountCurrencyOverlay(session), /Canvas/);
+  assert.equal(node.destroyed, true); assert.equal(session.currencyView, null);
 });

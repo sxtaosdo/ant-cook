@@ -22,12 +22,13 @@ test('failed profile binding is destroyed before publication, and the next mount
  let loads=0,destroyed=0,followed=0,fail=true; const nodes=[];
  const Overlay=class{};
  const module=load('assets/Colony/scripts/presentation/currencyOverlay.ts',{
-  cc:{Prefab:class{},instantiate(){const overlay={bind(){},setProfile(){if(fail){fail=false;throw Error('profile binding');}}};const node={destroy(){destroyed++;},getComponent:()=>overlay};nodes.push(node);return node;}},
+  cc:{Prefab:class{},instantiate(){const overlay={bind(){},setProfile(){if(fail){fail=false;throw Error('profile binding');}}};const node={destroy(){destroyed++;},setPosition(){},getComponent:()=>overlay};nodes.push(node);return node;}},
   mk:{default:{asset:{get:async()=>{loads++;return{};}},Release:{followRelease(){followed++;},release:async()=>{}}}},
   '../views/currencyOverlayView':{ColonyCurrencyOverlayView:Overlay},'../colonyUtil':{ColonyUtil:{applyUiLayer(){}}},'../application/buildInfo':{COLONY_BUILD_VERSION:'test'},
  });
- const session={currencyView:null,destroyed:false,node:{},popupRoot:{},profile:{snapshot:()=>({nickname:'name'})},progress:{wallet:()=>({coins:0,diamonds:0})}};
+ const canvas={isValid:true};
+ const session={currencyView:null,destroyed:false,node:{parent:canvas},popupRoot:{},profile:{snapshot:()=>({nickname:'name'})},progress:{wallet:()=>({coins:0,diamonds:0})}};
  await assert.rejects(module.mountCurrencyOverlay(session),/profile binding/);assert.equal(session.currencyView,null);assert.equal(destroyed,1);
- await module.mountCurrencyOverlay(session);assert.equal(loads,2);assert.equal(followed,2);assert.equal(destroyed,1);assert.ok(session.currencyView);assert.equal(nodes[1].parent,session.node);
+ await module.mountCurrencyOverlay(session);assert.equal(loads,2);assert.equal(followed,2);assert.equal(destroyed,1);assert.ok(session.currencyView);assert.equal(nodes[1].parent,canvas);
  await module.mountCurrencyOverlay(session);assert.equal(loads,2);
 });
