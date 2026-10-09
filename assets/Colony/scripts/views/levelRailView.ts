@@ -4,6 +4,8 @@ import mk from 'mk';
 const THEMES = ['tropical-fruit', 'tropical-vegetable', 'orchard-fruit', 'root-vegetable', 'leafy-vegetable'] as const;
 const VIEWPORT_WIDTH = 340;
 const ITEM_HEIGHT = 45;
+const ITEM_GAP = 20;
+const VISIBLE_BUFFER = 64 + ITEM_GAP;
 
 /** Theme strips are visible only while touching the track. */
 export class LevelRailView {
@@ -110,7 +112,7 @@ export class LevelRailView {
         const anchor = new Node('ProgressEndpoint'); anchor.layer = item!.layer; anchor.parent = progress;
         anchor.addComponent(UITransform).setContentSize(1, 1); this.progressAnchor = anchor;
       }
-      cursor += width + 10;
+      cursor += width + ITEM_GAP;
       if (single || index % 12 === 0) {
         const strip = this.backgrounds.get(single ? themeId : THEMES[index / 12 - 1]!)!.node;
         strip.getComponent(UITransform)!.setContentSize(cursor - segmentStart, 80);
@@ -250,7 +252,7 @@ export class LevelRailView {
     const levels = this.levels.getComponent(UITransform)!;
     const edge = (x: number): number => levels.convertToNodeSpaceAR(viewport.convertToWorldSpaceAR(new Vec3(x, 0, 0))).x;
     const x1 = edge(-viewport.width * viewport.anchorX), x2 = edge(viewport.width * (1 - viewport.anchorX));
-    const left = Math.min(x1, x2) - 74, right = Math.max(x1, x2) + 74;
+    const left = Math.min(x1, x2) - VISIBLE_BUFFER, right = Math.max(x1, x2) + VISIBLE_BUFFER;
     const visible = (item: typeof this.items[number]): boolean => item.current || item.left + item.width >= left && item.left <= right;
     // Recycle first, so a scroll reuses existing geometry rather than growing the pool.
     for (const item of this.items) {

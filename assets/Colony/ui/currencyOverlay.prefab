@@ -100,7 +100,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 515,
+      "y": 580,
       "z": 0
     },
     "_lrot": {
@@ -228,7 +228,7 @@
     },
     "_string": "蚂蚁摊主",
     "_horizontalAlign": 0,
-    "_verticalAlign": 1,
+    "_verticalAlign": 0,
     "_actualFontSize": 20,
     "_fontSize": 20,
     "_fontFamily": "Arial",
@@ -387,7 +387,7 @@
     },
     "_string": "v0.3.0.34",
     "_horizontalAlign": 2,
-    "_verticalAlign": 1,
+    "_verticalAlign": 0,
     "_actualFontSize": 20,
     "_fontSize": 20,
     "_fontFamily": "Arial",
@@ -552,7 +552,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 721,
+      "y": 634.5,
       "z": 0
     },
     "_lrot": {
@@ -873,7 +873,7 @@
     },
     "_string": "0",
     "_horizontalAlign": 1,
-    "_verticalAlign": 1,
+    "_verticalAlign": 0,
     "_actualFontSize": 34,
     "_fontSize": 34,
     "_fontFamily": "Arial",
@@ -1317,7 +1317,7 @@
     },
     "_string": "0",
     "_horizontalAlign": 1,
-    "_verticalAlign": 1,
+    "_verticalAlign": 0,
     "_actualFontSize": 34,
     "_fontSize": 34,
     "_fontFamily": "Arial",
