@@ -24,6 +24,7 @@ export class ProductNavigationView extends mk.StaticViewBase {
   @property(Label) public antLabel: Label | null = null;
   @property(Label) public cookLabel: Label | null = null;
   @property(Label) public retryLabel: Label | null = null;
+  @property(Label) public continueLabel: Label | null = null;
   @property(Label) public statusLabel: Label | null = null;
   @property([Graphics]) public buttonPlates: Graphics[] = [];
   @property public panelRadius = 24;
@@ -33,7 +34,7 @@ export class ProductNavigationView extends mk.StaticViewBase {
   public configure(actions: ProductNavigationActions): void {
     if (!this.rootTransform || !this.backdrop || !this.panel || !this.panelPaper
       || !this.antButton || !this.cookButton || !this.continueButton || !this.retryButton
-      || !this.antLabel || !this.cookLabel || !this.retryLabel || !this.statusLabel
+      || !this.antLabel || !this.cookLabel || !this.retryLabel || !this.continueLabel || !this.statusLabel
       || this.buttonPlates.length !== 4) throw new Error('Product navigation bindings are incomplete');
     this.actions = actions;
     this.drawPlates();
@@ -46,6 +47,7 @@ export class ProductNavigationView extends mk.StaticViewBase {
     this.drawPlate(this.backdrop!, 0);
     this.panel!.setPosition(safeX, safeY);
     this.continueButton!.active = canContinue;
+    this.continueLabel!.string = '继续当前玩法';
     this.retryButton!.active = canRetry;
     this.retryLabel!.string = retryText;
     for (const [id, node, label, title] of [
@@ -60,6 +62,12 @@ export class ProductNavigationView extends mk.StaticViewBase {
     }
     this.drawPlates();
     this.node.active = true;
+  }
+
+  public recommend(target: ModeId): void {
+    this.antButton!.active = target === 'ant';
+    this.cookButton!.active = target === 'cook';
+    this.continueLabel!.string = '暂时不玩 · 7天内不再提示';
   }
 
   private drawPlates(): void {

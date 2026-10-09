@@ -1882,6 +1882,9 @@
     "retryLabel": {
       "__id__": 49
     },
+    "continueLabel": {
+      "__id__": 37
+    },
     "statusLabel": {
       "__id__": 60
     },

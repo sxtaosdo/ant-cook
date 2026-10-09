@@ -11,6 +11,8 @@ class Store implements LocalStoragePort {
   removeItem(key: string) { this.accesses.push(key); this.values.delete(key); }
 }
 class Module implements GameplayModule {
+  qualified = false;
+  promotionReady() { return this.qualified; }
   leave: LeaveStatus = 'ready'; saved: SaveOutcome = { ok: true }; closed = 0; resumed = 0; closeFailure = false;
   constructor(readonly id: 'ant' | 'cook') {}
   canLeave() { return this.leave; }
@@ -31,6 +33,19 @@ function fixture(autoReady = true) {
 }
 function report(entry: ModuleEntry) { entry.ready({ mode: entry.mode, transactionId: entry.transactionId, businessReady: true, firstFrameReady: true }); }
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
+
+test('recommendation reads qualified current module only after all save/recovery gates are ready',async()=>{
+  const f=fixture();assert.equal(f.coordinator.promotionSource,null);await f.coordinator.switchTo('ant');
+  f.modules[0].qualified=true;assert.equal(f.coordinator.promotionSource,'ant');f.modules[0].leave='playing';assert.equal(f.coordinator.promotionSource,null);
+  f.modules[0].leave='ready';f.modules[0].saved={ok:false,reason:'disk'};await f.coordinator.switchTo('cook');assert.equal(f.coordinator.promotionSource,null);
+  f.modules[0].saved={ok:true};assert.equal(await f.coordinator.retrySave(),true);assert.equal(f.coordinator.promotionSource,'ant');
+  await f.coordinator.switchTo('cook','promotion');assert.equal(f.entries.at(-1)?.source,'promotion');assert.equal(f.coordinator.promotionSource,null);
+});
+
+test('pending shell metadata prevents recommendations until its own retry succeeds',async()=>{
+  const f=fixture();f.store.fail=true;const result=await f.coordinator.switchTo('ant');assert.equal(result.ok,true);
+  f.modules[0].qualified=true;assert.equal(f.coordinator.promotionSource,null);f.store.fail=false;assert.equal(f.coordinator.retryMetadata(),true);assert.equal(f.coordinator.promotionSource,'ant');
+});
 
 test('each gameplay and shell use only their new physical namespace; old bytes survive', () => {
   const store = new Store(); store.values.set('p10_cook_framework_snapshot_v1', 'old cook'); store.values.set('colony.save', 'old ant');

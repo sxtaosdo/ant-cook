@@ -183,6 +183,8 @@ export class PlayerProgress {
   public wallet(): { readonly coins: number; readonly diamonds: number } {
     return { coins: this.data.coins, diamonds: this.data.diamonds };
   }
+  /** Reads only committed main first-clear facts; unlike snapshot, never rolls a daily save. */
+  public promotionMilestoneReached(): boolean { return this.data.clearedLevels.length >= 18; }
   public readToolSupply(roundId?: string): { inventory: Readonly<Record<SupplyTool, number>>; extraAvailable: boolean } {
     const round = roundId ? this.data.rounds[roundId] : null;
     return { inventory: { ...this.data.toolInventory }, extraAvailable: Boolean(round && !round.settled && !round.extraSupply) };

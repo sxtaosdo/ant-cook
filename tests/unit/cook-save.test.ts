@@ -3,6 +3,8 @@ import test from 'node:test';
 import { P10CookApplication } from '../../assets/bundles/game/application/P10CookApplication';
 import { ProductStorage } from '../../assets/shell/productStorage';
 import type { StoragePort } from '../../assets/bundles/game/application/contracts';
+import { P10GameCore } from '../../assets/bundles/game/core/P10GameCore';
+import { createDefaultSave } from '../../assets/bundles/game/core/SaveCodec';
 
 class Store implements StoragePort {
   values = new Map<string, string>(); writes: string[] = []; fail = false;
@@ -12,6 +14,23 @@ class Store implements StoragePort {
 }
 function app(store: Store) { return new P10CookApplication({ storage: new ProductStorage(store, 'cook'), clock: () => 123,
   idGenerator: seed => seed, saveScope: { frameworkVersion: '2.0.7', sectionId: 'cook.main', primaryKey: 'progress' } }); }
+
+test('actual final restaurant settlement qualifies only after failed save retries; explicit level-40 fixture',()=>{
+  const store=new Store(),game=app(store);game.start();assert.equal(game.firstRestaurantSaved,false);
+  const seed=createDefaultSave();seed.levels['r01-l40'].unlocked=true;seed.restaurants.r01.highestUnlockedLevel=40;
+  (game as unknown as {core:P10GameCore}).core=P10GameCore.load(JSON.stringify(seed));assert.equal(game.flush().ok,true);
+  assert.equal(game.startLevelAt(0,39).ok,true);
+  for(let guard=0;guard<100;guard++) {
+    const pending=game.read().kitchen?.orders.filter(o=>o.state==='Pending')??[];assert.ok(pending.length>0);
+    if(pending.length===1)store.fail=true;
+    const result=game.serve(pending[0].dishId);
+    if(store.fail) {assert.equal(result.ok,false);break;}assert.equal(result.ok,true);
+  }
+  assert.equal(game.read().progress.restaurants.r01.chapterComplete,true);assert.equal(game.hasPendingSave,true);assert.equal(game.firstRestaurantSaved,false);
+  store.fail=false;assert.equal(game.retrySave().ok,true);assert.equal(game.firstRestaurantSaved,true);
+  const writes=store.writes.length;for(let i=0;i<10;i++)assert.equal(game.firstRestaurantSaved,true);assert.equal(store.writes.length,writes);
+  game.dispose();const restored=app(store);assert.equal(restored.start().ok,true);assert.equal(restored.firstRestaurantSaved,true);restored.dispose();
+});
 
 test('fresh own save ignores old real keys and a new instance restores its own progress', () => {
   const store = new Store(); store.values.set('p10_cook_game_save_v2', JSON.stringify({ version: 2, coins: 999 }));

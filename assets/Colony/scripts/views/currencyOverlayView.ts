@@ -87,6 +87,6 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   protected onDestroy(): void {
     if (this.bars?.isValid) Tween.stopAllByTarget(this.bars);
     this.readWallet = null; this.popupOwner = null; this.switchHolds.clear();
-    for (const button of [this.diamondButton, this.plusButton]) if (button?.node.isValid) button.node.targetOff(this);
+    for (const button of [this.diamondButton, this.plusButton]) if (button?.node?.isValid) button.node.targetOff(this);
   }
 }

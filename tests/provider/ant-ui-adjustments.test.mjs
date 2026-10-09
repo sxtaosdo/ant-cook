@@ -61,4 +61,7 @@ test('actual currency entrance starts on visibility edges, survives switch holds
   const release = view.holdDuringSwitch(); business = false; view.lateUpdate(); assert.equal(view.bars.active, true); assert.equal(started, 1);
   release(); view.lateUpdate(); assert.equal(view.bars.active, false); assert.equal(view.bars.position.y, 548);
   business = true; view.lateUpdate(); assert.equal(started, 2); view.onDestroy(); assert.ok(stopped >= 4);
+  // MK may clear the referenced component node before the view's destroy callback.
+  view.diamondButton = { node: null }; view.plusButton = null; view.bars = null;
+  assert.doesNotThrow(() => view.onDestroy());
 });

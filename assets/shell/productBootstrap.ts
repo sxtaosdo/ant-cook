@@ -2,7 +2,8 @@ import { _decorator, Camera, Canvas, Component, director, Director, Label, Layer
 import { StateMachine, type IState } from 'db://shidai3/index';
 import mk from 'mk';
 import { BUILD_MODES } from './buildModes';
-import { ModuleEntryGate, type ModeId, type SceneDriver } from './contracts';
+import { ModuleEntryGate, type ModeId, type SceneDriver, type EntrySource } from './contracts';
+import { ShellPromotion } from './promotion';
 import { SwitchCoordinator } from './switchCoordinator';
 import { ProductNavigationView } from './productNavigationView';
 import { PRODUCT_BUILD_VERSION } from './buildInfo';
@@ -44,6 +45,8 @@ export class ProductBootstrap extends Component {
   private transitioning = false;
   private navigationRoot: Node | null = null;
   private navigationEpoch = 0;
+  private promotions: ShellPromotion | null = null;
+  private promotion: { source: ModeId; target: ModeId } | null = null;
 
   protected onLoad(): void { void this.boot().catch(cause => this.setStatus(String(cause))); }
 
@@ -73,11 +76,13 @@ export class ProductBootstrap extends Component {
       },
     };
     this.coordinator = new SwitchCoordinator(BUILD_MODES, driver, sys.localStorage, undefined, this.telemetry ?? undefined);
+    this.promotions = new ShellPromotion(sys.localStorage);
     await this.StateMachine.changeState(ShellEntryState);
     const launch = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('mode');
     const requested = launch === 'ant' || launch === 'cook' ? launch : this.coordinator.lastPlayed;
     const mode = BUILD_MODES.some(d => d.id === requested) ? requested! : BUILD_MODES[0].id;
     await this.openMode(mode, 'launch');
+    if (BUILD_MODES.length > 1) this.schedule(this.checkPromotion, 1);
   }
 
   public enterAnt(): void { void this.openMode('ant'); }
@@ -99,9 +104,10 @@ export class ProductBootstrap extends Component {
     });
   }
 
-  private async openMode(mode: ModeId, source: 'launch' | 'manual' = 'manual'): Promise<void> {
+  private async openMode(mode: ModeId, source: EntrySource = 'manual'): Promise<void> {
     if (!this.coordinator || this.transitioning) return;
     this.transitioning = true;
+    this.promotion = null;
     try {
       await this.StateMachine.changeState(ShellSwitchingState);
       this.revealNavigation();
@@ -147,7 +153,42 @@ export class ProductBootstrap extends Component {
 
   public showNavigation(): boolean {
     if (this.transitioning || !this.StateMachine.is(ShellRunningState)) return false;
-    this.revealNavigation(); return true;
+    if (!this.promotion) this.revealNavigation();
+    return true;
+  }
+
+  private readonly checkPromotion = (): void => {
+    // Cook's update promise settles between frames. Read before the next update,
+    // retaining its real page-task guard instead of treating an in-flight page as safe.
+    director.once(Director.EVENT_BEFORE_UPDATE, this.offerPromotion, this);
+  };
+
+  private readonly offerPromotion = (): void => {
+    if (!this.isValid || !this.enabledInHierarchy) return;
+    if (this.transitioning || !this.StateMachine.is(ShellRunningState) || this.navigationRoot?.activeInHierarchy) return;
+    const source = this.coordinator?.promotionSource;
+    if (!source || !this.promotions?.canOffer(source)) return;
+    const target: ModeId = source === 'ant' ? 'cook' : 'ant';
+    if (!BUILD_MODES.some(mode => mode.id === target)) return;
+    this.promotion = { source, target };
+    this.revealNavigation(); this.navigationView!.recommend(target);
+    this.setStatus(source === 'ant' ? '已首次通关18关，试试星际美食家？' : '首家餐厅已完成，试试蚂蚁搬搬搬？');
+    this.promotions.markShown(source);
+  };
+
+  private continueCurrent(): void {
+    if (this.transitioning || !this.StateMachine.is(ShellRunningState)) return;
+    if (this.promotion) {
+      try { this.promotions!.decline(this.promotion.source); }
+      catch { this.setStatus('暂缓记录未保存，请再次点击暂时不玩重试'); return; }
+      this.promotion = null;
+    }
+    this.hideNavigation();
+  }
+
+  protected onDestroy(): void {
+    this.unschedule(this.checkPromotion);
+    director.off(Director.EVENT_BEFORE_UPDATE, this.offerPromotion, this);
   }
 
   private revealNavigation(): void {
@@ -181,8 +222,11 @@ export class ProductBootstrap extends Component {
     this.node.getComponent(UITransform)?.setContentSize(size.width, size.height);
     this.shellCamera.orthoHeight = size.height / 2;
     this.navigationView.configure({
-      enter: mode => { void this.openMode(mode); },
-      continueCurrent: () => { if (!this.transitioning && this.StateMachine.is(ShellRunningState)) this.hideNavigation(); },
+      enter: mode => {
+        if (this.promotion && mode !== this.promotion.target) { this.continueCurrent(); return; }
+        void this.openMode(mode, this.promotion ? 'promotion' : 'manual');
+      },
+      continueCurrent: () => this.continueCurrent(),
       retry: () => this.retrySave(),
     });
     this.revealNavigation();

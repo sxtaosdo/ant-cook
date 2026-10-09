@@ -29,6 +29,8 @@ export interface GameplayModule {
   flush(): Promise<SaveOutcome>;
   close(reason: 'switch' | 'recovery'): Promise<void>;
   resumeInput(): void;
+  /** Pure committed milestone + safe-page qualification; never writes storage or opens UI. */
+  promotionReady?(): boolean;
 }
 
 export interface ModuleReady {

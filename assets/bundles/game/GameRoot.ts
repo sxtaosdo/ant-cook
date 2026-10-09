@@ -84,6 +84,10 @@ export class GameRoot extends Component implements GameplayModule {
         const machine = this.bootstrap?.StateMachine;
         return machine?.is(KitchenState) || machine?.is(PauseState) || machine?.is(RecoveryState) ? 'playing' : 'ready';
     }
+    promotionReady(): boolean {
+        return !this.closing && this.canLeave() === 'ready' && !!this.bootstrap?.StateMachine.is(MapState)
+            && this.application?.firstRestaurantSaved === true;
+    }
     async prepareExit(): Promise<LeaveStatus> {
         const status = this.canLeave(); if (status !== 'ready') return status;
         this.inputLocked = true; this.presentation?.setInputEnabled(false); return 'ready';

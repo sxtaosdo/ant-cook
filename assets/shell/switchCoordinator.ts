@@ -51,6 +51,11 @@ export class SwitchCoordinator {
   get cleanupBlockedMode(): ModeId | null { return this.cleanupBlocked?.mode ?? null; }
   get hasPendingMetadata(): boolean { return this.pendingNavigation !== null; }
   get onlyMetadataPending(): boolean { return !!this.pendingNavigation && !!this.active && !this.pendingStart && !this.cleanupBlocked && !this.businessRecoveryPending && this.active.canLeave() !== 'saveFailed'; }
+  get promotionSource(): ModeId | null {
+    if (this.flight || this.pendingStart || this.retryingSave || this.businessRecoveryPending || this.cleanupBlocked
+      || this.cleanupRetry || this.pendingNavigation || this.active?.canLeave() !== 'ready') return null;
+    return this.active.promotionReady?.() ? this.active.id : null;
+  }
 
   switchTo(target: ModeId, source: EntrySource = 'manual'): Promise<SwitchResult> {
     if (this.cleanupBlocked || this.cleanupRetry) return Promise.resolve({ ok: false, reason: `Cleanup incomplete: ${this.cleanupBlocked?.mode ?? 'retry in progress'}` });

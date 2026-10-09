@@ -269,6 +269,12 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
     return 'ready';
   }
 
+  public promotionReady(): boolean {
+    return this.canLeave() === 'ready' && !this.destroyed && !this.navigating && !this.inputLocked
+      && !this.progressPopup && !!this.homeView?.node.activeInHierarchy
+      && this.progress?.readGuide().status !== 'pending' && !!this.progress?.promotionMilestoneReached();
+  }
+
   public async prepareExit(): Promise<LeaveStatus> {
     const status = this.canLeave();
     if (status !== 'ready') return status;

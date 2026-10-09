@@ -103,6 +103,16 @@ export class ColonyTestBridge {
   public home(): Promise<void> { return this.goHome(); }
 
   public getProgress(): unknown { return this.ctx.progress?.snapshot(); }
+  /** Explicit main-clear fixture in the existing private GM Map, never the player save. */
+  public async promotionFixturePreview(level = 18): Promise<void> {
+    if (!PREVIEW || !this.ctx.gm?.active || !Number.isInteger(level) || level < 1 || level > 60) throw Error('Isolated GM Preview required');
+    const p = this.ctx.progress!;
+    const cleared = p.snapshot().clearedLevels.length;
+    if (cleared > level) throw Error('Fixture cannot reduce existing progress');
+    p.skipGuide();
+    for (let next = cleared + 1; next <= level; next++) p.settleRound(p.startRound(next).id, 'SUCCESS', 1);
+    await PlayState.goHome(this.ctx);
+  }
   /** One-shot fault in the current Preview port; the harness must prove browser isolation first. */
   public failNextToolSavePreview(): void {
     if (!PREVIEW || !this.ctx.progress) throw new Error('Preview progress required');

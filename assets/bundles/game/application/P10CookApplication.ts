@@ -165,6 +165,7 @@ export class P10CookApplication {
     private readonly saveScope: P10FrameworkSaveConfig;
     public get hasPendingSave(): boolean { return this.savePending; }
     public get hasCheckpoint(): boolean { return this.core.progress.hasCheckpoint; }
+    public get firstRestaurantSaved(): boolean { return !this.savePending && this.core.progress.restaurants.r01?.chapterComplete === true; }
 
 
     public get isStarted(): boolean {
