@@ -4,7 +4,7 @@ export interface AnchorRect { left: number; right: number; top: number; bottom: 
 export interface ConnectionViewport extends AnchorRect { width: number; height: number }
 export interface ConnectionRoute {
   id: string; number: number; color: string; dash: string; path: string;
-  anchors: { x: number; y: number }[]; label: { x: number; y: number };
+  anchors: { x: number; y: number }[];
 }
 const COLORS = ['#275c97', '#9b386a', '#7b581a', '#176a63', '#77489c', '#a13f28'];
 const DASHES = ['', '7 3', '2 3'];
@@ -21,15 +21,13 @@ export function connectionRoutes(groups: readonly ConnectionGroup[], rects: Read
     const anchors = [...new Set(group.members)].flatMap(id => {
       const rect = rects.get(id);
       if (!rect || ![rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite) || rect.right <= rect.left || rect.bottom <= rect.top) return [];
-      return [{ x: (rect.right - viewport.left) * scaleX, y: ((rect.top + rect.bottom) / 2 - viewport.top) * scaleY }];
+      return [{ x: ((rect.left + rect.right) / 2 - viewport.left) * scaleX, y: ((rect.top + rect.bottom) / 2 - viewport.top) * scaleY }];
     });
     if (anchors.length < 2) continue;
-    // Column padding supplies a gutter outside the cards. The bus stays above headers.
-    const busY = 16 + routes.length * 16, gutters = anchors.map(anchor => anchor.x + 5);
-    const min = Math.min(...gutters), max = Math.max(...gutters);
-    const branches = anchors.map((anchor, index) => `M ${anchor.x} ${anchor.y} H ${gutters[index]} V ${busY}`);
+    // Keep supplied member order: one straight segment per consecutive pair.
+    const path = anchors.map((anchor, index) => `${index === 0 ? 'M' : 'L'} ${anchor.x} ${anchor.y}`).join(' ');
     routes.push({ id: group.id, number: group.number, ...connectionStyle(group.number), anchors,
-      path: [`M ${min} ${busY} H ${max}`, ...branches].join(' '), label: { x: (min + max) / 2, y: busY - 2 } });
+      path });
   }
   return routes;
 }
@@ -39,7 +37,7 @@ export function mountGroupConnections(stage: HTMLElement, list: HTMLElement): { 
   const svg = doc.createElementNS(namespace, 'svg'); svg.classList.add('group-connections');
   svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false'); svg.setAttribute('pointer-events', 'none'); stage.append(svg);
   let groups: readonly ConnectionGroup[] = [], selected: string | null = null, frame: number | null = null, disposed = false;
-  const node = (name: 'path' | 'circle' | 'text', attributes: Record<string, string>): SVGElement => {
+  const node = (name: 'path' | 'circle', attributes: Record<string, string>): SVGElement => {
     const element = doc.createElementNS(namespace, name);
     for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
     return element;
@@ -55,8 +53,6 @@ export function mountGroupConnections(stage: HTMLElement, list: HTMLElement): { 
       const emphasized = route.id === selected, strokeWidth = emphasized ? '3' : '2';
       svg.append(node('path', { d: route.path, fill: 'none', stroke: route.color, 'stroke-width': strokeWidth, 'stroke-dasharray': route.dash, 'stroke-linejoin': 'round' }));
       for (const anchor of route.anchors) svg.append(node('circle', { cx: String(anchor.x), cy: String(anchor.y), r: '2.5', fill: route.color }));
-      const label = node('text', { x: String(route.label.x), y: String(route.label.y), fill: route.color, 'text-anchor': 'middle' });
-      label.textContent = String(route.number); svg.append(label);
     }
   }
   function schedule(): void { if (!disposed && frame === null) frame = view.requestAnimationFrame(draw); }
@@ -75,8 +71,6 @@ export function mountGroupConnections(stage: HTMLElement, list: HTMLElement): { 
     update(next, selectedId): void {
       if (disposed) return;
       groups = next; selected = selectedId;
-      const activeCount = next.filter(group => new Set(group.members).size >= 2).length;
-      list.style.paddingTop = activeCount ? `${activeCount * 16 + 8}px` : '0px';
       // Clear stale lines immediately; remeasure the replaced card nodes next frame.
       svg.replaceChildren(); observer?.disconnect(); observer?.observe(stage); observer?.observe(list);
       for (const card of list.querySelectorAll<HTMLElement>('[data-block-id]')) observer?.observe(card);

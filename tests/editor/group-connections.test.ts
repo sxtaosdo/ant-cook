@@ -7,13 +7,14 @@ import { basicExample, createLinkGroup, dissolveLinkGroup, linkGroupsFor, remove
 const viewport = {left: 100, right: 500, top: 200, bottom: 600, width: 400, height: 400};
 const anchors = new Map<string, AnchorRect>([['a', {left:110,right:190,top:280,bottom:380}], ['b', {left:230,right:310,top:400,bottom:500}]]);
 const groups: ConnectionGroup[] = [{id:'pair',number:1,members:['a','b']}];
-test('routes meet card edges in local coordinates and follow scrolling and scaled containers', () => {
+test('straight routes meet card centers in local coordinates and follow scrolling and scaled containers', () => {
   const route = connectionRoutes(groups, anchors, viewport)[0]!;
-  assert.deepEqual(route.anchors, [{x:90,y:130},{x:210,y:250}]);
+  assert.deepEqual(route.anchors, [{x:50,y:130},{x:170,y:250}]);
+  assert.equal(route.path,'M 50 130 L 170 250');
   const scaled = new Map([...anchors].map(([id,r]) => [id,{left:r.left*2,right:r.right*2,top:r.top*2,bottom:r.bottom*2}]));
   assert.deepEqual(connectionRoutes(groups, scaled, {...viewport,left:200,right:1000,top:400,bottom:1200})[0], route);
   const scrolled = new Map([...anchors].map(([id,r]) => [id,{...r,left:r.left-50,right:r.right-50,top:r.top-30,bottom:r.bottom-30}]));
-  assert.deepEqual(connectionRoutes(groups, scrolled, viewport)[0]!.anchors, [{x:40,y:100},{x:160,y:220}]);
+  assert.deepEqual(connectionRoutes(groups, scrolled, viewport)[0]!.anchors, [{x:0,y:100},{x:120,y:220}]);
   assert.notEqual(connectionRoutes(groups, scrolled, viewport)[0]!.path, route.path);
 });
 test('all groups retain stable numbers and styles; missing, duplicate and hidden anchors do not leave fake connections', () => {
@@ -35,13 +36,15 @@ test('delete, dissolve and undo derive connections from the current draft withou
   history.undo(); assert.equal(read().length,1); history.redo(); assert.equal(read().length,0); history.undo();
   history.commit(dissolveLinkGroup(history.current,created.id)); assert.equal(read().length,0); history.undo(); assert.equal(read().length,1);
 });
-test('stable numbers 1 and 7 in the same columns get separate buses and readable labels after other groups dissolve', () => {
+test('stable groups retain their own ordered center paths and share the marker color token', () => {
   const rects = new Map([...anchors, ['c',{...anchors.get('a')!,top:400,bottom:500}], ['d',{...anchors.get('b')!,top:520,bottom:620}]]);
   const routes = connectionRoutes([{id:'empty',number:3,members:[]},groups[0]!,{id:'later',number:7,members:['c','d']}],rects,viewport);
   assert.deepEqual(routes.map(route => route.number),[1,7]);
-  assert.equal(routes[0]!.label.x,routes[1]!.label.x);
-  assert.equal(routes[1]!.label.y-routes[0]!.label.y,16);
-  assert.notEqual(routes[0]!.path.split(' H ')[0],routes[1]!.path.split(' H ')[0]);
+  assert.notEqual(routes[0]!.path,routes[1]!.path);
+  for (const route of routes) assert.equal(route.color,connectionStyle(route.number).color);
+  const chain = connectionRoutes([{id:'ordered',number:2,members:['d','a','b']}],rects,viewport)[0]!;
+  assert.equal(chain.path,'M 170 370 L 50 130 L 170 250');
+  assert.equal(chain.path.match(/ L /g)!.length,2); // Three members need two segments, never an all-pairs mesh.
 });
 
 class FakeNode {
@@ -69,8 +72,9 @@ test('view refreshes after layout and captured scroll, clears old members immedi
   try {
     const controller = mountGroupConnections(stage as unknown as HTMLElement,list as unknown as HTMLElement), svg = stage.children[0]!;
     assert.equal(svg.attrs.get('pointer-events'),'none'); assert.equal(svg.attrs.get('aria-hidden'),'true');
-    controller.update(groups,null); assert.equal(list.style.paddingTop,'24px'); flush();
-    const originalPath = svg.children[0]!.attrs.get('d'); assert.ok(originalPath); assert.equal(svg.children.at(-1)!.textContent,'1');
+    controller.update(groups,null); assert.equal(list.style.paddingTop,''); flush();
+    const originalPath = svg.children[0]!.attrs.get('d'); assert.equal(originalPath,'M 50 130 L 170 250');
+    assert.deepEqual(svg.children.slice(1).map(circle=>[circle.attrs.get('cx'),circle.attrs.get('cy')]),[['50','130'],['170','250']]);
     currentAnchors = new Map([...anchors].map(([id,r]) => [id,{...r,left:r.left-40,right:r.right-40}]));
     listeners.get('scroll')!.forEach(fn=>fn()); resize!(); assert.equal(frames.size,1); flush(); assert.notEqual(svg.children[0]!.attrs.get('d'),originalPath);
     controller.update([{...groups[0]!,members:['a']}],null); assert.equal(svg.children.length,0); flush(); assert.equal(svg.children.length,0);

@@ -15,6 +15,7 @@ const dialog = element('image-dialog', HTMLDialogElement), removeWhite = input('
 const colorCount = element('image-color-count', HTMLSelectElement);
 const imagePreview = element('image-preview', HTMLCanvasElement), imageOriginal = element('image-original', HTMLImageElement);
 const reference = element('reference', HTMLImageElement), imageStatus = element('image-status', HTMLParagraphElement);
+const referencePanel = element('reference-panel', HTMLElement);
 const history = new DraftHistory(initialDraft()); let board = history.current.board;
 let groupsEditor: {render(): void; enterConfiguration(): void} | null = null;
 let palette: PaletteColor[] = [], symbol = 'A', erasing = false, ready = false, busy = false;
@@ -166,7 +167,7 @@ colorCount.onchange = fillPreview;
 button('apply-image').onclick = () => {
   if (!filled || !pending) return;
   commit(filled); if (referenceUrl) URL.revokeObjectURL(referenceUrl); referenceUrl = pending.url;
-  reference.src = referenceUrl; reference.hidden = false; element('no-reference', HTMLParagraphElement).hidden = true;
+  reference.src = referenceUrl; reference.hidden = referencePanel.hidden = false;
   pending = null; dialog.close(); message('已填充棋盘，现在可以选择颜色继续修整');
 };
 button('cancel-image').onclick = () => dialog.close();

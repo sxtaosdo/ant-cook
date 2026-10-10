@@ -18,12 +18,13 @@
       <li>勾选“问号方块”即可隐藏；编辑时保留真实颜色和数字供修改，试玩时按游戏规则揭示。</li>
       <li>点“检查关卡”，再点“试玩”。试玩中点击列首方块，搬完全部食物后会提示通关。</li>
       <li>用下方“保存整份草稿”保存图案、方块及规则；之后用“打开草稿”继续编辑。</li></ol>
-    <p>“方块编辑”下的“一起出发”面板中先新建或选择组，再点方块加入或移出；同组方块由带组号的线连接，线色、线型与符号区分各组，保留方块的游戏底色。“全部删除”只清下方方块及关联，可撤销，重新进入不会自动长回。钥匙和候选编译在折叠设置中。<a href="/examples/first-level-draft.json" download="first-level-draft.json">下载连体／问号／钥匙教学草稿</a>后用“打开草稿”查看。</p>
+    <p>“方块编辑”下的“一起出发”面板中先新建或选择组，再点方块加入或移出；同组成员按顺序以直线连接中心，线色与组号前的符号同色，保留方块的游戏底色。“全部删除”只清下方方块及关联，可撤销，重新进入不会自动长回。钥匙和候选编译在折叠设置中。<a href="/examples/first-level-draft.json" download="first-level-draft.json">下载连体／问号／钥匙教学草稿</a>后用“打开草稿”查看。</p>
     <p>试玩只使用临时内存，不写玩家存档或正式关卡；游戏画面和动画仍需单独验证。</p>
   </details>
   <p id="status" role="status" aria-live="polite">正在读取游戏调色板…</p>
   <main>
-    <aside class="panel tools"><h2>绘制工具</h2><div class="tool-pair"><button id="brush" aria-pressed="true">画笔</button><button id="eraser" aria-pressed="false">橡皮擦</button></div>
+    <aside class="panel tools"><section id="reference-panel" hidden aria-label="参考图片"><h2>参考图片</h2><img id="reference" hidden alt="最近应用的参考图片"></section>
+      <h2>绘制工具</h2><div class="tool-pair"><button id="brush" aria-pressed="true">画笔</button><button id="eraser" aria-pressed="false">橡皮擦</button></div>
       <h2>游戏调色板 <span>12色</span></h2><div id="palette" role="group" aria-label="画笔颜色"></div>
       <div class="tool-pair"><button id="undo">撤销</button><button id="redo">重做</button></div><button id="clear">清空棋盘</button>
       <p class="hint">点击格子上色，按住拖动连续绘制。空格不参与搬运。</p><p class="hint">Ctrl / ⌘ Z 撤销<br>Ctrl / ⌘ Shift Z 重做</p>
@@ -33,7 +34,6 @@
     </section>
     <aside class="panel information"><h2>图案预览</h2><canvas id="pattern" width="256" height="256" aria-label="无网格图案预览"></canvas>
       <div class="total"><span>有效格子</span><strong id="total">0</strong></div><div id="counts" class="color-statistics" aria-label="棋盘与待选颜色数量"></div>
-      <h2>参考图片</h2><img id="reference" hidden alt="最近应用的参考图片"><p id="no-reference" class="hint">导入图片后在这里对照。</p>
       <details><summary>棋盘配置与CSV字段</summary><p class="hint">棋盘配置不含搬运顺序和底部数字组。</p><textarea id="config" readonly aria-label="棋盘JSON配置" rows="8"></textarea><button id="copy-csv">复制棋盘CSV字段</button></details>
     </aside>
   </main>
