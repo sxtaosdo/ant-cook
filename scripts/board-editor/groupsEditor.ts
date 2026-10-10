@@ -3,6 +3,7 @@ import { draftDocument, importDraft, rowMajorOrder, rulesFor, type LevelDraft } 
 import { documentFor, type PaletteColor } from './core.js';
 import { addBlock, basicExample, boardChangedSinceBlocks, changeBlock, clearBlocks, colorHex, colorLabel, createLinkGroup, dissolveLinkGroup, draftProblems, enterQueueConfiguration, friendlyError, generateBlocks, keyForBlock, linkGroupLabel, linkGroupsFor, moveBlock, prepareDraft, removeBlock, renderColorStatistics, toggleLinkMember, unlockBlock } from './groupsView.js';
 import { openDraftPlaytest } from './playtest.js';
+import { connectionStyle, mountGroupConnections } from './groupConnections.js';
 
 interface Options {
   read(): LevelDraft; commit(draft: LevelDraft): void; markSaved(): void; locked(): boolean;
@@ -12,11 +13,12 @@ interface Options {
 export function mountGroupsEditor(options: Options): { render(): void; enterConfiguration(): void } {
   const panel = document.createElement('section'); panel.className = 'panel groups-editor'; panel.id = 'groups-editor';
   panel.innerHTML = `<h2>底部待选区</h2><p class="hint">每块的数字是要搬走的食物数量。同列从上往下出发；点击方块，在右侧修改。每种颜色的数字合计要与上方食物格数相同。</p>
-    <div class="toolbar"><label>待选区 <select data-control="queues"><option>3</option><option>4</option><option>5</option></select>列</label><button data-action="generate" class="primary">按棋盘生成方块</button><button data-action="add">＋添加方块</button><button data-action="clear">全部删除</button><button data-action="example">载入普通示例</button><button data-action="export">保存整份草稿</button><button data-action="import">打开草稿</button><input data-control="file" type="file" accept=".json" hidden></div>
+    <div class="toolbar"><label>待选区 <select data-control="queues"><option>3</option><option>4</option><option>5</option></select>列</label><button data-action="generate" class="primary">自动填充待选区</button><button data-action="add">＋添加方块</button><button data-action="clear">全部删除</button><button data-action="example">载入普通示例</button><button data-action="export">保存整份草稿</button><button data-action="import">打开草稿</button><input data-control="file" type="file" accept=".json" hidden></div>
     <p data-control="generation" class="hint" role="status"></p><div data-control="statistics" class="color-statistics" aria-label="棋盘与待选数量对照"></div>
-    <section class="link-panel" aria-label="一起出发分组"><h3>一起出发</h3><p class="hint">新建分组后，点方块加入或移出。每块只能属于一组；同列成员必须连续，出发时还要满足队首、钥匙和空槽规则。</p><div class="toolbar"><button data-action="new-link">＋新建组</button><button data-action="end-link">结束分组，编辑属性</button><button data-action="dissolve-link">解散当前组</button></div><div data-control="link-groups" class="link-group-tabs" role="group" aria-label="选择一起出发分组"></div><p data-control="link-status" role="status"></p><div data-control="link-members" class="link-members"></div></section>
+    <h3 class="block-editing-title">方块编辑</h3>
     <p data-control="guide" class="editing-guide" role="status"></p>
-    <div class="queue-layout"><div data-control="groups" class="group-columns"></div><aside data-control="properties" class="block-properties" aria-label="选中方块的属性"></aside></div>
+    <div class="queue-layout"><div data-control="stage" class="queue-stage"><div data-control="groups" class="group-columns"></div></div><aside data-control="properties" class="block-properties" aria-label="选中方块的属性"></aside></div>
+    <section class="link-panel" aria-label="一起出发分组"><h3>一起出发</h3><p class="hint">新建分组后，点方块加入或移出。同组用带组号的连线表示，线色、线型和符号区分各组。每块只能属于一组；同列成员必须连续，出发时还要满足队首、钥匙和空槽规则。</p><div class="toolbar"><button data-action="new-link">＋新建组</button><button data-action="end-link">结束分组，编辑属性</button><button data-action="dissolve-link">解散当前组</button></div><div data-control="link-groups" class="link-group-tabs" role="group" aria-label="选择一起出发分组"></div><p data-control="link-status" role="status"></p><div data-control="link-members" class="link-members"></div></section>
     <div class="basic-validation"><p data-control="validity" role="status"></p><button data-action="check">检查关卡</button><button data-action="play" class="primary">试玩</button></div>
     <details class="advanced-settings"><summary>进阶操作：钥匙</summary><p class="hint">编号自动管理，无需输入。</p><div class="toolbar"><button data-action="key">放钥匙并关联方块</button><button data-action="cancel" hidden>取消当前操作</button></div></details>
     <details class="advanced-settings"><summary>高级设置：目标关、手动顺序、内部编号与候选编译</summary>
@@ -36,6 +38,7 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
   const validity = get<HTMLParagraphElement>('validity'), guide = get<HTMLParagraphElement>('guide'), candidateStatus = get<HTMLParagraphElement>('candidate-status');
   const result = get<HTMLPreElement>('result'), diff = get<HTMLPreElement>('diff');
   let busy = false, selectedId: string | null = null, selectedLinkId: string | null = null, pickingKey = false, keyCoordinate: string | null = null;
+  const connections = mountGroupConnections(get('stage'), list);
   // Empty cellOrder means automatic; an explicit order is part of DraftHistory.
   const isManualOrder = (): boolean => options.read().cellOrder.length > 0;
   let candidate: { id: string; confirmation: string; draft: string } | null = null;
@@ -64,15 +67,15 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
     if (!linkGroups.some(group => group.id === selectedLinkId)) selectedLinkId = null;
     queues.value = String(draft.queueColumns); level.value = String(draft.targetLevel); manual.checked = manualOrder;
     order.value = draft.cellOrder.join('|'); witness.value = draft.selectionOrder.join('|');
-    guide.textContent = selectedLinkId ? `正在编辑${linkGroupLabel(draft, selectedLinkId)}，点击方块加入或移出；点“结束分组，编辑属性”恢复属性选择。` : pickingKey ? keyCoordinate ? '钥匙位置已选好。现在点击下方要锁住的方块。' : '点击上方有食物的格子放钥匙，再点击下方要锁住的方块。' : draft.groups.length ? '点击彩色方块编辑属性；问号在编辑时保留真实颜色和数量，试玩时按游戏规则隐藏。' : '首次画好棋盘后点“完成棋盘，配置待选区 ↓”；也可以点“按棋盘生成方块”或手动添加。';
+    guide.textContent = selectedLinkId ? `正在编辑${linkGroupLabel(draft, selectedLinkId)}，点击方块加入或移出；点“结束分组，编辑属性”恢复属性选择。` : pickingKey ? keyCoordinate ? '钥匙位置已选好。现在点击下方要锁住的方块。' : '点击上方有食物的格子放钥匙，再点击下方要锁住的方块。' : draft.groups.length ? '点击彩色方块编辑属性；问号在编辑时保留真实颜色和数量，试玩时按游戏规则隐藏。' : '首次画好棋盘后点“完成棋盘，配置待选区 ↓”；也可以点“自动填充待选区”或手动添加。';
     action('cancel').hidden = !pickingKey;
-    action('generate').textContent = draft.groups.length ? '按棋盘更新方块' : '按棋盘生成方块';
-    get<HTMLParagraphElement>('generation').textContent = boardChangedSinceBlocks(draft) ? '棋盘已变化：已保留手调数量、问号、钥匙和分组。对照统计卡继续手调，或点“按棋盘更新方块”明确替换。' : '首次进入时按每种颜色的总数生成一块普通方块。数量一致不代表可通关；后续绘制不会覆盖手调结果。“全部删除”可撤销，删除后不会自动长回。';
+    action('generate').textContent = '自动填充待选区';
+    get<HTMLParagraphElement>('generation').textContent = boardChangedSinceBlocks(draft) ? '棋盘已变化：已保留手调数量、问号、钥匙和分组。对照统计卡继续手调，或点“自动填充待选区”明确替换。' : '首次进入时按每种颜色的总数生成一块普通方块。数量一致不代表可通关；后续绘制不会覆盖手调结果。“全部删除”可撤销，删除后不会自动长回。';
     renderColorStatistics(get('statistics'), draft, options.palette);
     const tabs = get<HTMLDivElement>('link-groups'); tabs.replaceChildren();
-    for (const link of linkGroups) { const tab = smallButton(`${linkGroupLabel(draft, link.id)} · ${link.members.length}块`, () => { cancelPlacement(); selectedLinkId = link.id; render(); }); tab.setAttribute('aria-pressed', String(selectedLinkId === link.id)); tabs.append(tab); }
+    for (const link of linkGroups) { const tab = smallButton(`${linkGroupLabel(draft, link.id)} · ${link.members.length}块`, () => { cancelPlacement(); selectedLinkId = link.id; render(); }); tab.style.setProperty('--link-color', connectionStyle(link.number).color); tab.setAttribute('aria-pressed', String(selectedLinkId === link.id)); tabs.append(tab); }
     const selectedLink = linkGroups.find(link => link.id === selectedLinkId);
-    get<HTMLParagraphElement>('link-status').textContent = selectedLink ? `${linkGroupLabel(draft, selectedLink.id)}：${selectedLink.members.length}块${selectedLink.members.length < 2 ? '，至少加入2块才能一起出发。' : '；再点成员可移出。'}` : linkGroups.length ? '选择上方分组查看成员；不同组以符号和编号区分。' : '还没有分组。点“＋新建组”，再点下方方块。';
+    get<HTMLParagraphElement>('link-status').textContent = selectedLink ? `${linkGroupLabel(draft, selectedLink.id)}：${selectedLink.members.length}块${selectedLink.members.length < 2 ? '，至少加入2块才能一起出发。' : '；再点成员可移出。'}` : linkGroups.length ? '选择上方分组查看成员；不同组以符号和编号区分。' : '还没有分组。点“＋新建组”，再点上方方块。';
     const linkMembers = get<HTMLDivElement>('link-members'); linkMembers.replaceChildren();
     for (const member of selectedLink?.members ?? []) linkMembers.append(smallButton(`${colorLabel(member.color)} · 第${member.pile + 1}列第${member.depth + 1}块 · 移出`, () => commit(toggleLinkMember(options.read(), selectedLink!.id, member.id))));
     list.replaceChildren(); list.style.gridTemplateColumns = `repeat(${draft.queueColumns}, minmax(90px, 1fr))`;
@@ -82,7 +85,7 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
       const members = draft.groups.filter(group => group.pile === pile).sort((a, b) => a.depth - b.depth);
       if (!members.length) { const empty = document.createElement('p'); empty.className = 'empty-column'; empty.textContent = '还没有方块'; column.append(empty); }
       for (const group of members) {
-        const card = smallButton('', () => chooseBlock(group.id)); card.className = 'queue-block'; card.style.backgroundColor = colorHex(group.color, options.palette);
+        const card = smallButton('', () => chooseBlock(group.id)); card.className = 'queue-block'; card.dataset.blockId = group.id; card.style.backgroundColor = colorHex(group.color, options.palette);
         const isMember = Boolean(selectedLinkId && group.linkId === selectedLinkId);
         if (selectedLinkId) card.classList.add(isMember ? 'link-member-selected' : 'link-member-dim');
         card.setAttribute('aria-pressed', String(selectedLinkId ? isMember : selectedId === group.id));
@@ -90,10 +93,13 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
         const number = document.createElement('strong'); number.textContent = group.mystery ? '?' : String(group.count);
         const name = document.createElement('span'); name.textContent = `${colorLabel(group.color)}${group.mystery ? ` · 问号 · 真实${group.count}` : ''}`;
         const badges = document.createElement('span'); badges.className = 'block-badges'; badges.textContent = `${group.linkId ? `${linkGroupLabel(draft, group.linkId)} ` : ''}${group.lockId ? '锁' : ''}`;
+        const link = linkGroups.find(item => item.id === group.linkId);
+        if (link) badges.style.setProperty('--link-color', connectionStyle(link.number).color);
         card.append(number, name, badges); column.append(card);
       }
       const add = smallButton('＋添加', () => appendBlock(pile)); add.className = 'add-block'; column.append(add); list.append(column);
     }
+    connections.update(linkGroups.map(link => ({ id: link.id, number: link.number, members: link.members.map(member => member.id) })), selectedLinkId);
     properties.replaceChildren();
     const group = draft.groups.find(item => item.id === selectedId);
     const title = document.createElement('h3'); title.textContent = group ? `第${group.pile + 1}列 · 第${group.depth + 1}块` : '方块属性'; properties.append(title);

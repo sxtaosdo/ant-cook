@@ -14,6 +14,7 @@ export function colorStatistics(draft: LevelDraft) {
   });
 }
 export function renderColorStatistics(target: HTMLElement, draft: LevelDraft, palette: PaletteColor[]): void {
+  target.classList.add('color-statistics');
   target.replaceChildren();
   const active = colorStatistics(draft).filter(item => item.board > 0 || item.supplied > 0);
   if (!active.length) { const empty = document.createElement('p'); empty.className = 'hint'; empty.textContent = '还没有食物或待选方块。'; target.append(empty); }
@@ -139,7 +140,7 @@ export function keyForBlock(draft: LevelDraft, coordinate: string, id: string): 
 }
 export function draftProblems(draft: LevelDraft): string[] {
   if (rowMajorOrder(draft.board).length === 0) return ['上方食物图案还是空的。请先绘制食物，或点“载入普通示例”。'];
-  if (draft.groups.length === 0) return ['下方还没有待选方块。请点“按棋盘生成方块”或“＋添加方块”。'];
+  if (draft.groups.length === 0) return ['下方还没有待选方块。请点“自动填充待选区”或“＋添加方块”。'];
   const problems: string[] = [];
   for (const group of draft.groups) if (!Number.isSafeInteger(group.count) || group.count < 1 || group.count > 4096) problems.push(`第${group.pile + 1}列第${group.depth + 1}块：数量请输入1至4096的整数。`);
   if (colorStatistics(draft).some(item => item.status !== 'equal')) problems.push('同色数量尚未一致，请按统计卡调整短缺或超出的方块。');

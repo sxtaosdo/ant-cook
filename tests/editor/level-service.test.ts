@@ -13,6 +13,7 @@ test('isolated HTTP editor serves all browser modules and requires reviewed conf
   try {
     for (const route of ['/', '/editor.js','/core.js','/groupsCore.js','/groupsEditor.js','/groupsView.js','/playtest.js','/assets/Colony/scripts/gameModel.js','/assets/Colony/scripts/application/boardRoute','/assets/Colony/scripts/application/levelCatalog','/assets/Colony/scripts/application/levelCatalog.js','/examples/first-level-draft.json']) assert.equal((await fetch(base+route)).status,200,route);
     assert.match(await (await fetch(base+'/editor.js')).text(),/mountGroupsEditor/);
+    assert.equal((await fetch(base+'/groupConnections.js')).status,200);
     assert.equal((await fetch(base+'/levelPipeline.js')).status,404);
     assert.equal((await post('/api/level/preview',{},'https://untrusted.example')).status,403);
     assert.equal((await post('/api/level/preview',{root:'D:/code/shidai3/P4000/ant-cook'})).status,400);

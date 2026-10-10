@@ -34,7 +34,7 @@ export async function createLevelEditorServer(port = 7469) {
   await add('/', new URL('index.html', import.meta.url), 'text/html; charset=utf-8');
   await add('/editor.css', new URL('editor.css', import.meta.url), 'text/css; charset=utf-8');
   await add('/examples/first-level-draft.json', new URL('examples/first-level-draft.json', import.meta.url), 'application/json; charset=utf-8');
-  for (const file of ['editor', 'core', 'groupsCore', 'groupsEditor', 'groupsView', 'playtest']) await add(`/${file}.js`, join(output, 'scripts/board-editor', `${file}.js`), 'text/javascript; charset=utf-8');
+  for (const file of ['editor', 'core', 'groupsCore', 'groupsEditor', 'groupsView', 'groupConnections', 'playtest']) await add(`/${file}.js`, join(output, 'scripts/board-editor', `${file}.js`), 'text/javascript; charset=utf-8');
   await add('/assets/Colony/scripts/application/levelCatalog.js', join(output, 'assets/Colony/scripts/application/levelCatalog.js'), 'text/javascript; charset=utf-8');
   await add('/assets/Colony/scripts/gameModel.js', join(output, 'assets/Colony/scripts/gameModel.js'), 'text/javascript; charset=utf-8');
   for (const file of ['boardRoute', 'levelCatalog']) {
