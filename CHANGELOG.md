@@ -4,6 +4,8 @@
 
 ## 未发布（初始版本基线 0.3.0.0；本地检查点按 Hook 递增） — 联合工程首切片
 
+- 2026-10-11 倍速弹窗布局准备：已实际查看 Owner 指定的桌面 Speed Up 参考图，整理独立标题牌、等宽信息卡、蓝色免费广告卡与底部返回区的固定 Prefab 坐标方案。保留每日赠送 3 分钟、广告领取 2 分钟及现有 7 Label/2 按钮绑定，不增加付费 SKU 或引用图中价格/时长/次数。此项仅文档与方案检查点；未调用 Creator/Companion、未修改资源或业务源码、未执行本布局原生验收，等待主线程释放维护窗口。
+
 - 2026-10-11（测试检查点 v72 `cd73cac0b4feae28f05c948ad2bf300d522ce842`；文档单独提交）连续关卡／失败重玩生命周期回归：新增六项 Provider 验收，运行实际 PlayState 退出与 worker 回调、运输、节点工厂和 MK 同步池；三个旧等待阶段分别遍历1→7，在同一状态实例的新局 worker 挂起时结算旧 promise／回调，验证模型／新 UI 不回写、新任务保持及旧池／worker／等待／tween 清零。当前主线目录按既有顺序在同一模型连续 SUCCESS，合法 FAIL／重置只用数量正确的隔离棋盘；背景只读确认无启用竞争 Widget，实际 BoardView 在750×1334替身中三次重建恢复帧和中心。未发现可证实的新业务缺陷，源码／资源未改。相关23项唯一覆盖首轮21／23，旧 Bootstrap 清理夹具漏掉已有 Speed 注册；补依赖及十项注销断言后，仅受影响5／5复验，正常清理不重复、失败 Owner 单独重试。新增测试的依赖遗漏和贪心策略失败也保留原回执并只修测试。strict 通过，标准 Creator info 身份通过；32份Owner和6份生产数据保持，真实存档／关卡、Companion和服务不改。此为本地测试／文档检查点，不能宣称原生自然连续通关、背景截图、真机第7关卡顿／发热／GC或全体计时器验收；无push／tag／父pin。
 
   后续v73标准隔离Preview取得原生39／39公开solveCurrent／nextLevel接口连续1→7成功及真实第7关FAIL／重玩／HOME再进入43／43报告，750×1334截图确认同帧背景恢复。采样worker为0，池678→586→678，再进入678；HOME没有池计数字段，不能宣称池清零。公开测试接口重玩、保留引导遮罩，不代表免费重试按钮触摸；39步观测SUCCESS boost为3、重玩为1，非固定1×全程。四类原始诊断均为空，重玩／再进入后15秒P95均18.1ms及关于9个Mask的1条告警仍不能证明真机卡顿／GC／发热。39步协调历史FAILED／DAEMON_UNAVAILABLE与随后本地报告完成同时保留；43步UNKNOWN_OUTCOME／HTTP_500 Request body is too large，operation仍STARTED，未重放或手工改成功。同daemon inflight全0；fencing13租约过期，正常release遭LEASE_EXPIRED，不声称已释放。仅首关启动PNG已存Library（README列明ID）；Owner32／生产6／框架Meta9哈希保持。证据在`4060-level-native-recovery-20261011`，协调结果保存问题仍阻塞后续原生验收。
