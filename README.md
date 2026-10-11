@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.73`**
+**当前版本：`v0.3.0.74`**
 
 状态: Draft
 
@@ -69,6 +69,10 @@ R01–R07、R11–R13 已有源码实现及历史记录，本轮不重复核销�
 2026-10-11（测试检查点 v72 `cd73cac0b4feae28f05c948ad2bf300d522ce842`；文档单独提交）连续关卡生命周期回归：新增 `tests/provider/ant-play-session-lifecycle.test.mjs` 六项，实际执行 PlayState 的退出／运输回调／读取方法、TransportPresentation、NodeFactory 和 MK 同步池；cc 节点、tween 与页面 IO 使用替身。移动、清格和淡出三个等待阶段分别覆盖主线 1→7，在同一个状态实例上挂起新局 worker 后释放旧任务及已排队回调，验证新旧模型与新 UI 不被旧任务改写，新任务不被旧 finally 删除；旧池、worker、等待和 tween 归零，再退出新局完成清理。实际主线目录按既有配置顺序在同一模型连续通过 1→7，另用数量正确的仓外内存棋盘产生合法 FAIL 并验证重置；这些不是玩家原生连续游玩或真实第 7 关失败。
 
 背景的既有修复保持：只读当前 `board.prefab` 确认 BackgroundArt 没有启用的竞争 Widget，实际 BoardView 在三次新建视图中恢复同一首关背景帧及屏幕中心；视口替身固定 750×1334，不表示截图／像素覆盖或缓存资源的原生重玩验收。相关 23 项唯一回归中首轮 21／23，两个旧清理夹具漏注入已注册的 ColonySpeedView；补齐依赖、核对十项注销及已成功 Owner 不重复清理后，仅受影响五项复验 5／5。新增测试首轮的读取方法夹具遗漏及四关贪心策略失败也保留回执，分别修正依赖及沿用既有配置顺序，未据此修改业务规则。Node 22.23.3、Creator 源码 strict 通过；标准 Creator info 再确认工程 `04c4cde24ee76d83`、3.8.8 和原会话。32 份 Owner 文件和 6 份生产数据保持；不改资源、真实存档、Companion 或服务。本阶段未证明真机卡顿根因、GC／分配、发热、Cocos 延迟销毁或全体计时器归零。证据目录：`C:/Users/33272/AppData/Local/Temp/4060-level-lifecycle-20261011-0843`。
+
+2026-10-11 后续标准 Creator 隔离 Preview（运行版本 v0.3.0.73，750×1334）取得原生报告：通过公开solveCurrent／nextLevel测试接口连续主线1→7及第7关重玩共39／39步成功；另首次执行真实第7关合法八次选堆，43／43步记录 FAIL、运输84格，随后公开测试接口重玩及回首页再进均为 PLAYING、运输0、五槽空。背景在失败、重玩和再进入时保持同一有效帧、中心(375,667)及750×1667尺寸，截图已核对；池节点678→586→678，再进入678，HOME未返回池计数字段，不能当作池清零。采样状态活动／移动worker为0；不代表全体引擎资源或计时器释放。43步夹具保留引导遮罩，重玩使用公开测试接口，尚未验证免费重试按钮触摸；39步SUCCESS状态观测boostMultiplier为3、重玩为1，不声称全程固定1×。两份报告四类原始诊断均为空。第7关重玩／再进入后的15秒采样均P95 18.1ms，属于空闲状态而非活动运输全程或真机性能证明；43步另有关于9个Mask的1条告警，不能据此确定卡顿根因。
+
+运行报告成功与协调结果分别保留：39步客户端及operation记录仍为 FAILED／DAEMON_UNAVAILABLE，本地原生报告后续完成；43步返回 UNKNOWN_OUTCOME／HTTP_500（Request body is too large），operation记录仍STARTED。未重放、删字段或手工标记成功。当前同一daemon PID34328的inflight全为0、unknown为空；新fencing13租约已过期，正常release返回LEASE_EXPIRED，不声称释放成功。恢复证据：`C:/Users/33272/AppData/Local/Temp/4060-level-native-recovery-20261011`；原生报告分别为项目`temp/creator-ai-bridge/playtests/playtest-1791710995826.json`和`playtest-1791711731942.json`。仅v73首关启动截图已保存Library：`libfile_531d7bf9e1d88191b46c203835719526`，不代表全关卡或性能验收。32份Owner、6份生产数据和9份框架Meta哈希保持；源码／资源、真实存档及Companion／服务未改。
 
 Cook 11 页固定 UI 迁移、当前真机性能，以及广告／支付 SDK、AppID 与远程服务配置仍为后续；本轮没有扩展到这些任务。
 
