@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.76`**
+**当前版本：`v0.3.0.77`**
 
 状态: Draft
 
@@ -29,6 +29,14 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 跨玩法推荐由业务模块提供可选的纯只读 `promotionReady()` 资格：Ant连续主线首通18关、永久引导完成或跳过且处于无弹窗安全首页；Cook首餐厅完成且成功保存、处于安全地图。Shell仅在双玩法构建、入口与恢复均就绪时展示现有原生选择面板，玩家主动选择才执行安全切换，不发放奖励。拒绝先保存到shell独立元数据，成功后同一来源方向7天内不提示；保存失败保留重试，同一会话每方向最多主动展示一次。两方向冷却独立，不保存永久停止标记；单玩法构建不展示推荐。
 
 来源快照见 `MIGRATION_SOURCES.json`；功能状态见 `CHANGELOG.md`。
+
+## 公共登录 Shell 接线（源码检查点）
+
+2026-10-11 源码检查点 v76 `e2bf0207bdce04054c07ad7c0a638602d336085b` 为 Shell 导航增加可选账号状态／动作绑定。View 只接收既有四字段 `ProductAccountProjection`，Bootstrap 持有唯一默认关闭的 `LoginFacade`；启动、渲染和切玩法不请求登录，玩家显式操作才沿 `requestLogin`／取消／退出进入公共会话。Ant／Cook 共用同一产品内存会话；账号 pending 不阻断继续玩法和重试本地记录，迟到凭据不发起新交换，销毁后不回写 UI。缺配置或可信交换时保持游客，并投影“登录未配置，可继续游客玩法”。
+
+实际产品 index／checkout 仍为 P0002 v2.6.0 `e3165d370e1dee35367703df87849bae6dd7887c`，仅使用该版本已有公开合同；批准候选 v2.7.0 `39f168e7abdac9215d0ea21f2a5a3585262e9970` 尚未消费，当前公开入口没有 `DouyinCredentialAdapter`。本片不更新产品或父仓 pin、不注入真实 credential／exchange、不接新 SDK，也不外发认证或遥测；真实存档与本地资料合同保持。
+
+Node 22.23.3 严格类型通过，受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试通过（含本轮 5 项新增及既有公共模块 2 项）；cc、绘图、场景 IO 为替身，实际 Bootstrap／Navigation／公共会话与切换源码参与验证。OCR 本次 3 文件均已选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。当前 `ProductNavigation.prefab` 尚无 `accountStatusLabel`／`accountActionButton`／`accountActionLabel` 序列化字段，本片未修改 Prefab 或调用 Creator／Companion；新入口可见性、按钮触摸及原生生命周期仍待标准 Creator 绑定和 750×1334 验收，真实 SDK／可信后台也未验。证据位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/`。
 
 ## 加速弹窗、货币栏与设置的当前状态
 
