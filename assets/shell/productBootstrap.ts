@@ -4,7 +4,7 @@ import { LoginFacade } from 'db://shidai3/auth/index';
 import { TelemetryClient, LocalRecordingAdapter } from 'db://shidai3/observability/index';
 import mk from 'mk';
 import { BUILD_MODES } from './buildModes';
-import { ModuleEntryGate, UNAVAILABLE_ACCOUNT, type ModuleEntry, type ProductAccountPort, type ModeId, type SceneDriver, type EntrySource } from './contracts';
+import { ModuleEntryGate, UNAVAILABLE_ACCOUNT, type ModuleEntry, type ProductAccountAction, type ProductAccountPort, type ModeId, type SceneDriver, type EntrySource } from './contracts';
 import { ShellPromotion } from './promotion';
 import { SwitchCoordinator } from './switchCoordinator';
 import { ProductNavigationView } from './productNavigationView';
@@ -154,6 +154,34 @@ export class ProductBootstrap extends Component {
     });
   }
 
+  private refreshAccount(): void {
+    if (this.disposed || !this.navigationRoot?.activeInHierarchy) return;
+    const state = this.loginFacade?.snapshot();
+    if (this.disposed) return;
+    this.navigationView?.presentAccount(state ? Object.freeze({
+      authStatus: state.auth.status, feedback: state.feedback,
+      canRequestLogin: state.canRequestLogin, localPlayAvailable: true as const,
+    }) : UNAVAILABLE_ACCOUNT);
+  }
+
+  private accountAction(action: ProductAccountAction): void {
+    const facade = this.loginFacade;
+    if (this.disposed || !this.navigationRoot?.activeInHierarchy || !facade) return;
+    const state = facade.snapshot();
+    if (this.disposed || this.loginFacade !== facade) return;
+    if (action === 'login' && state.canRequestLogin) {
+      const settled = (): void => {
+        if (!this.disposed && this.loginFacade === facade) this.refreshAccount();
+      };
+      // Neither boot, rendering nor gameplay switching calls this request.
+      void facade.requestLogin().then(settled, settled);
+    } else if (action === 'cancel' && state.auth.status === 'pending') facade.cancel();
+    else if (action === 'logout' && state.auth.status === 'active') facade.logout();
+    this.refreshAccount();
+  }
+
+  protected update(): void { this.refreshAccount(); }
+
   private initializeTelemetry(): void {
     try {
       this.telemetryStartedAt = Date.now();
@@ -237,6 +265,7 @@ export class ProductBootstrap extends Component {
       running ? '重试入口记录' : '重试保存与恢复', size.width, size.height,
       safe.x + safe.width / 2 - size.width / 2, safe.y + safe.height / 2 - size.height / 2);
     this.shellCamera!.orthoHeight = size.height / 2;
+    this.refreshAccount();
   }
 
   public hideNavigation(): void {
@@ -263,6 +292,7 @@ export class ProductBootstrap extends Component {
       },
       continueCurrent: () => this.continueCurrent(),
       retry: () => this.retrySave(),
+      account: action => this.accountAction(action),
     });
     this.revealNavigation();
   }
