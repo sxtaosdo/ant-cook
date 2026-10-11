@@ -59,8 +59,8 @@ function fixture() {
   const wire = view => {
     view.node = new Node();
     for (const key of ['settingsRoot', 'musicButton', 'soundButton', 'homeButton', 'restartButton', 'feedbackButton',
-      'agreementButton', 'privacyButton', 'closeButton', 'productNavigationButton', 'avatarButton']) view[key] = new Node();
-    for (const key of ['musicIcon', 'soundIcon', 'versionLabel', 'userIdLabel', 'noticeLabel', 'profileAvatar', 'profileInitial', 'registeredLabel']) view[key] = { node: new Node(), string: '' };
+      'agreementButton', 'privacyButton', 'closeButton', 'productNavigationButton', 'avatarButton', 'accountActionButton']) view[key] = new Node();
+    for (const key of ['musicIcon', 'soundIcon', 'versionLabel', 'userIdLabel', 'noticeLabel', 'profileAvatar', 'profileInitial', 'registeredLabel', 'accountStatusLabel', 'accountActionLabel']) view[key] = { node: new Node(), string: '' };
     view.nicknameEdit = { node: new Node(), string: '' };
     view.controlsLayout = { updateLayout() {} };
     for (const key of ['musicOnFrame', 'musicOffFrame', 'soundOnFrame', 'soundOffFrame']) view[key] = {};
@@ -70,6 +70,7 @@ function fixture() {
   classes.popupView = load('assets/Colony/popups/progress/script/popupView.ts');
   classes.settingsView = load('assets/Colony/popups/settings/script/settingsView.ts', {
     '../../../scripts/application/playerProfile': { PlayerProfile },
+    '../../../../shell/contracts': { UNAVAILABLE_ACCOUNT: { authStatus: 'guest', feedback: 'unavailable', canRequestLogin: false, localPlayAvailable: true } },
   });
   classes.progressModel = load('assets/Colony/popups/progress/script/progressModel.ts');
   classes.colonyUtil = { ColonyUtil: { applyUiLayer() {} } };

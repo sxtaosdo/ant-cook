@@ -7,13 +7,14 @@ import { StateMachine } from 'db://shidai3/index';
 import * as auth from 'db://shidai3/auth/index';
 import * as telemetry from 'db://shidai3/observability/index';
 import { PRODUCT_BUILD_VERSION } from '../../assets/shell/buildInfo';
+import * as contracts from '../../assets/shell/contracts.ts';
 
 function fixture() {
   const scene = {}, transitions = [], timers = [];
   class Component { isValid = true; enabledInHierarchy = true; schedule() {} unschedule() {} }
   class Coordinator {
     lastPlayed = 'ant';
-    constructor(_modes, _driver, _storage, _unused, port) { this.telemetry = port; }
+    constructor(_modes, driver, _storage, _unused, port) { this.telemetry = port; this.driver = driver; }
   }
   const cc = { Component, Camera: class {}, Canvas: class {}, Node: class {}, Label: class {}, UITransform: class {},
     _decorator: { ccclass: () => Type => Type, property: (_target, key) => typeof key === 'string' ? undefined : () => {} },
@@ -21,8 +22,8 @@ function fixture() {
     Layers: { addLayer() {} }, ResolutionPolicy: { FIXED_WIDTH: 1 }, view: { setDesignResolutionSize() {} },
     sys: { isNative: false, platform: 'web', Platform: { WECHAT_GAME: 'wechat' }, localStorage: {} } };
   const imports = { cc, 'db://shidai3/index': { StateMachine }, 'db://shidai3/auth/index': auth,
-    'db://shidai3/observability/index': telemetry, mk: { default: { bundle: {} } },
-    './buildModes': { BUILD_MODES: [{ id: 'ant' }] }, './contracts': { ModuleEntryGate: {} },
+    'db://shidai3/observability/index': telemetry, mk: { default: { bundle: { async loadScene() { return {}; } } } },
+    './buildModes': { BUILD_MODES: [{ id: 'ant' }] }, './contracts': contracts,
     './promotion': { ShellPromotion: class {} }, './switchCoordinator': { SwitchCoordinator: Coordinator },
     './productNavigationView': { ProductNavigationView: class {} }, './buildInfo': { PRODUCT_BUILD_VERSION } };
   const exports = {};
@@ -39,12 +40,13 @@ function fixture() {
   return { root, timers, transitions };
 }
 
-test('actual Bootstrap owns shared guest auth and feeds the shared disabled telemetry to its coordinator', async () => {
+test('actual Bootstrap owns a disabled shared LoginFacade without startup login and disposes once', async () => {
   const { root, timers, transitions } = fixture();
   await root.boot();
-  assert.ok(root.authSession instanceof auth.AuthSession);
-  assert.deepEqual(root.authSession.snapshot(), { status: 'guest' });
-  assert.equal((await root.authSession.login()).status, 'unavailable');
+  assert.ok(root.loginFacade instanceof auth.LoginFacade);
+  assert.equal(root.loginFacade.readiness().status, 'disabled');
+  assert.deepEqual(root.loginFacade.snapshot().auth, { status: 'guest' });
+  assert.equal((await root.loginFacade.requestLogin()).status, 'unavailable');
   assert.deepEqual(timers, []);
   assert.deepEqual(transitions, ['ant']);
   assert.ok(root.telemetry instanceof telemetry.TelemetryClient);
@@ -53,26 +55,41 @@ test('actual Bootstrap owns shared guest auth and feeds the shared disabled tele
   assert.equal(root.telemetry.flush().status, 'disabled');
   assert.equal(root.telemetry.capabilities().externalDelivery, false);
   assert.deepEqual(root.telemetryRecords.snapshot(), []);
-  const session = root.authSession;
-  let logouts = 0;
-  const logout = session.logout.bind(session);
-  session.logout = () => { logouts++; logout(); };
-  root.beginAuthSession();
-  assert.equal(root.authSession, session);
-  root.onDestroy(); root.onDestroy(); root.beginAuthSession();
-  assert.equal(logouts, 1);
-  assert.equal(root.authSession, null);
+  const facade = root.loginFacade;
+  let disposals = 0;
+  const dispose = facade.dispose.bind(facade);
+  facade.dispose = () => { disposals++; dispose(); };
+  root.initializeAccount();
+  assert.equal(root.loginFacade, facade);
+  root.onDestroy(); root.onDestroy(); root.initializeAccount();
+  assert.equal(disposals, 1);
+  assert.equal(root.loginFacade, null);
 });
 
-test('actual Bootstrap starts local modes without waiting for shared auth login', async () => {
+test('ready shared facade at actual Bootstrap startup acquires no credential or exchange; only explicit current entry acts', async () => {
   const { root, transitions } = fixture();
-  const login = auth.AuthSession.prototype.login;
-  let calls = 0;
-  try {
-    auth.AuthSession.prototype.login = () => { calls++; return new Promise(() => {}); };
-    await root.boot();
-    assert.equal(calls, 1);
-    assert.deepEqual(transitions, ['ant']);
-    root.onDestroy();
-  } finally { auth.AuthSession.prototype.login = login; }
+  let acquires = 0, exchanges = 0, current = true, reads = 0;
+  const scope = { issuer: 'fixture', applicationId: 'fixture', host: 'fixture' };
+  const facade = root.loginFacade = new auth.LoginFacade({
+    config: { enabled: true, platformConfigured: true, provider: 'google', scope },
+    clock: { now: () => 1000, schedule: () => 1, cancel() {} },
+    credential: { async acquire() { acquires++; return { provider: 'google', scope, proof: { kind: 'google-id-token', idToken: 'synthetic', nonce: 'synthetic' } }; } },
+    exchange: { async exchange() { exchanges++; return { gameAccountId: 'synthetic', sessionId: 'synthetic', expiresAtMs: 2000 }; } },
+  });
+  const snapshot = facade.snapshot.bind(facade);
+  facade.snapshot = () => { reads++; return snapshot(); };
+  await root.boot();
+  assert.equal(acquires, 0); assert.equal(exchanges, 0); assert.deepEqual(transitions, ['ant']);
+  await root.coordinator.driver.enter({ id: 'ant', bundleName: 'Colony', sceneName: 'ColonyGame' }, { mode: 'ant', isCurrent: () => current });
+  const port = contracts.ModuleEntryGate.require('ant').account;
+  assert.deepEqual(Object.keys(port.snapshot()).sort(), ['authStatus', 'canRequestLogin', 'feedback', 'localPlayAvailable']);
+  await port.requestLogin(); assert.equal(acquires, 1); assert.equal(exchanges, 1);
+  assert.equal(port.snapshot().authStatus, 'active');
+  current = false; const before = reads;
+  assert.equal(port.snapshot().feedback, 'unavailable');
+  await port.requestLogin(); port.cancel(); port.logout();
+  assert.equal(reads, before); assert.equal(facade.snapshot().auth.status, 'active');
+  root.onDestroy(); current = true;
+  assert.equal(port.snapshot().feedback, 'unavailable');
+  await port.requestLogin(); assert.equal(acquires, 1);
 });

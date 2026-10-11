@@ -1,5 +1,5 @@
 import mk from 'mk';
-import { ModuleEntryGate } from '../../../shell/contracts';
+import { ModuleEntryGate, UNAVAILABLE_ACCOUNT, type ProductAccountAction, type ProductAccountProjection } from '../../../shell/contracts';
 import { ProgressControl } from '../../popups/progress/script/progressControl';
 import type { ProgressNavigation, ProgressViewType } from '../../popups/progress/script/progressControl';
 import { ColonyProgressView } from '../../popups/progress/script/progressView';
@@ -39,6 +39,7 @@ export class ProgressPresentation {
   private social: SocialPresentation | null = null;
   private pendingGm: { action: string; level: number } | null = null;
   private cancelled = false;
+  private readonly accountGeneration: number;
   private readonly toolPurchaseIds = new Map<SupplyTool, string>();
   private purchaseId(tool: SupplyTool): string {
     let id = this.toolPurchaseIds.get(tool);
@@ -59,6 +60,7 @@ export class ProgressPresentation {
   }
 
   constructor(private readonly context: ColonySceneBootstrap, private section: ProgressSection, private readonly onClosed?: () => void) {
+    this.accountGeneration = context.generation;
     if (this.section === 'tasks') this.section = 'daily';
     if (this.section === 'tracked-object') {
       this.objectId = context.progress?.snapshot().trackedObjectId ?? '';
@@ -131,6 +133,8 @@ export class ProgressPresentation {
         }
         return result;
       },
+      readAccount: () => this.readAccount(),
+      actAccount: action => this.actAccount(action),
       canClose: () => !this.context.ads?.hasPendingReward(),
       cleanupFailed: (cause, retryAvailable) => {
         if (retryAvailable) return;
@@ -393,7 +397,7 @@ export class ProgressPresentation {
         return { title: '设置', summary: '', rows: [], layout: 'settings', showBack: false,
           settings: { soundEnabled: this.context.settings?.snapshot().soundEnabled !== false,
             musicEnabled: this.context.settings?.snapshot().musicEnabled !== false, inRound, version: `v${COLONY_BUILD_VERSION}`,
-            userId: profile?.playerId ?? '暂不可用', gmAvailable: this.context.gm?.available ?? false,
+            userId: profile?.playerId ?? '暂不可用', gmAvailable: this.context.gm?.available ?? false, account: this.readAccount(),
             profile: profile ? { ...profile, avatarColor: this.context.leaderboardConfig!.avatarColors[profile.avatar], avatarColors: this.context.leaderboardConfig!.avatarColors } : undefined } };
       }
       case 'gm': {
@@ -452,6 +456,34 @@ export class ProgressPresentation {
     return { title, summary, rows, layout: this.section === 'confirm-home' || this.section === 'confirm-restart' || this.section === 'confirm-gm' ? 'confirm' : this.section === 'shop' ? 'shop' : this.section === 'themes' || this.section === 'theme-detail' ? 'collection' : undefined,
       showBack: !this.section.startsWith('tool-') && !(['market', 'themes', 'task-achievements', 'daily', 'settings', 'speed'] as ProgressSection[]).includes(this.section) && (this.section !== 'shop' || Boolean(this.returnSection)),
       activeTab: this.section === 'themes' || this.section === 'task-achievements' || this.section === 'daily' ? this.section : undefined };
+  }
+
+  private readAccount(): ProductAccountProjection {
+    if (this.cancelled || this.context.destroyed || this.context.generation !== this.accountGeneration
+      || this.section !== 'settings') return UNAVAILABLE_ACCOUNT;
+    try { return ModuleEntryGate.require('ant').account?.snapshot() ?? UNAVAILABLE_ACCOUNT; }
+    catch { return UNAVAILABLE_ACCOUNT; }
+  }
+
+  private actAccount(action: ProductAccountAction): void {
+    const owner = this.control, generation = this.context.generation;
+    if (this.cancelled || this.context.destroyed || this.context.generation !== this.accountGeneration
+      || this.section !== 'settings' || !(owner instanceof ProgressControl) || owner.isClosing || this.context.progressPopup !== owner) return;
+    let entry: ReturnType<typeof ModuleEntryGate.require>;
+    try { entry = ModuleEntryGate.require('ant'); } catch { return; }
+    const account = entry.account;
+    if (!account) return;
+    const refresh = (): void => {
+      if (!this.cancelled && !this.context.destroyed && generation === this.context.generation
+        && entry.isCurrent() && this.control === owner && this.context.progressPopup === owner && !owner.isClosing) owner.refreshAccount();
+    };
+    try {
+      if (action === 'login') {
+        // Handle injected port failures without logging proof/errors or blocking other settings.
+        void Promise.resolve(account.requestLogin()).then(refresh, refresh);
+      } else if (action === 'cancel') account.cancel();
+      else account.logout();
+    } catch { refresh(); }
   }
 
   private async act(action: string): Promise<string> {

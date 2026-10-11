@@ -12,8 +12,11 @@ import { ColonyShopView } from '../../shop/script/shopView';
 import { ColonySpeedView } from '../../speed/script/speedView';
 import { swallowMkInterrupt } from '../../resultPopupNav';
 import { ColonyCommunityView } from './communityView';
+import { UNAVAILABLE_ACCOUNT, type ProductAccountAction, type ProductAccountProjection } from '../../../../shell/contracts';
 
 export interface ProgressNavigation {
+  readAccount?(): ProductAccountProjection;
+  actAccount?(action: ProductAccountAction): void;
   read(): ProgressPage;
   act(action: string): Promise<string | void> | string | void;
   closed(): void;
@@ -44,6 +47,27 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
     ColonyUtil.applyUiLayer(view.node);
     view.event.on('action', this.act, this);
     view.event.on('close', this.dismiss, this);
+    if (view instanceof ColonySettingsView) {
+      view.event.on('account-action', this.actAccount, this);
+      view.event.on('account-refresh', this.refreshAccount, this);
+      this.refreshAccount();
+    }
+  }
+
+  private actAccount(value: unknown): void {
+    if (this.isClosing || !(this._view instanceof ColonySettingsView) || !this._view.isAvailable()) return;
+    if (!this._view.hasAccountBindings()) return;
+    if (value !== 'login' && value !== 'cancel' && value !== 'logout') return;
+    this.navigation.actAccount?.(value);
+    this.refreshAccount();
+  }
+
+  /** This lane never reads a gameplay snapshot, saves a profile or holds popup busy. */
+  public refreshAccount(): void {
+    if (this.isClosing || !(this._view instanceof ColonySettingsView) || !this._view.isAvailable()) return;
+    if (!this._view.hasAccountBindings()) { this._view.renderAccount(UNAVAILABLE_ACCOUNT); return; }
+    const account = this.navigation.readAccount?.();
+    if (account) this._view.renderAccount(account);
   }
 
   private async act(value: unknown): Promise<void> {

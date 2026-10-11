@@ -1,4 +1,23 @@
 import type { FactIdentity, TelemetryEventName, TelemetryFields } from './observability/telemetrySchema';
+import type { AuthSnapshot, LoginFacadeSnapshot } from 'db://shidai3/auth/index';
+
+/** Account UI receives no credential, configuration or session identity. */
+export interface ProductAccountProjection {
+  readonly authStatus: AuthSnapshot['status'];
+  readonly feedback: LoginFacadeSnapshot['feedback'];
+  readonly canRequestLogin: boolean;
+  readonly localPlayAvailable: true;
+}
+export type ProductAccountAction = 'login' | 'cancel' | 'logout';
+export interface ProductAccountPort {
+  snapshot(): ProductAccountProjection;
+  requestLogin(): Promise<void>;
+  cancel(): void;
+  logout(): void;
+}
+export const UNAVAILABLE_ACCOUNT: ProductAccountProjection = Object.freeze({
+  authStatus: 'guest', feedback: 'unavailable', canRequestLogin: false, localPlayAvailable: true,
+});
 
 /** Synchronous best-effort facts; observers never control saves or scene readiness. */
 export interface ProductTelemetryPort {
@@ -41,6 +60,7 @@ export interface ModuleReady {
 }
 
 export interface ModuleEntry {
+  readonly account?: ProductAccountPort;
   readonly mode: ModeId;
   readonly transactionId: string;
   readonly generation: number;

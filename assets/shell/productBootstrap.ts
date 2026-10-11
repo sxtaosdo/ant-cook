@@ -1,10 +1,10 @@
 import { _decorator, Camera, Canvas, Component, director, Director, Label, Layers, Node, ResolutionPolicy, sys, UITransform, view } from 'cc';
 import { StateMachine, type IState } from 'db://shidai3/index';
-import { AuthSession } from 'db://shidai3/auth/index';
+import { LoginFacade } from 'db://shidai3/auth/index';
 import { TelemetryClient, LocalRecordingAdapter } from 'db://shidai3/observability/index';
 import mk from 'mk';
 import { BUILD_MODES } from './buildModes';
-import { ModuleEntryGate, type ModeId, type SceneDriver, type EntrySource } from './contracts';
+import { ModuleEntryGate, UNAVAILABLE_ACCOUNT, type ModuleEntry, type ProductAccountPort, type ModeId, type SceneDriver, type EntrySource } from './contracts';
 import { ShellPromotion } from './promotion';
 import { SwitchCoordinator } from './switchCoordinator';
 import { ProductNavigationView } from './productNavigationView';
@@ -35,7 +35,7 @@ export class ProductBootstrap extends Component {
   @property public telemetrySourceCommit = '';
   @property public telemetryBuildId = '';
   readonly StateMachine = new StateMachine<ProductBootstrap>(this);
-  private authSession: AuthSession | null = null;
+  private loginFacade: LoginFacade | null = null;
   private disposed = false;
   private telemetry: TelemetryClient | null = null;
   private readonly telemetryRecords = new LocalRecordingAdapter();
@@ -58,7 +58,7 @@ export class ProductBootstrap extends Component {
     this.node.layer = SHELL_LAYER;
     director.addPersistRootNode(this.node);
     view.setDesignResolutionSize(750, 1334, ResolutionPolicy.FIXED_WIDTH);
-    this.beginAuthSession();
+    this.initializeAccount();
     this.initializeTelemetry();
     this.initializeNavigation();
     await this.StateMachine.changeState(ShellBootState);
@@ -70,6 +70,7 @@ export class ProductBootstrap extends Component {
       },
       enter: async (descriptor, entry) => {
         ModuleEntryGate.bind({ ...entry,
+          account: this.accountPort(entry),
           requestNavigation: () => entry.isCurrent() && this.showNavigation(),
           isNavigationCovered: () => this.navigationRoot?.activeInHierarchy ?? false,
         });
@@ -126,16 +127,31 @@ export class ProductBootstrap extends Component {
     } finally { this.transitioning = false; }
   }
 
-  private beginAuthSession(): void {
-    if (this.disposed || this.authSession) return;
-    // No credential/exchange ports until a separately configured backend is available.
-    this.authSession = new AuthSession({ timeoutMs: 10000, clock: {
+  private initializeAccount(): void {
+    if (this.disposed || this.loginFacade) return;
+    // Local startup only constructs the facade. A player action owns every login request.
+    this.loginFacade = new LoginFacade({ config: { enabled: false }, timeoutMs: 10000, clock: {
       now: Date.now,
       schedule: (callback, delayMs) => setTimeout(callback, delayMs),
       cancel: handle => { if (typeof handle === 'number') clearTimeout(handle); },
     } });
-    // Local mode loading never waits for authentication or consumes its result.
-    try { void this.authSession.login().catch(() => {}); } catch { /* Keep local startup available. */ }
+    this.loginFacade.snapshot();
+  }
+
+  private accountPort(entry: ModuleEntry): ProductAccountPort {
+    const current = (): LoginFacade | null => !this.disposed && entry.isCurrent() ? this.loginFacade : null;
+    return Object.freeze({
+      snapshot: () => {
+        const facade = current();
+        if (!facade) return UNAVAILABLE_ACCOUNT;
+        const state = facade.snapshot();
+        return Object.freeze({ authStatus: state.auth.status, feedback: state.feedback,
+          canRequestLogin: state.canRequestLogin, localPlayAvailable: true as const });
+      },
+      requestLogin: async () => { await current()?.requestLogin(); },
+      cancel: () => { current()?.cancel(); },
+      logout: () => { current()?.logout(); },
+    });
   }
 
   private initializeTelemetry(): void {
@@ -203,9 +219,9 @@ export class ProductBootstrap extends Component {
 
   protected onDestroy(): void {
     this.disposed = true;
-    const session = this.authSession;
-    this.authSession = null;
-    session?.logout();
+    const facade = this.loginFacade;
+    this.loginFacade = null;
+    facade?.dispose();
     this.unschedule(this.checkPromotion);
     director.off(Director.EVENT_BEFORE_UPDATE, this.offerPromotion, this);
   }

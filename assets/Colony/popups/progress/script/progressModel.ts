@@ -2,6 +2,7 @@ import mk from 'mk';
 import type { LeaderboardEntry } from '../../../scripts/application/leaderboard/leaderboard';
 import type { SocialPage } from '../../../scripts/presentation/social/socialPresentation';
 import type { PlayerProfileSnapshot } from '../../../scripts/application/playerProfile';
+import type { ProductAccountProjection } from '../../../../shell/contracts';
 
 export interface ProgressRow {
   readonly title: string;
@@ -28,6 +29,7 @@ export interface ProgressPage {
   readonly layout?: 'confirm' | 'collection' | 'leaderboard' | 'social' | 'settings' | 'shop' | 'speed' | 'gm';
   readonly speed?: { readonly durationText: string; readonly remainingText: string };
   readonly settings?: { readonly soundEnabled: boolean; readonly musicEnabled: boolean; readonly inRound: boolean; readonly version: string; readonly userId: string; readonly gmAvailable: boolean;
+    readonly account?: ProductAccountProjection;
     readonly profile?: PlayerProfileSnapshot & { readonly avatarColor: string; readonly avatarColors: readonly string[] } };
   readonly leaderboard?: { readonly entries: readonly LeaderboardEntry[]; readonly self: LeaderboardEntry; readonly canVisit?: boolean };
   readonly social?: SocialPage;

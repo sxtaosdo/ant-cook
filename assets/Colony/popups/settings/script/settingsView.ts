@@ -1,8 +1,10 @@
 import { _decorator, Color, EditBox, Label, Layout, Node, Sprite, SpriteFrame } from 'cc';
 import { ColonyPopupView } from '../../progress/script/popupView';
 import { PlayerProfile } from '../../../scripts/application/playerProfile';
+import { UNAVAILABLE_ACCOUNT, type ProductAccountAction, type ProductAccountProjection } from '../../../../shell/contracts';
 
 const { ccclass, property } = _decorator;
+const ACCOUNT_UI_UNAVAILABLE = '登录界面暂不可用，离线玩法可继续';
 
 @ccclass('ColonySettingsView')
 export class ColonySettingsView extends ColonyPopupView {
@@ -30,6 +32,12 @@ export class ColonySettingsView extends ColonyPopupView {
   @property(Label) public registeredLabel: Label | null = null;
   @property(Node) public avatarButton: Node | null = null;
   @property(Node) public saveProfileButton: Node | null = null;
+  @property(Label) public accountStatusLabel: Label | null = null;
+  @property(Node) public accountActionButton: Node | null = null;
+  @property(Label) public accountActionLabel: Label | null = null;
+  private accountRefreshElapsed = 0;
+  private accountBindingKey = '';
+  private accountUiDiagnosed = false;
   private profileKey = '';
   private persistedDraftKey = '';
   private lastSubmittedProfile: string | null = null;
@@ -43,6 +51,8 @@ export class ColonySettingsView extends ColonyPopupView {
   @property public roundSpacing = 24;
 
   protected prepareOpen(): void {
+    this.accountRefreshElapsed = 0;
+    this.accountBindingKey = '';
     this.profileKey = ''; this.persistedDraftKey = ''; this.lastSubmittedProfile = null;
     this.clearProfileBindings();
     const node = this.profileEditNode = this.nicknameEdit?.node ?? null;
@@ -65,6 +75,51 @@ export class ColonySettingsView extends ColonyPopupView {
   public suspend(): void { this.clearProfileBindings(); super.suspend(); }
   protected onDisable(): void { this.clearProfileBindings(); super.onDisable(); }
   protected onDestroy(): void { this.clearProfileBindings(); super.onDestroy(); }
+
+  protected update(dt: number): void {
+    if (!this.isAvailable()) return;
+    this.accountRefreshElapsed += dt;
+    if (this.accountRefreshElapsed >= 1) {
+      this.accountRefreshElapsed = 0;
+      this.event.emit('account-refresh');
+    }
+  }
+
+  public hasAccountBindings(): boolean {
+    return !!this.accountStatusLabel && !!this.accountActionButton && !!this.accountActionLabel;
+  }
+
+  public renderAccount(account: ProductAccountProjection): void {
+    // Older saved Prefabs retain the original Settings page and fail closed for account actions.
+    if (!this.hasAccountBindings()) {
+      this.accountBindingKey = '';
+      if (this.accountActionButton) this.bind(this.accountActionButton, false, () => {});
+      if (this.accountActionLabel) this.accountActionLabel.string = '不可用';
+      if (this.accountStatusLabel) this.accountStatusLabel.string = ACCOUNT_UI_UNAVAILABLE;
+      if (!this._model.feedback && this.noticeLabel) {
+        this.noticeLabel.node.active = true;
+        this.noticeLabel.string = ACCOUNT_UI_UNAVAILABLE;
+      }
+      if (!this.accountUiDiagnosed) { this.accountUiDiagnosed = true; console.warn('SETTINGS_ACCOUNT_UI_UNAVAILABLE'); }
+      return;
+    }
+    let text = '游客，可离线游玩', caption = '登录', action: ProductAccountAction = 'login';
+    let enabled = account.canRequestLogin;
+    if (account.authStatus === 'pending') { text = '正在登录，离线玩法可继续'; caption = '取消'; action = 'cancel'; enabled = true; }
+    else if (account.authStatus === 'active') { text = '已登录'; caption = '退出'; action = 'logout'; enabled = true; }
+    else if (account.feedback === 'unavailable') text = '登录暂不可用，离线玩法可继续';
+    else if (account.feedback === 'cancelled') text = '已取消登录';
+    else if (account.feedback === 'timeout') text = '登录超时，请重试';
+    else if (account.feedback === 'failed') text = '本次登录未完成';
+    else if (account.authStatus === 'expired') text = '登录已过期';
+    this.accountStatusLabel!.string = text;
+    this.accountActionLabel!.string = caption;
+    const bindingKey = `${action}:${enabled}`;
+    if (bindingKey !== this.accountBindingKey) {
+      this.accountBindingKey = bindingKey;
+      this.bind(this.accountActionButton!, enabled, () => { if (enabled) this.event.emit('account-action', action); });
+    }
+  }
 
   public render(): void {
     const settings = this._model.page.settings;
@@ -118,5 +173,6 @@ export class ColonySettingsView extends ColonyPopupView {
     }
     this.noticeLabel.node.active = Boolean(this._model.feedback);
     this.noticeLabel.string = this._model.feedback;
+    this.renderAccount(settings.account ?? UNAVAILABLE_ACCOUNT);
   }
 }
