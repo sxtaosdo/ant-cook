@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.78`**
+**当前版本：`v0.3.0.79`**
 
 状态: Draft
 
@@ -10,7 +10,7 @@
 
 共享入口代码位于 `assets/shell/`。Ant 继续使用 `Colony / ColonyGame`，Cook 继续使用 `game / Game`，各自持有玩法状态和经济。新数据分别写入 `p4000.ant-cook.dev1.ant.*`、`cook.*` 和 `shell.*`，不读取、改写或清除两个旧工程的真实存档。
 
-P0002 以 `extensions/shidai3` Git submodule 消费。本轮按授权通过正常本地 Git fetch／checkout 消费 `e3165d370e1dee35367703df87849bae6dd7887c`（2.6.0），源码／测试及产品 gitlink 已精确提交为 `v0.3.0.68 / bfd76781f2fdda71d00d884edc85fac9b76141d1`，文档单独形成检查点。ProductBootstrap 实际导入公共 `LoginFacade` 与 observability，Shell 独占一个默认关闭的 facade；启动仅创建并读取游客状态，不调用登录或等待认证。设置只收到状态／反馈／操作可用性的窄投影，玩家显式点击才请求登录，pending 可取消，active 可退出；缺配置显示“登录暂不可用，离线玩法可继续”。账号刷新与动作使用独立通道，不占资料保存 busy、不调用进度快照、不覆盖昵称／头像草稿或资料反馈；关闭设置释放视图订阅，Shell 销毁 dispose，旧 entry 和 generation 不允许派发命令或回填。账号不绑定本地资料、不迁移账户，也不改任何存档命名空间。遥测默认关闭和缺来源／构建元数据拒绝记录的规则保持。
+P0002 以 `extensions/shidai3` Git submodule 消费。当前实际依赖为 `39f168e7abdac9215d0ea21f2a5a3585262e9970`（v2.7.0），产品 gitlink 与消费测试已精确提交为 `v0.3.0.78 / ae80d6ccc12458c60a9e1214bafc315f939286ca`，文档单独形成检查点。4060 与 P1060 的依赖物理 checkout 已核实独立；通过正常本地 Git fetch／checkout 消费已批准提交，框架 tracked／staged 文件保持干净，31 份既有未跟踪 Creator Meta 原样保留。ProductBootstrap 实际导入公共 `LoginFacade` 与 observability，Shell 独占一个默认关闭的 facade；启动仅创建并读取游客状态，不调用登录或等待认证。设置只收到状态／反馈／操作可用性的窄投影，玩家显式点击才请求登录，pending 可取消，active 可退出；缺配置显示“登录暂不可用，离线玩法可继续”。账号刷新与动作使用独立通道，不占资料保存 busy、不调用进度快照、不覆盖昵称／头像草稿或资料反馈；关闭设置释放视图订阅，Shell 销毁 dispose，旧 entry 和 generation 不允许派发命令或回填。账号不绑定本地资料、不迁移账户，也不改任何存档命名空间。遥测默认关闭和缺来源／构建元数据拒绝记录的规则保持。
 
 2026-10-11 账号绑定兼容验证：旧 Settings Prefab 缺少 `accountStatusLabel`／`accountActionButton`／`accountActionLabel` 时，原设置仍可保存昵称、切换头像和关闭；空闲资料反馈区显示“登录界面暂不可用，离线玩法可继续”，每个视图生命周期仅记录一次 `SETTINGS_ACCOUNT_UI_UNAVAILABLE`，不派发账号动作、不误报登录可用。部分绑定同样禁用；资料反馈优先于不可用提示。实际读取 v67 `c9818cd67ab1f1845e84893e7d00982be1db0258` 的 270 对象 Prefab 与当前 Owner 的 256 对象 Prefab，分别结合新源码执行隔离 VM 测试：cc／资源生命周期为替身，不是原生运行验收。Node 22.23.3 strict 通过；最终账号 9 项、资料自动保存 11 项、实际 Bootstrap 2 项共 22 项唯一消费者覆盖及 36 项货币／弹窗／加速／商城回归通过。干净检出不含新账号行时，该 Owner 资产专属测试明确 skip，其余兼容覆盖照常执行。已从该源码提交和精确框架 pin 分别 Git archive 导出，逐字节核对产品 1275 文件和框架 185 文件：旧 270 对象 Prefab、无账号三绑定；strict 通过，定向 22 项中 21 通过／1 项 Owner 行专属 skip。验证依赖为现有 Node 22、三包只读副本、Creator 声明及固定旧提交的只读 Git 历史；首次 junction 被本机权限拒绝后保留失败回执，没有改权限。此结果证明干净源码不依赖未提交账号行，不表示原生 Creator 验收。
 
@@ -34,9 +34,9 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 
 2026-10-11 源码检查点 v76 `e2bf0207bdce04054c07ad7c0a638602d336085b` 为 Shell 导航增加可选账号状态／动作绑定。View 只接收既有四字段 `ProductAccountProjection`，Bootstrap 持有唯一默认关闭的 `LoginFacade`；启动、渲染和切玩法不请求登录，玩家显式操作才沿 `requestLogin`／取消／退出进入公共会话。Ant／Cook 共用同一产品内存会话；账号 pending 不阻断继续玩法和重试本地记录，迟到凭据不发起新交换，销毁后不回写 UI。缺配置或可信交换时保持游客，并投影“登录未配置，可继续游客玩法”。
 
-实际产品 index／checkout 仍为 P0002 v2.6.0 `e3165d370e1dee35367703df87849bae6dd7887c`，仅使用该版本已有公开合同；批准候选 v2.7.0 `39f168e7abdac9215d0ea21f2a5a3585262e9970` 尚未消费，当前公开入口没有 `DouyinCredentialAdapter`。本片不更新产品或父仓 pin、不注入真实 credential／exchange、不接新 SDK，也不外发认证或遥测；真实存档与本地资料合同保持。
+依赖消费检查点 v78 `ae80d6ccc12458c60a9e1214bafc315f939286ca` 已将产品 index／checkout 更新为 P0002 v2.7.0 `39f168e7abdac9215d0ea21f2a5a3585262e9970`，公开入口已提供 `DouyinCredentialAdapter`；v2.6.1 遥测边界修正与抖音登录 Port 随依赖消费。产品 `LoginFacade` 仍默认关闭，缺配置或可信交换时保持游客。本片只更新 4060 产品依赖与消费测试，不更新父仓 pin、不注入真实 credential／exchange、不接新 SDK，也不外发认证或遥测；真实存档与本地资料合同保持。
 
-Node 22.23.3 严格类型通过，受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试通过（含本轮 5 项新增及既有公共模块 2 项）；cc、绘图、场景 IO 为替身，实际 Bootstrap／Navigation／公共会话与切换源码参与验证。OCR 本次 3 文件均已选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。当前 `ProductNavigation.prefab` 尚无 `accountStatusLabel`／`accountActionButton`／`accountActionLabel` 序列化字段，本片未修改 Prefab 或调用 Creator／Companion；新入口可见性、按钮触摸及原生生命周期仍待标准 Creator 绑定和 750×1334 验收，真实 SDK／可信后台也未验。证据位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/`。
+v76 在 P0002 v2.6.0 上通过 Node 22.23.3 strict 与受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试（5 项新增及既有公共模块 2 项）；其 Bootstrap／Navigation 源码本轮未改。v78 在实际 v2.7.0 依赖上通过 strict 与公共模块／Shell 遥测 2 文件共 23 项消费测试（新增 2 项），验证启动和缺可信交换时零平台调用，以及显式操作后平台 code 仍须经可信交换才能激活会话。tt API／交换、cc、绘图及场景 IO 均为替身，未重跑无关全量套件。v78 的 gitlink 与测试 2/2 已经 OCR 选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。当前 `ProductNavigation.prefab` 尚无 `accountStatusLabel`／`accountActionButton`／`accountActionLabel` 序列化字段，本片未修改 Prefab 或调用 Creator／Companion；新入口可见性、按钮触摸及原生生命周期仍待标准 Creator 绑定和 750×1334 验收，真实 SDK／可信后台也未验。v76 与 v78 证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/` 和 `C:/Users/33272/AppData/Local/Temp/4060-framework-v27-consumption-20261011/`。
 
 ## 加速弹窗、货币栏与设置的当前状态
 
