@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.68`**
+**当前版本：`v0.3.0.69`**
 
 状态: Draft
 
@@ -10,7 +10,13 @@
 
 共享入口代码位于 `assets/shell/`。Ant 继续使用 `Colony / ColonyGame`，Cook 继续使用 `game / Game`，各自持有玩法状态和经济。新数据分别写入 `p4000.ant-cook.dev1.ant.*`、`cook.*` 和 `shell.*`，不读取、改写或清除两个旧工程的真实存档。
 
-P0002 以 `extensions/shidai3` Git submodule 消费，固定 `895f28728ef2624e56faa3520d11b02310b20f18`（2.2.0）。ProductBootstrap 实际导入共享 auth／observability；本产品遥测三 TS 只作兼容重导出，与 P1060 使用同一份实现。默认 AuthSession 无凭证／交换 ports，guest／unavailable 不阻塞本地玩法；组件销毁时退出自身会话。遥测仍默认关闭，空来源／构建元数据拒绝记录，已有本地记录开关和 Shell 事实接线保留。新接线的实际源码 Headless 验证已完成；该共享接线切片未操作 Creator／Preview／Build／Runtime、平台 SDK、真实后端、云存档或外部接收；后续 UI 切片的当前状态见下文。
+P0002 以 `extensions/shidai3` Git submodule 消费。本轮按授权通过正常本地 Git fetch／checkout 消费 `e3165d370e1dee35367703df87849bae6dd7887c`（2.6.0），源码／测试及产品 gitlink 已精确提交为 `v0.3.0.68 / bfd76781f2fdda71d00d884edc85fac9b76141d1`，文档单独形成检查点。ProductBootstrap 实际导入公共 `LoginFacade` 与 observability，Shell 独占一个默认关闭的 facade；启动仅创建并读取游客状态，不调用登录或等待认证。设置只收到状态／反馈／操作可用性的窄投影，玩家显式点击才请求登录，pending 可取消，active 可退出；缺配置显示“登录暂不可用，离线玩法可继续”。账号刷新与动作使用独立通道，不占资料保存 busy、不调用进度快照、不覆盖昵称／头像草稿或资料反馈；关闭设置释放视图订阅，Shell 销毁 dispose，旧 entry 和 generation 不允许派发命令或回填。账号不绑定本地资料、不迁移账户，也不改任何存档命名空间。遥测默认关闭和缺来源／构建元数据拒绝记录的规则保持。
+
+2026-10-11 账号绑定兼容验证：旧 Settings Prefab 缺少 `accountStatusLabel`／`accountActionButton`／`accountActionLabel` 时，原设置仍可保存昵称、切换头像和关闭；空闲资料反馈区显示“登录界面暂不可用，离线玩法可继续”，每个视图生命周期仅记录一次 `SETTINGS_ACCOUNT_UI_UNAVAILABLE`，不派发账号动作、不误报登录可用。部分绑定同样禁用；资料反馈优先于不可用提示。实际读取 v67 `c9818cd67ab1f1845e84893e7d00982be1db0258` 的 270 对象 Prefab 与当前 Owner 的 256 对象 Prefab，分别结合新源码执行隔离 VM 测试：cc／资源生命周期为替身，不是原生运行验收。Node 22.23.3 strict 通过；最终账号 9 项、资料自动保存 11 项、实际 Bootstrap 2 项共 22 项唯一消费者覆盖及 36 项货币／弹窗／加速／商城回归通过。干净检出不含新账号行时，该 Owner 资产专属测试明确 skip，其余兼容覆盖照常执行。已从该源码提交和精确框架 pin 分别 Git archive 导出，逐字节核对产品 1275 文件和框架 185 文件：旧 270 对象 Prefab、无账号三绑定；strict 通过，定向 22 项中 21 通过／1 项 Owner 行专属 skip。验证依赖为现有 Node 22、三包只读副本、Creator 声明及固定旧提交的只读 Git 历史；首次 junction 被本机权限拒绝后保留失败回执，没有改权限。此结果证明干净源码不依赖未提交账号行，不表示原生 Creator 验收。
+
+已有标准 Creator 3.8.8 证据：Settings 新增 3 个固定节点／3 个序列化绑定并保存、关闭、复开读回，Settings 与 Bootstrap 编译通过；750×1334 全新隔离 browser/context 配合既有 GM 内存夹具完成 20 步，未配置账号行、按钮点击、关闭复开及顶部货币显隐可观察，四类诊断均 0。此证据对应 v67 加兼容补丁前的已授权工作树，当前完整账号行路径保持；新增旧资产降级路径由上述源码／图夹具验证，未另做原生运行。工具步骤 PASSED，服务端产物关联仍为 UNCONFIRMED；这不是平台 SDK／真实后端或性能通过。短采样另有 PERF_BUDGET 提示，不能作为第 7 关性能结论。原图位于 `temp/creator-ai-bridge/screenshots/4060-account-disabled-settings-750x1334-1791702078193.png` 与同目录 `4060-account-disabled-settings-reopened-750x1334-1791702079819.png`，画面版本为 v67 加当时工作树；本轮 Library helper 在 prepare 阶段不可用，尚未取得这两张图片的附件 ID。
+
+Settings 账号行资产仍未纳入提交。HEAD 的 270 对象、Owner 原基线的 236 对象和 Creator 保存后的 256 对象不能直接混用引用索引；只读图检查确认仅 SettingsRoot 追加子节点和 SettingsView 新增三引用，其余 Owner 属性保留，所有引用有效。本轮通过可选绑定解耦源码，既不脚本重排 Prefab，也不整份暂存 Owner 改动。干净检出保留旧设置与稳定不可用提示，不能称已包含新账号行。`C:/Users/33272/AppData/Local/Temp/4060-auth-consumption-20261011/settings-owner-recovery/` 保存逐字节前后备份、`owner-236-to-256.patch` 与 SHA256 manifest；该补丁只比较精确 Owner 236 对象基线与 256 对象结果，不适用于 HEAD 270 对象。后续恢复须核对基线哈希并沿标准 Creator 入口处理。现有 9 份 framework meta 字节未改，未手写新 meta；无 push、tag 或根父 pin 变更。
 
 唯一 MK 能力提供者来自 v1.1.5；本副本局部修正场景取消、main 初始化等待、UI 注册身份、注销与失败清理、池迟到资源释放及 strict 类型，不能称为未修改的原版 MK。没有引入第二套 UI、资源、音频或池运行时。
 
