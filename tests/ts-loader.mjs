@@ -4,6 +4,8 @@ import ts from 'typescript';
 const modules = {
   'db://shidai3/index': new URL('../extensions/shidai3/assets/index.ts', import.meta.url).href,
   'db://shidai3/minigame/index': new URL('../extensions/shidai3/assets/minigame/index.ts', import.meta.url).href,
+  'db://shidai3/auth/index': new URL('../extensions/shidai3/assets/auth/index.ts', import.meta.url).href,
+  'db://shidai3/observability/index': new URL('../extensions/shidai3/assets/observability/index.ts', import.meta.url).href,
 };
 export async function resolve(specifier, context, nextResolve) {
   if (modules[specifier]) return { shortCircuit: true, url: modules[specifier] };

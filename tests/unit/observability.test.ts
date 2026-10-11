@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as sharedTelemetry from 'db://shidai3/observability/index';
 import { TelemetryClient, type TrackResult, type FlushResult } from '../../assets/shell/observability/telemetryClient';
 import { LocalRecordingAdapter, WechatTelemetryAdapter, NativeFirebaseTelemetryAdapter, type TelemetryAdapter } from '../../assets/shell/observability/telemetryAdapters';
 import type { TelemetryContext, TelemetryFields } from '../../assets/shell/observability/telemetrySchema';
@@ -22,6 +23,13 @@ function fixture(adapter: TelemetryAdapter = new LocalRecordingAdapter()) {
 }
 const reward: TelemetryFields['ad_reward_committed'] = { placementId: 'speed-boost', rewardType: 'duration', rewardCode: 'boost-ms', amount: 60000, commitState: 'persisted' };
 const rewardIdentity = { factId: 'ad-speed:request-1', causationId: 'request-1' };
+
+test('legacy product entries re-export the pinned public implementation', () => {
+    assert.equal(TelemetryClient, sharedTelemetry.TelemetryClient);
+    assert.equal(LocalRecordingAdapter, sharedTelemetry.LocalRecordingAdapter);
+    assert.equal(WechatTelemetryAdapter, sharedTelemetry.WechatTelemetryAdapter);
+    assert.equal(NativeFirebaseTelemetryAdapter, sharedTelemetry.NativeFirebaseTelemetryAdapter);
+});
 
 test('default off performs no recording, clock access, or provider acceptance', () => {
     let called = 0;

@@ -15,7 +15,9 @@
         "./extensions/MKFramework/assets/MKFramework/Config/GlobalEvent.ts"
       ],
       "db://shidai3/index": ["./extensions/shidai3/assets/index.ts"],
-      "db://shidai3/minigame/index": ["./extensions/shidai3/assets/minigame/index.ts"]
+      "db://shidai3/minigame/index": ["./extensions/shidai3/assets/minigame/index.ts"],
+      "db://shidai3/auth/index": ["./extensions/shidai3/assets/auth/index.ts"],
+      "db://shidai3/observability/index": ["./extensions/shidai3/assets/observability/index.ts"]
     }
   },
   "types": ["./extensions/MKFramework/@types/MKFramework/"]

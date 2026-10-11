@@ -1,5 +1,7 @@
 import { _decorator, Camera, Canvas, Component, director, Director, Label, Layers, Node, ResolutionPolicy, sys, UITransform, view } from 'cc';
 import { StateMachine, type IState } from 'db://shidai3/index';
+import { AuthSession } from 'db://shidai3/auth/index';
+import { TelemetryClient, LocalRecordingAdapter } from 'db://shidai3/observability/index';
 import mk from 'mk';
 import { BUILD_MODES } from './buildModes';
 import { ModuleEntryGate, type ModeId, type SceneDriver, type EntrySource } from './contracts';
@@ -7,8 +9,6 @@ import { ShellPromotion } from './promotion';
 import { SwitchCoordinator } from './switchCoordinator';
 import { ProductNavigationView } from './productNavigationView';
 import { PRODUCT_BUILD_VERSION } from './buildInfo';
-import { TelemetryClient } from './observability/telemetryClient';
-import { LocalRecordingAdapter } from './observability/telemetryAdapters';
 
 const { ccclass, property } = _decorator;
 const SHELL_LAYER = 1 << 19;
@@ -35,6 +35,8 @@ export class ProductBootstrap extends Component {
   @property public telemetrySourceCommit = '';
   @property public telemetryBuildId = '';
   readonly StateMachine = new StateMachine<ProductBootstrap>(this);
+  private authSession: AuthSession | null = null;
+  private disposed = false;
   private telemetry: TelemetryClient | null = null;
   private readonly telemetryRecords = new LocalRecordingAdapter();
   private telemetrySessionId = '';
@@ -56,6 +58,7 @@ export class ProductBootstrap extends Component {
     this.node.layer = SHELL_LAYER;
     director.addPersistRootNode(this.node);
     view.setDesignResolutionSize(750, 1334, ResolutionPolicy.FIXED_WIDTH);
+    this.beginAuthSession();
     this.initializeTelemetry();
     this.initializeNavigation();
     await this.StateMachine.changeState(ShellBootState);
@@ -123,6 +126,18 @@ export class ProductBootstrap extends Component {
     } finally { this.transitioning = false; }
   }
 
+  private beginAuthSession(): void {
+    if (this.disposed || this.authSession) return;
+    // No credential/exchange ports until a separately configured backend is available.
+    this.authSession = new AuthSession({ timeoutMs: 10000, clock: {
+      now: Date.now,
+      schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+      cancel: handle => { if (typeof handle === 'number') clearTimeout(handle); },
+    } });
+    // Local mode loading never waits for authentication or consumes its result.
+    try { void this.authSession.login().catch(() => {}); } catch { /* Keep local startup available. */ }
+  }
+
   private initializeTelemetry(): void {
     try {
       this.telemetryStartedAt = Date.now();
@@ -187,6 +202,10 @@ export class ProductBootstrap extends Component {
   }
 
   protected onDestroy(): void {
+    this.disposed = true;
+    const session = this.authSession;
+    this.authSession = null;
+    session?.logout();
     this.unschedule(this.checkPromotion);
     director.off(Director.EVENT_BEFORE_UPDATE, this.offerPromotion, this);
   }
