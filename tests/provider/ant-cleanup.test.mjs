@@ -19,12 +19,12 @@ function methods(file, className, names, globals) {
 
 test('actual Ant close publishes its task before reentry, orders teardown and retries only failed owners', async () => {
   const calls = []; let root, fail = true, reentry;
-  class Success {} class Fail {} class Progress {} class Community {} class Settings {} class Confirm {} class Shop {} class Tools {}
+  class Success {} class Fail {} class Progress {} class Community {} class Settings {} class Confirm {} class Shop {} class Speed {} class Tools {}
   const Subject = methods('assets/Colony/scripts/bootstrap/colonySceneBootstrap.ts', 'ColonySceneBootstrap', ['close', 'closeModule'], {
     game: { off() { calls.push('off'); } }, Game: { EVENT_HIDE: 'hide', EVENT_SHOW: 'show' },
     mk: { uiManage: { async unregis(Class, owner) { assert.equal(owner, root.popupRoot); calls.push(Class.name); if (Class === Tools && fail) throw Error('pool destroy'); } } },
     ColonyResultSuccessView: Success, ColonyResultFailView: Fail, ColonyProgressView: Progress, ColonyCommunityView: Community,
-    ColonySettingsView: Settings, ColonyConfirmView: Confirm, ColonyShopView: Shop, ColonyToolView: Tools, ColonyToastView: class Toast {},
+    ColonySettingsView: Settings, ColonyConfirmView: Confirm, ColonyShopView: Shop, ColonySpeedView: Speed, ColonyToolView: Tools, ColonyToastView: class Toast {},
     ColonyTestBridge: { clear() { calls.push('bridge'); } },
   });
   root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {}, toast: { clear() {}, async flush() {} },
@@ -34,7 +34,7 @@ test('actual Ant close publishes its task before reentry, orders teardown and re
   const close = root.close('switch'); assert.equal(close, root.close('recovery'));
   await assert.rejects(close, /cleanup did not complete/); assert.equal(reentry, close);
   assert.equal(root.destroyed, true); assert.equal(root.inputLocked, true);
-  assert.ok(calls.indexOf('popup') < calls.indexOf('Success')); assert.equal(root.cleanupSteps.size, 1);
+  assert.ok(calls.indexOf('popup') < calls.indexOf('Success')); assert.equal(root.cleanupSteps.size, 1); assert.equal(calls.filter(call => call === 'Speed').length, 1);
   const before = [...calls]; fail = false; await root.close('recovery');
   assert.deepEqual(calls.slice(before.length), ['Tools']); assert.equal(root.cleanupSteps.size, 0);
   await root.close('recovery'); assert.equal(calls.length, before.length + 1);
@@ -45,12 +45,12 @@ test('actual Ant cleanup stops before unregister when an active popup close fail
   const Subject = methods('assets/Colony/scripts/bootstrap/colonySceneBootstrap.ts', 'ColonySceneBootstrap', ['close', 'closeModule'], {
     game: { off() {} }, Game: {}, mk: { uiManage: { unregis() { unregister++; } } },
     ColonyResultSuccessView: class {}, ColonyResultFailView: class {}, ColonyProgressView: class {}, ColonyCommunityView: class {},
-    ColonySettingsView: class {}, ColonyConfirmView: class {}, ColonyShopView: class {}, ColonyToolView: class {}, ColonyToastView: class {}, ColonyTestBridge: { clear() {} },
+    ColonySettingsView: class {}, ColonyConfirmView: class {}, ColonyShopView: class {}, ColonySpeedView: class {}, ColonyToolView: class {}, ColonyToastView: class {}, ColonyTestBridge: { clear() {} },
   });
   const root = new Subject(); Object.assign(root, { closePromise: null, cleanupSteps: null, generation: 0, popupRoot: {}, unschedule() {}, toast: { clear() {}, async flush() {} },
     progressPopup: { forceClose() { attempts++; if (fail) throw Error('popup close'); } }, StateMachine: { releaseAllStates() {} } });
   await assert.rejects(root.close('switch'), /cleanup did not complete/); assert.equal(unregister, 0);
-  fail = false; await root.close('switch'); assert.equal(attempts, 2); assert.equal(unregister, 9);
+  fail = false; await root.close('switch'); assert.equal(attempts, 2); assert.equal(unregister, 10);
 });
 
 test('actual popup closed callback preserves destroyed input fence and never clears a newer control', () => {
