@@ -256,3 +256,49 @@ test('shell cancel drops late credentials, allows a fresh explicit retry, and di
   assert.equal(exchanges, 1); assert.equal(view.accountStatusLabel.string, lastText);
   view.accountActionButton.emit(); assert.equal(acquires, 3);
 });
+
+test('consumed Douyin public adapter remains silent at Bootstrap startup with disabled config or no trusted exchange', async () => {
+  assert.equal(typeof auth.DouyinCredentialAdapter, 'function');
+  const scope = { issuer: 'fixture', applicationId: 'fixture', host: 'fixture' };
+  for (const enabled of [false, true]) {
+    let platformCalls = 0;
+    const credential = new auth.DouyinCredentialAdapter({ login() { platformCalls++; } }, scope);
+    const view = navigationFixture(), { root } = fixture(view);
+    root.loginFacade = new auth.LoginFacade({
+      config: { enabled, platformConfigured: true, provider: 'douyin', scope }, credential,
+      clock: { now: () => 1000, schedule() { throw Error('No deadline without trusted exchange'); }, cancel() {} },
+    });
+    await root.boot(); root.update(); view.accountActionButton.emit(); root.accountAction('login');
+    assert.equal(root.loginFacade.readiness().status, enabled ? 'missing-exchange-port' : 'disabled');
+    assert.equal(root.loginFacade.snapshot().auth.status, 'guest');
+    assert.equal((await root.loginFacade.requestLogin()).status, 'unavailable');
+    assert.match(view.accountStatusLabel.string, /未配置.*游客/); assert.equal(platformCalls, 0);
+    root.onDestroy();
+  }
+});
+
+test('consumed Douyin adapter starts only after explicit shell action and platform code alone cannot activate the shared session', async () => {
+  const scope = { issuer: 'fixture', applicationId: 'fixture', host: 'fixture' };
+  let platformCalls = 0, exchangeCalls = 0, callback;
+  const exchanged = deferred();
+  const credential = new auth.DouyinCredentialAdapter({ login(options) { platformCalls++; callback = options; } }, scope);
+  const view = navigationFixture(), { root } = fixture(view);
+  root.loginFacade = new auth.LoginFacade({
+    config: { enabled: true, platformConfigured: true, provider: 'douyin', scope }, credential,
+    clock: { now: () => 1000, schedule: () => 1, cancel() {} },
+    exchange: { exchange(material) {
+      exchangeCalls++;
+      assert.deepEqual(material, { provider: 'douyin', scope,
+        proof: { kind: 'douyin-code', code: 'synthetic-douyin-code', anonymousCode: 'synthetic-anonymous-code' } });
+      return exchanged.promise;
+    } },
+  });
+  await root.boot(); root.update(); assert.equal(platformCalls, 0); assert.equal(exchangeCalls, 0);
+  view.accountActionButton.emit(); assert.equal(platformCalls, 1); assert.equal(callback.force, true);
+  callback.success({ code: 'synthetic-douyin-code', anonymousCode: 'synthetic-anonymous-code' }); await settle();
+  assert.equal(exchangeCalls, 1); assert.equal(root.loginFacade.snapshot().auth.status, 'pending');
+  assert.match(view.accountStatusLabel.string, /正在登录/);
+  exchanged.resolve(syntheticSession()); await settle();
+  assert.equal(root.loginFacade.snapshot().auth.status, 'active'); assert.equal(view.accountStatusLabel.string, '已登录');
+  view.accountActionButton.emit(); assert.equal(root.loginFacade.snapshot().auth.status, 'guest'); root.onDestroy();
+});
