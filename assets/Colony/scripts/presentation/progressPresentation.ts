@@ -65,19 +65,23 @@ export class ProgressPresentation {
     }
   }
 
-  public static async open(context: ColonySceneBootstrap, section: ProgressSection, onClosed?: () => void): Promise<void> {
+  public static open(context: ColonySceneBootstrap, section: ProgressSection, onClosed?: () => void): Promise<void>;
+  /** Guarded page-local requests report whether a control was accepted. */
+  public static open(context: ColonySceneBootstrap, section: ProgressSection, onClosed: (() => void) | undefined, canOpen: () => boolean): Promise<boolean>;
+  public static async open(context: ColonySceneBootstrap, section: ProgressSection, onClosed?: () => void, canOpen?: () => boolean): Promise<void | boolean> {
     const generation = context.generation;
     const page = context.StateMachine?.current;
+    if (canOpen && !canOpen()) return false;
     await context.guide?.cancel();
-    if (context.destroyed || generation !== context.generation || page !== context.StateMachine?.current) return;
-    if (section === 'market') { await ConstructionState.open(context); return; }
-    if (context.destroyed || !context.progress) return;
+    if (context.destroyed || generation !== context.generation || page !== context.StateMachine?.current || (canOpen && !canOpen())) return false;
+    if (section === 'market') { await ConstructionState.open(context); return true; }
+    if (context.destroyed || !context.progress) return false;
     if (context.progressPopup) {
-      if (section === 'shop') await context.progressPopup.navigateToShop();
-      return;
+      if (section === 'shop') { await context.progressPopup.navigateToShop(); return true; }
+      return false;
     }
     if (section === 'social') {
-      if (!context.progress.socialAvailable()) { context.toast.show(context.progress.socialUnlockHint(), 'feature-locked', 'social'); return; }
+      if (!context.progress.socialAvailable()) { context.toast.show(context.progress.socialUnlockHint(), 'feature-locked', 'social'); return false; }
       context.progress.advanceSocial();
     }
     const presentation = new ProgressPresentation(context, section, onClosed);
@@ -87,6 +91,7 @@ export class ProgressPresentation {
     presentation.control = presentation.createControl();
     context.progressPopup = presentation.control;
     await presentation.waitForControl();
+    return true;
   }
 
   private async waitForControl(): Promise<void> {
