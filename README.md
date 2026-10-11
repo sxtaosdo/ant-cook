@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.61`**
+**当前版本：`v0.3.0.62`**
 
 状态: Draft
 
@@ -10,7 +10,9 @@
 
 共享入口代码位于 `assets/shell/`。Ant 继续使用 `Colony / ColonyGame`，Cook 继续使用 `game / Game`，各自持有玩法状态和经济。新数据分别写入 `p4000.ant-cook.dev1.ant.*`、`cook.*` 和 `shell.*`，不读取、改写或清除两个旧工程的真实存档。
 
-P0002 以 `extensions/shidai3` Git submodule 消费，固定 `2384980aab0c2bb60559b22cbef88d2c1391d784`（候选 2.0.7）。唯一 MK 能力提供者来自 v1.1.5；本副本局部修正场景取消、main 初始化等待、UI 注册身份、注销与失败清理、池迟到资源释放及 strict 类型，不能称为未修改的原版 MK。没有引入第二套 UI、资源、音频或池运行时。
+P0002 以 `extensions/shidai3` Git submodule 消费，固定 `895f28728ef2624e56faa3520d11b02310b20f18`（2.2.0）。ProductBootstrap 实际导入共享 auth／observability；本产品遥测三 TS 只作兼容重导出，与 P1060 使用同一份实现。默认 AuthSession 无凭证／交换 ports，guest／unavailable 不阻塞本地玩法；组件销毁时退出自身会话。遥测仍默认关闭，空来源／构建元数据拒绝记录，已有本地记录开关和 Shell 事实接线保留。新接线的实际源码 Headless 验证已完成；本轮未操作 Creator／Preview／Build／Runtime、平台 SDK、真实后端、云存档或外部接收。
+
+唯一 MK 能力提供者来自 v1.1.5；本副本局部修正场景取消、main 初始化等待、UI 注册身份、注销与失败清理、池迟到资源释放及 strict 类型，不能称为未修改的原版 MK。没有引入第二套 UI、资源、音频或池运行时。
 
 验证使用 Node 22：`npm run typecheck` 与 `npm test`。执行集合为 `tests/unit` 与 `tests/provider`；后者运行实际 MKUIManage、MKBundle、MKObjectPool、MKStatusTask 源码，但 cc、IO、Release/View/Event 辅助能力使用替身，不是 Cocos Runtime 验收。`tests/ant` 和 `tests/cook` 是迁移时保留的来源测试材料，其中旧迁移断言不属于新产品兼容合同。Provider 的严格类型差异检查见 `P8000/dual-game-build/provider-typecheck.mjs`；仅证明相对字节核实的来源 baseline 无新增诊断，不表示 Provider 零诊断。
 
