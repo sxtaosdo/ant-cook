@@ -39,10 +39,13 @@ export abstract class ColonyPopupView extends mk.MVCViewBase<ProgressModel> {
     node.on(Button.EventType.CLICK, () => { if (!dragged && this.isAvailable() && node.activeInHierarchy) action(); }, this);
   }
   private clearBindings(): void {
+    // MK awaits parent hooks; Cocos may destruct fields before a child hook resumes.
+    const nodes = this.boundNodes;
+    if (!nodes) return;
     this.revision++;
     this.viewRoot = null;
-    for (const node of this.boundNodes) if (node.isValid) node.targetOff(this);
-    this.boundNodes.clear();
+    for (const node of nodes) if (node.isValid) node.targetOff(this);
+    nodes.clear();
   }
   public close(): void { this.clearBindings(); }
   public suspend(): void { this.clearBindings(); if (this.node?.isValid) this.node.active = false; }

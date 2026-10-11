@@ -9,6 +9,7 @@ import { ColonySettingsView } from '../../settings/script/settingsView';
 import { ColonyConfirmView } from '../../confirm/script/confirmView';
 import { ColonySocialPopupView } from '../../social/script/socialPopupView';
 import { ColonyShopView } from '../../shop/script/shopView';
+import { ColonySpeedView } from '../../speed/script/speedView';
 import { swallowMkInterrupt } from '../../resultPopupNav';
 import { ColonyCommunityView } from './communityView';
 
@@ -21,7 +22,7 @@ export interface ProgressNavigation {
   cleanupFailed?(cause: unknown, retryAvailable: boolean): void;
 }
 
-export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView | typeof ColonyShopView | typeof ColonyCommunityView;
+export type ProgressViewType = typeof ColonyProgressView | typeof ColonyLeaderboardView | typeof ColonySettingsView | typeof ColonyConfirmView | typeof ColonySocialPopupView | typeof ColonyShopView | typeof ColonySpeedView | typeof ColonyCommunityView;
 
 export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopupView> {
   private busy = false;

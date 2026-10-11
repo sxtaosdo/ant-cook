@@ -10,7 +10,7 @@ function fixture() {
   let height = 1334, safeTop = height;
   const callbacks = new Map();
   const animations = [];
-  const stack = []; class Business {} class Progress { countsAsBusinessPopup() { return !this.gm; } } class Toast {}
+  const stack = []; class Business {} class Speed {} class Progress { countsAsBusinessPopup() { return !this.gm; } } class Toast {}
   const source = readFileSync(new URL('../../assets/Colony/scripts/views/currencyOverlayView.ts', import.meta.url), 'utf8');
   const exports = {}, decorator = () => () => {};
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
@@ -25,6 +25,7 @@ function fixture() {
     }; } }
     : name === 'mk' ? { default: { StaticViewBase: class {}, uiManage: { get: () => stack } } }
     : name.includes('progressView') ? { ColonyProgressView: Progress }
+    : name.includes('speedView') ? { ColonySpeedView: Speed }
     : Object.fromEntries(['ColonyCommunityView','ColonySettingsView','ColonyConfirmView','ColonyShopView','ColonyToolView','ColonyResultSuccessView','ColonyResultFailView'].map(key => [key, Business])) });
   const owner = { isValid: true }, overlay = new exports.ColonyCurrencyOverlayView();
   const listeners = [], button = { node: { isValid: true, targetOff() {}, on(_event, action) { listeners.push(action); } } };
@@ -41,7 +42,7 @@ function fixture() {
   let wallet = { coins: 40, diamonds: 30 }, clicks = 0;
   overlay.bind(owner, () => wallet, () => clicks++);
   const popup = (Type = Business, parent = owner) => Object.assign(new Type(), { node: { parent, activeInHierarchy: false } });
-  return { stack, overlay, popup, Progress, Toast, owner, listeners, barsWidget, profileWidget, callbacks, animations,
+  return { stack, overlay, popup, Progress, Speed, Toast, owner, listeners, barsWidget, profileWidget, callbacks, animations,
     finish(animation = animations.at(-1)) { if (!animation.stopped) { animation.target.setPosition(animation.end.position); animation.done(); } },
     resize(nextHeight, nextSafeTop = nextHeight) { height = nextHeight; safeTop = nextSafeTop; callbacks.get('canvas-resize').call(overlay); },
     setWallet: value => { wallet = value; }, clicks: () => clicks };
@@ -59,6 +60,16 @@ test('actual manager stack excludes Toast, GM and foreign owners, including a hi
   assert.equal(f.overlay.plusButton.interactable, false);
   assert.equal(f.animations.at(-1).options.easing, 'quadIn');
   f.finish(); assert.equal(f.overlay.bars.active, false);
+});
+
+test('dedicated speed popup retains the owner wallet while foreign speed and Toast alone stay hidden', () => {
+  const f = fixture();
+  f.stack.push(f.popup(f.Speed, {}), f.popup(f.Toast)); f.overlay.lateUpdate();
+  assert.equal(f.overlay.bars.active, false);
+  f.stack.push(f.popup(f.Speed)); f.overlay.lateUpdate(); f.finish();
+  assert.equal(f.overlay.bars.active, true); assert.equal(f.overlay.coins.string, '40');
+  f.stack.pop(); f.overlay.lateUpdate(); f.finish();
+  assert.equal(f.overlay.bars.active, false); assert.equal(f.overlay.plusButton.interactable, false);
 });
 
 test('top placement follows the Canvas and safe-area inset instead of the old fixed y, including resize', () => {

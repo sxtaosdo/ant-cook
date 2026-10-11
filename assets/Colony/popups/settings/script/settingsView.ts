@@ -89,7 +89,7 @@ export class ColonySettingsView extends ColonyPopupView {
     }
     this.bind(this.closeButton, true, () => { this.submitProfile(); this.event.emit('close'); });
     this.versionLabel.string = settings.version;
-    this.userIdLabel.string = PlayerProfile.displayId(settings.userId);
+    this.userIdLabel.string = `ID：${PlayerProfile.displayId(settings.userId)}`;
     const profile = settings.profile;
     if (profile) {
       if (!this.nicknameEdit || !this.profileAvatar || !this.profileInitial || !this.registeredLabel || !this.avatarButton) throw new Error('Settings profile bindings are missing');

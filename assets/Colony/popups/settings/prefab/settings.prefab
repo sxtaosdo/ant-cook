@@ -5516,7 +5516,7 @@
       "a": 255
     },
     "_string": "",
-    "_horizontalAlign": 0,
+    "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 0,
     "_fontSize": 28,
@@ -5675,7 +5675,7 @@
       "a": 255
     },
     "_string": "输入昵称",
-    "_horizontalAlign": 0,
+    "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 26,
     "_fontSize": 26,

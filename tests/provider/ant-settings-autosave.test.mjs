@@ -117,7 +117,7 @@ test('editing end/return autosave once, no per-character write, avatar changes s
   view.open(); view.open(); view.nicknameEdit.string = '重新打开';
   view.event.on('action', f.control.act, f.control);
   await view.nicknameEdit.node.emit('ended'); await tick(); assert.equal(f.calls.length, 3);
-  assert.equal(view.userIdLabel.string.length, 10); assert(!view.userIdLabel.string.includes('：'));
+  assert.equal(view.userIdLabel.string, `ID：${PlayerProfile.displayId(f.profile.snapshot().playerId)}`);
 });
 
 test('queued final save failure leaves the latest draft open, then close retries only that draft', async () => {

@@ -51,7 +51,7 @@ function fixture() {
   }
   class Model { static async new(){return new this();} close(){Object.freeze(this);} }
   class Base { static instance(){return new this();} }
-  const cc={Component,Node,Button,Label,Sprite,SpriteFrame:class {},UITransform,Widget,Color,Vec3:class {},
+  const cc={Component,Node,Button,Label,Sprite,SpriteFrame:class {},EditBox:class {},Layout:class {},UITransform,Widget,Color,Vec3:class {},
     _decorator:{ccclass:()=>Class=>Class,property:(_target,key)=>key === undefined ? () => {} : undefined}, Tween:{stopAllByTarget(){}},
     tween:()=>({repeatForever(){return this;},to(){return this;},start(){}}),view:{getVisibleSize:()=>({width:750,height:1667})},
     js:{getSuper:Class=>{const parent=Object.getPrototypeOf(Class);return parent?.prototype?parent:null;}}};
@@ -94,6 +94,36 @@ function fixture() {
   }
   return {load,view,Control,tool,View,Model,Node,Button,Label,Sprite,Events,ui,assets,errors};
 }
+
+test('actual MK parent-first Settings destruction survives synchronous Cocos field destruction before the child resumes',async()=>{
+  const f=fixture(),Class=f.load('assets/Colony/popups/settings/script/settingsView.ts').ColonySettingsView;
+  const view=new Class();view.node=new f.Node();view.viewRoot=view.node;
+  const button=new f.Node();button.getComponent(f.Button);
+  view.bind(button,true,()=>assert.fail('destroyed button must not act'));
+  assert.equal(button.owned(view),3);
+  f.tool.runParentFunc(view,'onDestroy',true);
+  const destroyed=view.onDestroy();
+  // Component destruction is synchronous; MK's awaited parent hook resumes later.
+  assert.equal(button.owned(view),0);
+  view.boundNodes=null;view.viewRoot=null;view.profileEditNode=null;view.node=null;
+  await destroyed;
+  assert.equal(f.errors.length,0);
+  await button.emit('click');
+});
+
+test('actual popup late cleanup accepts destructed fields and retains one binding set after reopen',async()=>{
+  const f=fixture(),Base=f.load('assets/Colony/popups/progress/script/popupView.ts').ColonyPopupView;
+  const button=new f.Node();button.getComponent(f.Button);let actions=0;
+  class Popup extends Base { render(){this.bind(button,true,()=>actions++);} }
+  const view=new Popup();view.node=new f.Node();
+  view.open();view.close();view.open();view.open();
+  assert.equal(button.owned(view),3);await button.emit('click');assert.equal(actions,1);
+  view.close();assert.equal(button.owned(view),0);
+  for(const missing of [null,undefined]) {
+    view.boundNodes=missing;assert.doesNotThrow(()=>view.onDisable());assert.doesNotThrow(()=>view.onDestroy());
+  }
+  assert.equal(f.errors.length,0);
+});
 
 for(const kind of ['resultSuccess','resultFail']) {
   test(`actual ${kind} owns every button emitter and survives child-first destruction, partial init and repeated close`, async()=>{

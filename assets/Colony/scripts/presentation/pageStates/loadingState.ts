@@ -14,6 +14,7 @@ import { ColonyCommunityView } from '../../../popups/progress/script/communityVi
 import { ColonySettingsView } from '../../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../../popups/confirm/script/confirmView';
 import { ColonyShopView } from '../../../popups/shop/script/shopView';
+import { ColonySpeedView } from '../../../popups/speed/script/speedView';
 import { ColonyToolView } from '../../../popups/tool/script/toolView';
 import type { ColonySceneBootstrap } from '../../bootstrap/colonySceneBootstrap';
 import { ColonyFlowModel } from '../../gameModel';
@@ -100,6 +101,7 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       mk.uiManage.regis(ColonySettingsView, 'popups/settings/prefab/settings', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyConfirmView, 'popups/confirm/prefab/confirm', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyShopView, 'popups/shop/prefab/shop', session.popupRoot!, colonyLoad),
+      mk.uiManage.regis(ColonySpeedView, 'popups/speed/prefab/speed', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyToolView, 'popups/tool/tool', session.popupRoot!, colonyLoad),
       mk.uiManage.regis(ColonyToastView, 'popups/toast/prefab/toast', session.popupRoot!, colonyLoad),
     ]);

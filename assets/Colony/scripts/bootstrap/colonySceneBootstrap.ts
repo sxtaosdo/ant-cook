@@ -38,6 +38,7 @@ import { CommunityControl } from '../../popups/progress/script/communityControl'
 import { ColonySettingsView } from '../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
+import { ColonySpeedView } from '../../popups/speed/script/speedView';
 import { ColonyToastView } from '../../popups/toast/script/toastView';
 import { ToastPresentation } from '../presentation/toastPresentation';
 import { GuidePresentation } from '../presentation/guidePresentation';
@@ -318,12 +319,12 @@ export class ColonySceneBootstrap extends Component implements GameplayModule {
       ['states', () => this.StateMachine.releaseAllStates()],
       ['currency', () => { this.currencyView?.node.destroy(); this.currencyView = null; }],
       ['success', () => mk.uiManage.unregis(ColonyResultSuccessView, this.popupRoot)], ['fail', () => mk.uiManage.unregis(ColonyResultFailView, this.popupRoot)],
-      ['progress', () => mk.uiManage.unregis(ColonyProgressView, this.popupRoot)], ['community', () => mk.uiManage.unregis(ColonyCommunityView, this.popupRoot)], ['settings', () => mk.uiManage.unregis(ColonySettingsView, this.popupRoot)], ['confirm', () => mk.uiManage.unregis(ColonyConfirmView, this.popupRoot)], ['shop', () => mk.uiManage.unregis(ColonyShopView, this.popupRoot)], ['tools', () => mk.uiManage.unregis(ColonyToolView, this.popupRoot)],
+      ['progress', () => mk.uiManage.unregis(ColonyProgressView, this.popupRoot)], ['community', () => mk.uiManage.unregis(ColonyCommunityView, this.popupRoot)], ['settings', () => mk.uiManage.unregis(ColonySettingsView, this.popupRoot)], ['confirm', () => mk.uiManage.unregis(ColonyConfirmView, this.popupRoot)], ['shop', () => mk.uiManage.unregis(ColonyShopView, this.popupRoot)], ['speed', () => mk.uiManage.unregis(ColonySpeedView, this.popupRoot)], ['tools', () => mk.uiManage.unregis(ColonyToolView, this.popupRoot)],
       ['testBridge', () => ColonyTestBridge.clear()],
       ['toast', async () => { await this.toast.flush(); await mk.uiManage.unregis(ColonyToastView, this.popupRoot); }],
     ]);
     const errors: unknown[] = [];
-    for (const phase of [['daily', 'events', 'ads', 'guide'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'community', 'settings', 'confirm', 'shop', 'tools', 'toast', 'testBridge', 'currency']]) {
+    for (const phase of [['daily', 'events', 'ads', 'guide'], ['progressPopup', 'states'], ['success', 'fail', 'progress', 'community', 'settings', 'confirm', 'shop', 'speed', 'tools', 'toast', 'testBridge', 'currency']]) {
       await Promise.all(phase.map(async key => {
         const operation = this.cleanupSteps!.get(key);
         if (!operation) return;

@@ -5,12 +5,13 @@ import { ColonyCommunityView } from '../../popups/progress/script/communityView'
 import { ColonySettingsView } from '../../popups/settings/script/settingsView';
 import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
+import { ColonySpeedView } from '../../popups/speed/script/speedView';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
 import { ColonyResultSuccessView } from '../../popups/resultSuccess/script/resultSuccessView';
 import { ColonyResultFailView } from '../../popups/resultFail/script/resultFailView';
 
 const { ccclass, property } = _decorator;
-const businessViews = [ColonyCommunityView, ColonySettingsView, ColonyConfirmView, ColonyShopView,
+const businessViews = [ColonyCommunityView, ColonySettingsView, ColonyConfirmView, ColonyShopView, ColonySpeedView,
   ColonyToolView, ColonyResultSuccessView, ColonyResultFailView];
 
 /** Ant-owned projection of the actual MK popup stack and the current Ant wallet. */
