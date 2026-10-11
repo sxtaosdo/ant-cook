@@ -35,6 +35,14 @@ export interface ProgressPage {
   readonly activeTab?: 'themes' | 'task-achievements' | 'daily';
 }
 
+/** The fixed speed popup has one video offer and a close action, without a generic back row. */
+export interface SpeedProgressPage extends ProgressPage {
+  readonly layout: 'speed';
+  readonly speed: NonNullable<ProgressPage['speed']>;
+  readonly rows: readonly [ProgressRow & { readonly action: 'ad-speed' }];
+  readonly showBack: false;
+}
+
 /** 仅持有当前弹窗的投影，不持有玩家存档。 */
 export class ProgressModel extends mk.MVCModelBase {
   public page: ProgressPage = { title: '', summary: '', rows: [] };

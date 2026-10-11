@@ -4,6 +4,8 @@
 
 ## 未发布（初始版本基线 0.3.0.0；本地检查点按 Hook 递增） — 联合工程首切片
 
+- 2026-10-11 明确专用加速弹窗的数据契约：时长与余额为必需字段，仅允许一个 `ad-speed` 视频操作，固定关闭入口且不显示通用返回行。实际页面投影通过 `satisfies` 校验；本轮仅改变类型约束，专用固定 Prefab 与路由仍待标准 Creator 入口恢复后实施。严格编译及 1 个合法／5 个非法契约样例通过，两份源码编译输出与 v63 完全一致；复用 v63 已完成的 319/319 默认源码回归，不重复执行旧覆盖。旧场景创建仍为 STARTED／UNKNOWN，未清锁、未改终态、未重放操作；未执行 750×1334 新页面验收或生成截图。
+
 - 2026-10-11 手动加速自然耗尽时回到 1 倍并自动请求既有加速弹窗，不再等待再次点击。其他业务弹窗或输入暂锁期间保留提示；异步取消引导后重新核验页面、回合、余额和请求归属，避免抢占、重复弹出及迟关闭刷新。导航、销毁、免费收尾、保存失败或余额恢复撤销过时提示，原三参数页面入口合同保持。新增 21 项独立生命周期回归，默认源码回归 319/319 与 strict 类型检查通过，独立代码复审未发现确定 P1/P2；旧 `tests/ant/` 三份入口因错误相对路径指向 `tests/assets` 而失败，已记录且未改动。专用固定 Prefab、路由与 750×1334 真实页面／截图仍待标准 Creator 入口恢复，本轮未接入候选资源。Dashboard 启动返回 `COORDINATION_REQUIRED`，已保留现有 leaseId／fencingToken／operationId，未重启共享 daemon、未抢占租约、未触碰真实存档或 Owner 资源。
 
 - 2026-10-11 公共登录／遥测实际消费：按 Owner 批准把 `extensions/shidai3` 升级到 P0002 2.2.0 `895f28728ef2624e56faa3520d11b02310b20f18`，与 P1060 同 pin，Protected Core 未变。ProductBootstrap 实际创建独占共享 AuthSession，无凭证／交换 ports 时 guest／unavailable、非阻塞继续本地玩法，销毁退出自身实例；认证结果不进入 UI／玩法／存档。入口遥测厂直接引用公共 barrel，原默认关闭、缺构建元数据拒绝记录及 Shell 事实接线保持；三个产品遥测 TS 仅兼容重导出，不保留第二实现，meta 未改。定向34/34项实际源码／离线测试和 Creator 源码 strict 类型检查通过，包含真实 Bootstrap 持有共享类、默认关闭、不等待登录，以及真实 Ant 奖励保存和 Shell 事实隔离；BuildInfo改为真实输入后2项Bootstrap补验通过、不重复计数。OCR Delegation共享规则下，真实 prompt-emulated reviewer覆盖两产品21/21项实现、测试、配置、gitlink与文档，无确定P1/P2；44项并发预览文件范围外跳过、不计已审，硬只读隔离未核验。证据目录 `C:/Users/33272/AppData/Local/Temp/public-modules-consumers-20261011`。本轮仅未发布本地源码检查点，不改父仓 gitlink、不推送；未操作 Creator／Preview／Build／Runtime、平台 SDK、真实后端、云存档或外部接收，既有 Preview 证据不能代表本次新接线 Runtime 验收。

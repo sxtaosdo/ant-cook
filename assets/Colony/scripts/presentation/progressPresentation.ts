@@ -10,7 +10,7 @@ import { ColonyConfirmView } from '../../popups/confirm/script/confirmView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { ToolControl } from '../../popups/tool/script/toolControl';
 import { ColonyToolView } from '../../popups/tool/script/toolView';
-import type { ProgressPage, ProgressRow } from '../../popups/progress/script/progressModel';
+import type { ProgressPage, ProgressRow, SpeedProgressPage } from '../../popups/progress/script/progressModel';
 import { swallowMkInterrupt } from '../../popups/resultPopupNav';
 import { ACHIEVEMENTS, COLLECTIONS, SEASON_XP_PER_TIER, WEEKEND_THRESHOLDS, TOOL_PRODUCTS } from '../application/playerProgress';
 import type { SupplyTool } from '../application/playerProgress';
@@ -26,7 +26,7 @@ import { ConstructionState } from './pageStates/constructionState';
 import { SocialPresentation } from './social/socialPresentation';
 
 export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'object-detail' | 'tracked-object' | 'daily' | 'orders' | 'newcomer' | 'stages' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}`;
-const row = (title: string, detail: string, action: string, button: string, enabled = true): ProgressRow => ({ title, detail, action, button, enabled });
+const row = <Action extends string>(title: string, detail: string, action: Action, button: string, enabled = true): ProgressRow & { readonly action: Action } => ({ title, detail, action, button, enabled });
 const date = (time: number): string => new Date(time + 8 * 3600000).toISOString().slice(0, 10);
 
 /** 导航与命令留在表现协调层；MK 弹窗只接收投影。 */
@@ -383,7 +383,7 @@ export class ProgressPresentation {
           summary: `每天0点赠送${FREE_BOOST_MS / 60000}分钟\n2倍、3倍共用时间，仅搬运时消耗`,
           rows: [row(`增加${durationText}加速时间`, detail, 'ad-speed', button,
             !showing && !otherPending && !clockRolledBack && (pending || available))],
-          layout: 'speed', showBack: false, speed: { durationText, remainingText } };
+          layout: 'speed', showBack: false, speed: { durationText, remainingText } } satisfies SpeedProgressPage;
       }
       case 'settings': {
         const inRound = Boolean(PlayState.current(this.context) && this.context.round);
