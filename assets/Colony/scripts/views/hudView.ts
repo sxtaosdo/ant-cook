@@ -102,6 +102,10 @@ export class ColonyHudView extends mk.StaticViewBase {
     this.nicknameLabel.string = nickname;
     this.buildVersionLabel.string = `v${version}`;
   }
+  public setProfileVisible(visible: boolean): void {
+    if (this.nicknameLabel?.node?.isValid) this.nicknameLabel.node.active = visible;
+    if (this.buildVersionLabel?.node?.isValid) this.buildVersionLabel.node.active = visible;
+  }
 
   /** Main levels are a read-only horizontal track; progress changes only after cargo clears. */
   public async showLevelRail(level: number, itemName: string, themeId: string, initial: number, remaining: number, isCurrent: () => boolean = () => true, single = false): Promise<void> {

@@ -40,9 +40,10 @@ function fixture() {
   overlay.coins = { string: '' }; overlay.diamonds = { string: '' };
   overlay.diamondButton = button; overlay.plusButton = button;
   let wallet = { coins: 40, diamonds: 30 }, clicks = 0;
-  overlay.bind(owner, () => wallet, () => clicks++);
+  const profileCoverage = [];
+  overlay.bind(owner, () => wallet, () => clicks++, covered => profileCoverage.push(covered));
   const popup = (Type = Business, parent = owner) => Object.assign(new Type(), { node: { parent, activeInHierarchy: false } });
-  return { stack, overlay, popup, Progress, Speed, Toast, owner, listeners, barsWidget, profileWidget, callbacks, animations,
+  return { stack, overlay, popup, Progress, Speed, Toast, owner, listeners, barsWidget, profileWidget, callbacks, animations, profileCoverage,
     finish(animation = animations.at(-1)) { if (!animation.stopped) { animation.target.setPosition(animation.end.position); animation.done(); } },
     resize(nextHeight, nextSafeTop = nextHeight) { height = nextHeight; safeTop = nextSafeTop; callbacks.get('canvas-resize').call(overlay); },
     setWallet: value => { wallet = value; }, clicks: () => clicks };
@@ -118,6 +119,48 @@ test('quick close/reopen cancels retraction and ignores a stale hide callback', 
   assert.equal(f.overlay.plusButton.interactable, true);
 });
 
+test('page profile stays covered through retraction and stale reopen completions, then restores after exit or destruction', () => {
+  const f = fixture();
+  assert.equal(f.profileCoverage.at(-1), false);
+  f.stack.push(f.popup()); f.overlay.lateUpdate(); f.finish();
+  assert.equal(f.profileCoverage.at(-1), true);
+  f.stack.length = 0; f.overlay.lateUpdate();
+  assert.equal(f.profileCoverage.at(-1), true);
+  const retract = f.animations.at(-1);
+  f.stack.push(f.popup()); f.overlay.lateUpdate(); retract.done();
+  assert.equal(f.profileCoverage.at(-1), true);
+  f.finish(); f.stack.length = 0; f.overlay.lateUpdate(); f.finish(); f.overlay.lateUpdate();
+  assert.equal(f.profileCoverage.at(-1), false);
+  f.stack.push(f.popup()); f.overlay.lateUpdate();
+  f.overlay.onDestroy(); assert.equal(f.profileCoverage.at(-1), false);
+});
+
+test('actual Home and HUD profile visibility does not lose updates or touch destroyed label nodes', () => {
+  const decorator = () => () => {};
+  for (const [file, name] of [['homeView.ts', 'ColonyHomeView'], ['hudView.ts', 'ColonyHudView']]) {
+    const source = readFileSync(new URL(`../../assets/Colony/scripts/views/${file}`, import.meta.url), 'utf8');
+    const exports = {};
+    runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022, experimentalDecorators: true, useDefineForClassFields: false } }).outputText,
+    { exports, require: path => path === 'cc' ? { _decorator: { ccclass: decorator, property: decorator },
+      Label: class {}, Node: class {}, Button: class {}, Sprite: class {} }
+      : path === 'mk' ? { default: { StaticViewBase: class {} } } : { ColonyGmButtonView: class {} } });
+    const view = new exports[name]();
+    view.nicknameLabel = { string: '', node: { active: true, isValid: true } };
+    view.buildVersionLabel = { string: '', node: { active: true, isValid: true } };
+    view.setProfileVisible(false); view.setProfile('新昵称', '0.3.0.84');
+    assert.equal(view.nicknameLabel.node.active, false);
+    assert.equal(view.buildVersionLabel.node.active, false);
+    assert.equal(view.nicknameLabel.string, '新昵称');
+    view.setProfileVisible(true);
+    assert.equal(view.nicknameLabel.node.active, true);
+    assert.equal(view.buildVersionLabel.string, 'v0.3.0.84');
+    view.nicknameLabel.node = null; view.buildVersionLabel.node.isValid = false;
+    assert.doesNotThrow(() => view.setProfileVisible(false));
+    assert.equal(view.buildVersionLabel.node.active, true);
+  }
+});
+
 test('resize settles a closing animation and destruction cancels outstanding completions', () => {
   const f = fixture(); f.stack.push(f.popup()); f.overlay.lateUpdate(); f.finish();
   f.stack.length = 0; f.overlay.lateUpdate(); const retract = f.animations.at(-1);
@@ -134,8 +177,8 @@ test('actual mount attaches to the Canvas and clears instance offset before layo
   const source = readFileSync(new URL('../../assets/Colony/scripts/presentation/currencyOverlay.ts', import.meta.url), 'utf8');
   const canvas = { isValid: true }, popupRoot = {}, session = { node: { parent: canvas }, popupRoot, profile: { snapshot: () => ({ nickname: '小蚂蚁' }) } };
   const node = { parent: null, position: { x: 50, y: 80, z: 0 }, setPosition(x, y, z) { this.position = { x, y, z }; }, getComponent: () => overlay, destroy() { this.destroyed = true; } };
-  let bound = 0;
-  const overlay = { bind(owner) { assert.equal(owner, popupRoot); assert.equal(node.parent, canvas); assert.deepEqual(node.position, { x: 0, y: 0, z: 0 }); bound++; },
+  let bound = 0, coverProfiles;
+  const overlay = { bind(owner, _wallet, _shop, cover) { coverProfiles = cover; assert.equal(owner, popupRoot); assert.equal(node.parent, canvas); assert.deepEqual(node.position, { x: 0, y: 0, z: 0 }); bound++; },
     setProfile(nickname) { assert.equal(nickname, '小蚂蚁'); } };
   const exports = {};
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
@@ -146,6 +189,15 @@ test('actual mount attaches to the Canvas and clears instance offset before layo
       : {} });
   await exports.mountCurrencyOverlay(session);
   assert.equal(session.currencyView, overlay); assert.equal(bound, 1);
+  assert.equal(typeof coverProfiles, 'function');
+  const visible = [];
+  session.homeView = { setProfileVisible: value => visible.push(['home', value]) };
+  session.hudView = { setProfileVisible: value => visible.push(['hud', value]) };
+  coverProfiles(true); assert.deepEqual(visible, [['home', false], ['hud', false]]);
+  session.homeView = { setProfileVisible: value => visible.push(['new-home', value]) };
+  coverProfiles(false); assert.deepEqual(visible.at(-2), ['new-home', true]);
+  session.destroyed = true; const calls = visible.length; coverProfiles(true); assert.equal(visible.length, calls);
+  session.destroyed = false;
   await exports.mountCurrencyOverlay(session); assert.equal(bound, 1);
   session.currencyView = null; session.node.parent = null;
   await assert.rejects(exports.mountCurrencyOverlay(session), /Canvas/);

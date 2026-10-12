@@ -23,7 +23,11 @@ export async function mountCurrencyOverlay(session: ColonySceneBootstrap): Promi
     node.parent = canvas;
     node.setPosition(0, 0, 0);
     overlay.bind(session.popupRoot!, () => session.destroyed ? null : session.progress?.wallet() ?? null,
-      () => { void ProgressPresentation.open(session, 'shop'); });
+      () => { void ProgressPresentation.open(session, 'shop'); }, covered => {
+        if (session.destroyed) return;
+        session.homeView?.setProfileVisible(!covered);
+        session.hudView?.setProfileVisible(!covered);
+      });
     const profile = session.profile?.snapshot();
     if (profile) overlay.setProfile(profile.nickname, COLONY_BUILD_VERSION);
     session.currencyView = overlay;

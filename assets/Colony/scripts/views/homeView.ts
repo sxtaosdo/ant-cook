@@ -20,6 +20,10 @@ export class ColonyHomeView extends mk.StaticViewBase {
     this.nicknameLabel.string = nickname;
     this.buildVersionLabel.string = `v${version}`;
   }
+  public setProfileVisible(visible: boolean): void {
+    if (this.nicknameLabel?.node?.isValid) this.nicknameLabel.node.active = visible;
+    if (this.buildVersionLabel?.node?.isValid) this.buildVersionLabel.node.active = visible;
+  }
   public tutorial: string | null = null;
   @property(Button)
   private startButton: Button | null = null;

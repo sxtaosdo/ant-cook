@@ -27,14 +27,17 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
   @property(Label) public versionLabel: Label | null = null;
   private popupOwner: Node | null = null;
   private readWallet: (() => { coins: number; diamonds: number } | null) | null = null;
+  private coverPageProfiles: ((covered: boolean) => void) | null = null;
   private readonly switchHolds = new Set<object>();
   private restingPosition: Vec3 | null = null;
   private displayWanted = false;
   private animationEpoch = 0;
 
-  public bind(owner: Node, readWallet: () => { coins: number; diamonds: number } | null, onShop: () => void): void {
+  public bind(owner: Node, readWallet: () => { coins: number; diamonds: number } | null, onShop: () => void,
+    coverPageProfiles?: (covered: boolean) => void): void {
     if (!this.bars || !this.coins || !this.diamonds || !this.diamondButton || !this.plusButton) throw new Error('Currency overlay bindings are missing');
     this.popupOwner = owner; this.readWallet = readWallet;
+    this.coverPageProfiles = coverPageProfiles ?? null;
     for (const button of [this.diamondButton, this.plusButton]) {
       button.node.targetOff(this); button.node.on(Button.EventType.CLICK, onShop, this);
     }
@@ -45,6 +48,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
     view.on('canvas-resize', this.fitSafeArea, this);
     this.bars.active = false;
     this.profileStrip!.active = false;
+    this.coverPageProfiles?.(false);
   }
 
   /** Saved Widgets own screen placement; code only supplies the device's safe-area inset. */
@@ -124,6 +128,8 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
       for (const button of [this.diamondButton, this.plusButton]) if (button) button.interactable = visible;
     }
     if (this.profileStrip) this.profileStrip.active = this.bars.active;
+    // The page's pair stays hidden until the foreground strip finishes retracting.
+    this.coverPageProfiles?.(Boolean(this.profileStrip?.active));
     if (!this.bars.active || !wallet) return;
     if (this.coins!.string !== String(wallet.coins)) this.coins!.string = String(wallet.coins);
     if (this.diamonds!.string !== String(wallet.diamonds)) this.diamonds!.string = String(wallet.diamonds);
@@ -134,6 +140,7 @@ export class ColonyCurrencyOverlayView extends mk.StaticViewBase {
     view.off('canvas-resize', this.fitSafeArea, this);
     if (this.bars?.isValid) Tween.stopAllByTarget(this.bars);
     this.readWallet = null; this.popupOwner = null; this.switchHolds.clear();
+    this.coverPageProfiles?.(false); this.coverPageProfiles = null;
     for (const button of [this.diamondButton, this.plusButton]) if (button?.node?.isValid) button.node.targetOff(this);
   }
 }
