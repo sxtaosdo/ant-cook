@@ -15,7 +15,7 @@ function loadSource(path, require) {
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
 function fixture(remainingMs = 300) {
-  const state = { remainingMs, day: '2026-10-11', result: 'PLAYING', delta: 0, feedback: [], draws: [], consumed: [], controls: [], attempts: 0, guideCalls: 0 };
+  const state = { remainingMs, day: '2026-10-11', result: 'PLAYING', activeWorkers: 1, delta: 0, feedback: [], draws: [], consumed: [], controls: [], attempts: 0, guideCalls: 0 };
   const directorEvents = new Map(), gameEvents = new Map();
   const director = { on: (key, action) => directorEvents.set(key, action), off: key => directorEvents.delete(key), getDeltaTime: () => state.delta };
   const game = { on: (key, action) => gameEvents.set(key, action), off: key => gameEvents.delete(key) };
@@ -55,7 +55,10 @@ function fixture(remainingMs = 300) {
     if (module.endsWith('/speedBoost')) return speed;
     return { ProgressPresentation };
   });
-  const presentation = new SpeedBoostPresentation(context, { setSpeedMultiplier: multiplier => { state.multiplier = multiplier; } });
+  const presentation = new SpeedBoostPresentation(context, {
+    get evidence() { return { activeWorkers: state.activeWorkers }; },
+    setSpeedMultiplier: multiplier => { state.multiplier = multiplier; },
+  });
   return { state, context, presentation, ProgressPresentation,
     frame(ms = 0) { state.delta = ms / 1000; directorEvents.get('update')?.(); },
     hide() { gameEvents.get('hide')(); }, show() { gameEvents.get('show')(); },
@@ -70,6 +73,22 @@ test('natural manual depletion returns to 1x and opens once without a second spe
   assert.equal(f.state.controls.length, 1); assert.equal(f.context.progressPopup, f.state.controls[0]);
   f.frame(300); f.state.controls[0].close(); f.frame(300); await flush();
   assert.equal(f.state.attempts, 1); assert.equal(f.context.progressPopup, null);
+});
+
+test('manual speed keeps the full balance between transports and depletes only while workers are active', async () => {
+  const f = fixture(1000); f.state.activeWorkers = 0; f.state.cycle();
+  f.frame(5000); await flush();
+  assert.equal(f.presentation.evidence.remainingMs, 1000);
+  assert.equal(f.state.multiplier, 2); assert.deepEqual(f.state.consumed, []);
+  assert.equal(f.state.controls.length, 0);
+  f.state.activeWorkers = 1; f.frame(300);
+  assert.equal(f.presentation.evidence.remainingMs, 700);
+  assert.deepEqual(f.state.consumed, [300]);
+  f.state.activeWorkers = 0; f.frame(5000);
+  assert.equal(f.presentation.evidence.remainingMs, 700);
+  f.state.activeWorkers = 1; f.frame(700); await flush();
+  assert.equal(f.presentation.evidence.remainingMs, 0);
+  assert.equal(f.state.multiplier, 1); assert.equal(f.state.controls.length, 1);
 });
 
 test('depletion queues behind another business popup until gameplay unlocks', async () => {

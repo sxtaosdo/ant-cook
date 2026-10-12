@@ -81,7 +81,8 @@ export class SpeedBoostPresentation {
     try {
       if (this.skipResumeFrame) { this.skipResumeFrame = false; this.render(); this.tryShowExhaustion(); return; }
       const timed = this.boost.multiplier !== 1 && this.boost.source === 'manual';
-      this.fractionMs = timed ? this.fractionMs + director.getDeltaTime() * 1000 : 0;
+      const consuming = timed && this.transport.evidence.activeWorkers > 0;
+      this.fractionMs = consuming ? this.fractionMs + director.getDeltaTime() * 1000 : 0;
       const ms = Math.floor(this.fractionMs);
       this.fractionMs -= ms;
       this.boost.advance(ms, consumed => this.context.dailyActivity?.boost(consumed));
