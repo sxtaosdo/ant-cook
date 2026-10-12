@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.82`**
+**当前版本：`v0.3.0.83`**
 
 状态: Draft
 
@@ -30,25 +30,27 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 
 来源快照见 `MIGRATION_SOURCES.json`；功能状态见 `CHANGELOG.md`。
 
-## 公共登录 Shell 接线（源码检查点）
+## 公共登录 Shell 接线
 
 2026-10-11 源码检查点 v76 `e2bf0207bdce04054c07ad7c0a638602d336085b` 为 Shell 导航增加可选账号状态／动作绑定。View 只接收既有四字段 `ProductAccountProjection`，Bootstrap 持有唯一默认关闭的 `LoginFacade`；启动、渲染和切玩法不请求登录，玩家显式操作才沿 `requestLogin`／取消／退出进入公共会话。Ant／Cook 共用同一产品内存会话；账号 pending 不阻断继续玩法和重试本地记录，迟到凭据不发起新交换，销毁后不回写 UI。缺配置或可信交换时保持游客，并投影“登录未配置，可继续游客玩法”。
 
 依赖消费检查点 v78 `ae80d6ccc12458c60a9e1214bafc315f939286ca` 已将产品 index／checkout 更新为 P0002 v2.7.0 `39f168e7abdac9215d0ea21f2a5a3585262e9970`，公开入口已提供 `DouyinCredentialAdapter`；v2.6.1 遥测边界修正与抖音登录 Port 随依赖消费。产品 `LoginFacade` 仍默认关闭，缺配置或可信交换时保持游客。本片只更新 4060 产品依赖与消费测试，不更新父仓 pin、不注入真实 credential／exchange、不接新 SDK，也不外发认证或遥测；真实存档与本地资料合同保持。
 
-v76 在 P0002 v2.6.0 上通过 Node 22.23.3 strict 与受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试（5 项新增及既有公共模块 2 项）；其 Bootstrap／Navigation 源码本轮未改。v78 在实际 v2.7.0 依赖上通过 strict 与公共模块／Shell 遥测 2 文件共 23 项消费测试（新增 2 项），验证启动和缺可信交换时零平台调用，以及显式操作后平台 code 仍须经可信交换才能激活会话。tt API／交换、cc、绘图及场景 IO 均为替身，未重跑无关全量套件。v78 的 gitlink 与测试 2/2 已经 OCR 选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。当前 `ProductNavigation.prefab` 尚无 `accountStatusLabel`／`accountActionButton`／`accountActionLabel` 序列化字段，本片未修改 Prefab 或调用 Creator／Companion；新入口可见性、按钮触摸及原生生命周期仍待标准 Creator 绑定和 750×1334 验收，真实 SDK／可信后台也未验。v76 与 v78 证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/` 和 `C:/Users/33272/AppData/Local/Temp/4060-framework-v27-consumption-20261011/`。
+v76 在 P0002 v2.6.0 上通过 Node 22.23.3 strict 与受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试（5 项新增及既有公共模块 2 项）。v78 在实际 v2.7.0 依赖上通过 strict 与公共模块／Shell 遥测 2 文件共 23 项消费测试（新增 2 项），验证启动和缺可信交换时零平台调用，以及显式操作后平台 code 仍须经可信交换才能激活会话。tt API／交换、cc、绘图及场景 IO 均为替身，未重跑无关全量套件。v78 的 gitlink 与测试 2/2 已经 OCR 选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。v76／v78 检查时 ProductNavigation 尚无三项账号序列化绑定，两个历史源码片未修改 Prefab 或调用 Creator／Companion；2026-10-12 的绑定制作和最小 View 兼容修补见下述 v82 回执。新入口可见性、原生按钮触摸及生命周期仍待 750×1334 验收，真实 SDK／可信后台也未验。v76 与 v78 证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/` 和 `C:/Users/33272/AppData/Local/Temp/4060-framework-v27-consumption-20261011/`。
 
 ## 加速弹窗、货币栏与设置的当前状态
 
-2026-10-11 倍速弹窗新增布局参考：已按 Owner 明确提供的桌面文件实际看图（925×2048，359787 字节），确认独立标题牌、等宽横向卡片、蓝色免费视频卡和底部返回区。当前产品仍为每日赠送 3 分钟、广告领取 2 分钟，没有付费倍速 SKU；参考图的时长、价格和次数不进入业务合同。已准备固定 Prefab 的两张信息卡与一张免费广告卡布局，保留现有 7 个 Label、2 个按钮绑定及关闭/广告状态流程，详见 [布局准备方案](C:/Users/33272/AppData/Local/Temp/4060-speed-layout-reference-20261011/speed-layout-preflight.md)。此项仅完成看图和方案，Creator 资源修改与本布局的 750×1334 原生验收尚未执行，等待主线程释放维护窗口。
+2026-10-12 资源／源码检查点 v82 `1a397f27cd5d1091a2cb744df65315aaa1390ae5`：实际查看 Owner 原参考图后，经标准 Creator 事务保存倍速标题牌、两张信息卡、蓝色免费广告卡和底部返回区，保留原 7 Label／2 按钮绑定；ProductNavigation 新增 3 个固定账号节点并保存 3 项类型化引用，沿用现有 Graphics 底板例外。两份 Prefab 均关闭复开、按绑定角色回读通过。离线核对发现旧 View 拒绝新五底板且会覆盖保存的按钮坐标；最小修补精确兼容四／五底板，并首次缓存 Prefab 槽位，单 Cook、恢复双模式及重复 configure 不漂移。Node22.23.3 下实际保存导航资源消费测试 11/11、离线 strict 编译与序列化静态检查通过；引用、原节点标识、层级及 750×1334 静态边界有效。OCR 宿主审阅 4/4，普通独立只读复审确认两项缺陷关闭、无新增确定问题，硬隔离未核验。登录仍默认关闭，缺配置保持游客；Owner32／生产6／框架32份 Meta、保存的 Bootstrap 场景及 P0002 v2.7.0 pin 保持。Creator 已回到 Bootstrap，任务心跳结束、fence15 正常 RELEASED，窗口已交 P1060；此离线收束未调用 Creator／服务。Creator 编译桥、750×1334 原生可见性／交互、保存故障／免费倍速／倒计时和第7关失败重玩背景仍待下一窗口，不把替身或静态检查记为原生验收。资源阶段与离线证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-creator-authoring-20261012/` 和 `C:/Users/33272/AppData/Local/Temp/4060-creator-offline-final-20261012/`。
+
+2026-10-11 倍速弹窗新增布局参考：已按 Owner 明确提供的桌面文件实际看图（925×2048，359787 字节），确认独立标题牌、等宽横向卡片、蓝色免费视频卡和底部返回区。当前产品仍为每日赠送 3 分钟、广告领取 2 分钟，没有付费倍速 SKU；参考图的时长、价格和次数不进入业务合同。已准备固定 Prefab 的两张信息卡与一张免费广告卡布局，保留现有 7 个 Label、2 个按钮绑定及关闭/广告状态流程，详见 [布局准备方案](C:/Users/33272/AppData/Local/Temp/4060-speed-layout-reference-20261011/speed-layout-preflight.md)。v75 时仅完成看图和方案；2026-10-12 已按上述资源阶段回执完成标准 Creator 制作和复开读回，本布局的 750×1334 原生验收仍未执行。
 
 截至 2026-10-11，本轮实现已形成未发布本地源码检查点 v66 `f10e69c`。下述 Preview 截图采集时显示 v0.3.0.65，另含本轮已授权实现及保留的 Owner 工作区改动；它们不是 v66 干净检出或正式构建的验收。
 
-2026-10-12 倍速弹窗交互源码检查点 v80 `8acf52a2fc58851ba2d0db629777f42b57760af4`：广告／奖励操作等待返回时，固定 View 同步显示“处理中”并禁用领取和关闭按钮；控制器沿用原有 busy 约束，取消／失败后恢复现有操作，打开复用 View 时重置局部等待状态。奖励保存失败继续显示“重试领取”，关闭仍保留原回执，重试不重复视频或已保存奖励；时长、余额、经济和存档规则不改。新增 5 项实际 View／Control／Presenter／奖励账本链路的隔离测试，cc、MK 资源生命周期、视频与存储端口为替身。Node 22.23.3 strict 通过；受影响 6 文件共 62 项唯一覆盖，首轮 36 项通过，26 项旧生命周期夹具因遗漏账号合同而在初始化失败，修改前 Control 已复现同错；补齐真实合同与独立 Settings 类型后仅复验这 26 项，全部通过，未放宽断言。OCR 宿主审阅 4/4，普通只读复审无确定 P1/P2，硬隔离未核验。未操作 Creator／daemon／租约或 Prefab／Meta，750×1334 按钮原生触摸与上述参考布局仍待窗口释放；证据位于 `C:/Users/33272/AppData/Local/Temp/4060-speed-interaction-20261012/`。
+2026-10-12 倍速弹窗交互源码检查点 v80 `8acf52a2fc58851ba2d0db629777f42b57760af4`：广告／奖励操作等待返回时，固定 View 同步显示“处理中”并禁用领取和关闭按钮；控制器沿用原有 busy 约束，取消／失败后恢复现有操作，打开复用 View 时重置局部等待状态。奖励保存失败继续显示“重试领取”，关闭仍保留原回执，重试不重复视频或已保存奖励；时长、余额、经济和存档规则不改。新增 5 项实际 View／Control／Presenter／奖励账本链路的隔离测试，cc、MK 资源生命周期、视频与存储端口为替身。Node 22.23.3 strict 通过；受影响 6 文件共 62 项唯一覆盖，首轮 36 项通过，26 项旧生命周期夹具因遗漏账号合同而在初始化失败，修改前 Control 已复现同错；补齐真实合同与独立 Settings 类型后仅复验这 26 项，全部通过，未放宽断言。OCR 宿主审阅 4/4，普通只读复审无确定 P1/P2，硬隔离未核验。v80 源码片未操作 Creator／daemon／租约或 Prefab／Meta；v82 已制作并保存上述参考布局，750×1334 按钮原生触摸仍待下一窗口。v80 证据位于 `C:/Users/33272/AppData/Local/Temp/4060-speed-interaction-20261012/`。
 
 玩家点击既有加速入口打开专用固定弹窗。手动加速自然耗尽后回到 1 倍并请求该弹窗；其他业务弹窗或输入暂锁期间等待，导航、销毁、免费收尾、保存失败或余额恢复撤销过时提示。`SpeedBoostPresentation` 持有耗尽提示的会话归属，`ProgressPresentation` 负责命令、导航与只读投影。v64 的 `SpeedProgressPage` 约束 `layout: 'speed'`、时长与余额、唯一 `ad-speed` 操作和 `showBack: false`，不替代运行时验证。
 
-`popups/speed/prefab/speed.prefab` 已经标准 Creator 创建、绑定、保存并读回，UUID `acab984e-fff8-4389-841d-b6dc52b3e19a`。12 个固定节点、7 项 Label 和 2 项按钮 Node 引用已核对，根及遮罩 Widget 为 750×1334，根阻挡输入；专用 View 已接入 MK 注册、路由、清理与货币识别。未以脚本直接修改序列化资产。
+`popups/speed/prefab/speed.prefab` 已经标准 Creator 创建、绑定、保存并读回，UUID `acab984e-fff8-4389-841d-b6dc52b3e19a`。v66 初版有 12 个固定节点；v82 当前有 17 个固定节点、113 个序列化对象，7 项 Label 和 2 项按钮 Node 引用保持并已核对，根及遮罩 Widget 为 750×1334，根阻挡输入；专用 View 已接入 MK 注册、路由、清理与货币识别。未以脚本直接修改序列化资产。
 
 货币浮层挂在 Canvas，以保存的 Widget 与当前安全区放在屏幕顶部。玩法、首页、建设与加载页没有业务弹窗时隐藏；有本产品业务弹窗时显示，Toast 单独存在和 GM 不计业务弹窗。本轮隔离 Preview 覆盖 31 个弹窗导航入口及成功／失败结算、页面与 Toast/GM 边界；稳定状态栏上缘为 1334，顶部安全区偏移为 0。收集对象详情通过实际“详情”按钮进入；非法直接进入且缺对象 ID 的探测回执保留为失败，没有核销成通过。这里只验证 Ant 的货币浮层和设计分辨率。
 
