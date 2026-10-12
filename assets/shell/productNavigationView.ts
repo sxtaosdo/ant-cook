@@ -27,7 +27,7 @@ export class ProductNavigationView extends mk.StaticViewBase {
   @property(Label) public retryLabel: Label | null = null;
   @property(Label) public continueLabel: Label | null = null;
   @property(Label) public statusLabel: Label | null = null;
-  // Optional until the standard Creator authoring window supplies these bindings.
+  // Legacy or partially serialized Prefabs may omit the account bindings.
   @property(Label) public accountStatusLabel: Label | null = null;
   @property(Node) public accountActionButton: Node | null = null;
   @property(Label) public accountActionLabel: Label | null = null;
@@ -36,12 +36,14 @@ export class ProductNavigationView extends mk.StaticViewBase {
   @property public buttonRadius = 14;
   private actions: ProductNavigationActions | null = null;
   private accountAction: ProductAccountAction | null = null;
+  private modeSlots: readonly [number, number] | null = null;
 
   public configure(actions: ProductNavigationActions): void {
     if (!this.rootTransform || !this.backdrop || !this.panel || !this.panelPaper
       || !this.antButton || !this.cookButton || !this.continueButton || !this.retryButton
       || !this.antLabel || !this.cookLabel || !this.retryLabel || !this.continueLabel || !this.statusLabel
-      || this.buttonPlates.length !== 4) throw new Error('Product navigation bindings are incomplete');
+      || (this.buttonPlates.length !== 4 && this.buttonPlates.length !== 5)) throw new Error('Product navigation bindings are incomplete');
+    this.modeSlots ??= [this.antButton.position.y, this.cookButton.position.y];
     this.actions = actions;
     this.drawPlates();
     this.bindActions();
@@ -62,8 +64,8 @@ export class ProductNavigationView extends mk.StaticViewBase {
     ] as const) {
       const index = modes.indexOf(id);
       node.active = index >= 0;
-      // The single-game variant occupies the same first slot as v16.
-      if (index >= 0) node.setPosition(node.position.x, 170 - index * 120, node.position.z);
+      // A single game uses the first authored slot; repeated reveals keep both slots stable.
+      if (index >= 0) node.setPosition(node.position.x, this.modeSlots![index] ?? this.modeSlots![0], node.position.z);
       label.string = `${title}${current === id ? '（当前）' : ''}`;
     }
     this.drawPlates();

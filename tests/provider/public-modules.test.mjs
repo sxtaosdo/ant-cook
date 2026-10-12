@@ -48,6 +48,33 @@ function navigationFixture(accountBindings = true) {
   return view;
 }
 
+function savedNavigationFixture() {
+  const records = JSON.parse(readFileSync(new URL('../../assets/shell/ProductNavigation.prefab', import.meta.url), 'utf8'));
+  const objects = records.map(record => record.__type__ === 'cc.Node' ? new UiNode() : {});
+  const resolve = value => Array.isArray(value) ? value.map(resolve)
+    : value && Object.hasOwn(value, '__id__') ? objects[value.__id__] : value;
+  for (const [index, record] of records.entries()) {
+    const object = objects[index];
+    if (record.__type__ === 'cc.Node') {
+      object.active = record._active;
+      object.position = { x: record._lpos.x, y: record._lpos.y, z: record._lpos.z };
+      object.parent = resolve(record._parent);
+    } else {
+      object.node = resolve(record.node);
+      if (record.__type__ === 'cc.Label') object.string = record._string;
+      if (record.__type__ === 'cc.UITransform') object.setContentSize = () => {};
+    }
+  }
+  const bindings = records.find(record => Object.hasOwn(record, 'buttonPlates') && Object.hasOwn(record, 'antButton'));
+  assert.ok(bindings, 'Saved navigation controller must exist');
+  const view = navigationFixture();
+  for (const [key, value] of Object.entries(bindings)) {
+    if (Object.hasOwn(view, key)) view[key] = resolve(value);
+  }
+  view.node = resolve(bindings.node);
+  return view;
+}
+
 function fixture(navigation = null) {
   const scene = {}, transitions = [], timers = [];
   class Component { isValid = true; enabledInHierarchy = true; schedule() {} unschedule() {} }
@@ -96,6 +123,47 @@ const syntheticCredential = () => ({ provider: 'google', scope: { issuer: 'fixtu
   proof: { kind: 'google-id-token', idToken: 'synthetic', nonce: 'synthetic' } });
 const syntheticSession = () => ({ gameAccountId: 'synthetic', sessionId: 'synthetic', expiresAtMs: 2000 });
 const settle = () => new Promise(resolve => setImmediate(resolve));
+
+test('actual saved navigation Prefab configures five plates and boots with default guest login disabled', async () => {
+  const view = savedNavigationFixture();
+  assert.equal(view.buttonPlates.length, 5);
+  assert.ok(view.accountStatusLabel && view.accountActionButton && view.accountActionLabel);
+  const actions = { enter() {}, continueCurrent() {}, retry() {}, account() {} };
+  assert.doesNotThrow(() => view.configure(actions));
+  const { root, timers, transitions } = fixture(view);
+  await root.boot(); root.update(); root.update();
+  assert.deepEqual(transitions, ['ant']);
+  assert.equal(root.loginFacade.readiness().status, 'disabled');
+  assert.equal(root.loginFacade.snapshot().auth.status, 'guest');
+  assert.match(view.accountStatusLabel.string, /未配置.*游客/);
+  assert.equal(view.accountActionButton.active, false);
+  view.accountActionButton.emit(); root.accountAction('login');
+  assert.equal((await root.loginFacade.requestLogin()).status, 'unavailable');
+  assert.deepEqual(timers, []);
+  root.onDestroy();
+  for (const count of [3, 6]) {
+    const invalid = savedNavigationFixture(); invalid.buttonPlates = Array(count).fill({});
+    assert.throws(() => invalid.configure(actions), /bindings are incomplete/);
+  }
+});
+
+test('authored mode slots survive dual and repeated Cook-only reveals without overlapping Continue', () => {
+  const view = savedNavigationFixture();
+  // Exercise legacy four-plate compatibility with the newly authored geometry.
+  view.buttonPlates = view.buttonPlates.slice(0, 4);
+  const actions = { enter() {}, continueCurrent() {}, retry() {} };
+  view.configure(actions);
+  const reveal = modes => view.reveal(modes, null, true, true, 'retry', 750, 1334, 0, 0);
+  reveal(['ant', 'cook']);
+  assert.equal(view.antButton.position.y, 320); assert.equal(view.cookButton.position.y, 200);
+  assert.equal(view.continueButton.position.y, 80); assert.equal(view.retryButton.position.y, -40);
+  assert.ok(view.cookButton.position.y - view.continueButton.position.y >= 100, 'Saved 100px buttons must not overlap');
+  reveal(['cook']); assert.equal(view.cookButton.position.y, 320); assert.equal(view.antButton.active, false);
+  view.configure(actions); reveal(['cook']); assert.equal(view.cookButton.position.y, 320);
+  reveal(['ant', 'cook']); assert.equal(view.antButton.position.y, 320); assert.equal(view.cookButton.position.y, 200);
+  reveal(['cook', 'ant']); assert.equal(view.cookButton.position.y, 320); assert.equal(view.antButton.position.y, 200);
+  reveal(['ant', 'cook']); assert.equal(view.antButton.position.y, 320); assert.equal(view.cookButton.position.y, 200);
+});
 
 test('actual Bootstrap owns a disabled shared LoginFacade without startup login and disposes once', async () => {
   const { root, timers, transitions } = fixture();
