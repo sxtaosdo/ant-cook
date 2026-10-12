@@ -13,6 +13,7 @@ import { ColonyLeaderboardView } from '../../popups/leaderboard/script/leaderboa
 import { ColonySocialPopupView } from '../../popups/social/script/socialPopupView';
 import { ColonyShopView } from '../../popups/shop/script/shopView';
 import { ColonyShopRow } from '../../popups/shop/script/shopRow';
+import { ColonySpeedView } from '../../popups/speed/script/speedView';
 import { ColonyCommunityView } from '../../popups/progress/script/communityView';
 import { ColonyToastView } from '../../popups/toast/script/toastView';
 import { ColonySettingsView } from '../../popups/settings/script/settingsView';
@@ -47,6 +48,7 @@ const EMPTY_TRANSPORT_EVIDENCE: ColonyTransportEvidence = {
 /** Preview/自动化测试桥：挂到 globalThis，转发 PlayState 与表现证据。 */
 export class ColonyTestBridge {
   private leaderboardPreview: ReturnType<typeof createProgressPreviewSession> | null = null;
+  private speedVideoCounts: { loads: number; shows: number; closes: number } | null = null;
   public constructor(private readonly ctx: ColonySceneBootstrap) {}
 
   /** 清除全局测试桥引用。 */
@@ -126,6 +128,40 @@ export class ColonyTestBridge {
       }
       write.call(this, key, value);
     };
+  }
+  /** Fail one primary reward write only in the bridge-owned private memory fixture. */
+  public failNextSpeedRewardSavePreview(): void {
+    if (!PREVIEW || !this.ctx.gm?.active || !this.leaderboardPreview
+      || this.ctx.progress !== this.leaderboardPreview.progress) throw new Error('Isolated speed Preview required');
+    const save = (this.ctx.progress as unknown as { save: ProgressSavePort }).save;
+    if (save.testOnly !== true) throw new Error('Private memory save required');
+    const before = this.ctx.progress.snapshot().daily.boostAds;
+    const write = save.write;
+    save.write = function(key: string, value: string): void {
+      if (key === PROGRESS_SAVE_KEY) {
+        const next: unknown = JSON.parse(value);
+        if (typeof next === 'object' && next !== null && 'daily' in next
+          && typeof next.daily === 'object' && next.daily !== null && 'boostAds' in next.daily
+          && typeof next.daily.boostAds === 'number' && next.daily.boostAds > before) {
+          save.write = write;
+          throw new Error('Isolated speed reward save failure');
+        }
+      }
+      write.call(this, key, value);
+    };
+  }
+  public speedPopupEvidencePreview(): unknown {
+    if (!PREVIEW || !this.leaderboardPreview || this.ctx.progress !== this.leaderboardPreview.progress)
+      throw new Error('Isolated speed Preview required');
+    const popup = this.ctx.popupRoot?.getComponentsInChildren(ColonySpeedView).find(item => item.isAvailable());
+    return { mounted: Boolean(popup), action: popup?.actionLabel?.string,
+      actionEnabled: popup?.actionButton?.getComponent(Button)?.interactable,
+      dismissEnabled: popup?.dismissButton?.getComponent(Button)?.interactable,
+      feedback: popup?.feedbackLabel?.string, pendingReward: this.ctx.ads?.hasPendingReward(),
+      pendingKey: this.ctx.ads?.pendingRequestKey('speed') ?? null,
+      video: this.speedVideoCounts ? { ...this.speedVideoCounts } : null,
+      selected: this.playPage()?.speedEvidence, budget: this.ctx.progress.readSpeedBoost(),
+      boostAds: this.ctx.progress.snapshot().daily.boostAds };
   }
   public getSpeedEvidence(): unknown { return { selected: this.playPage()?.speedEvidence, transport: this.playPage()?.transportEvidence }; }
   public getInstallationId(): string | null { return this.ctx.identity?.read() ?? null; }
@@ -281,14 +317,20 @@ export class ColonyTestBridge {
     await PlayState.goHome(this.ctx);
   }
   /** PREVIEW-only isolated balance and SDK completion; never grants a real player's time. */
-  public async previewSpeedBoost(remainingMs = FREE_BOOST_MS, completion = 'complete'): Promise<void> {
-    if (!PREVIEW || !Number.isSafeInteger(remainingMs) || remainingMs < 0 || remainingMs > FREE_BOOST_MS || !['complete', 'cancel', 'unavailable'].includes(completion)) throw new Error('Invalid speed Preview');
+  public async previewSpeedBoost(remainingMs = FREE_BOOST_MS, completion = 'complete', completionDelayMs = 300): Promise<void> {
+    if (!PREVIEW || !Number.isSafeInteger(remainingMs) || remainingMs < 0 || remainingMs > FREE_BOOST_MS
+      || !['complete', 'cancel', 'unavailable'].includes(completion)
+      || !Number.isSafeInteger(completionDelayMs) || completionDelayMs < 0 || completionDelayMs > 10000) throw new Error('Invalid speed Preview');
     await this.previewLeaderboard(0);
     for (let ms = FREE_BOOST_MS - remainingMs; ms > 0; ms -= Math.min(ms, 1000)) this.ctx.progress!.reserveSpeedBoost(Math.min(ms, 1000));
     this.ctx.ads?.dispose();
+    const counts = this.speedVideoCounts = { loads: 0, shows: 0, closes: 0 };
     this.ctx.ads = new RewardedAds(completion === 'unavailable' ? null : { createRewardedVideoAd: () => {
       let close: (result?: { isEnded?: boolean }) => void = () => {};
-      const video: RewardedVideo = { load: async () => {}, show: async () => { setTimeout(() => close({ isEnded: completion === 'complete' }), 300); },
+      const video: RewardedVideo = { load: async () => { counts.loads++; }, show: async () => {
+        counts.shows++;
+        setTimeout(() => { counts.closes++; close({ isEnded: completion === 'complete' }); }, completionDelayMs);
+      },
         onClose: callback => { close = callback; }, offClose: () => {}, onError: () => {}, offError: () => {} };
       return video;
     } }, { speed: 'preview-only' }, () => this.ctx.round?.id ?? '');
