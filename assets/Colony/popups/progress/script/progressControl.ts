@@ -81,11 +81,13 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
       return;
     }
     const model = this._model, view = this._view;
+    const speedView = model.page.layout === 'speed' ? view as ColonySpeedView : null;
     this.busy = true;
     this.profileSaveInFlight = action.startsWith('profile-save:');
     this.activeProfileAction = this.profileSaveInFlight ? action : null;
     let failed = false;
     try {
+      speedView?.setActionPending(true);
       const feedback = await this.navigation.act(action);
       if (this.isClosing || this._model !== model || this._view !== view || !view.isAvailable()) return;
       model.feedback = feedback ?? '';
@@ -97,7 +99,10 @@ export class ProgressControl extends mk.MVCControlBase<ProgressModel, ColonyPopu
       this.busy = false;
       this.profileSaveInFlight = false;
       this.activeProfileAction = null;
-      if (!this.isClosing && view.isAvailable()) view.render();
+      if (!this.isClosing && view.isAvailable()) {
+        if (speedView) speedView.setActionPending(false);
+        else view.render();
+      }
       const queued = this.queuedProfileAction;
       this.queuedProfileAction = null;
       if (!this.isClosing && view.isAvailable()) {

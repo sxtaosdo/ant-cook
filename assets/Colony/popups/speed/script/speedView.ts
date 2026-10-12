@@ -16,6 +16,16 @@ export class ColonySpeedView extends ColonyPopupView {
   @property(Node) public actionButton: Node | null = null;
   @property(Node) public dismissButton: Node | null = null;
 
+  private actionPending = false;
+
+  protected prepareOpen(): void { this.actionPending = false; }
+
+  /** Mirrors the controller's pending command; reward and storage state stay with their owners. */
+  public setActionPending(pending: boolean): void {
+    this.actionPending = pending;
+    if (this.isAvailable()) this.render();
+  }
+
   public render(): void {
     const { page, feedback } = this._model;
     const offer = page.rows[0];
@@ -29,10 +39,10 @@ export class ColonySpeedView extends ColonyPopupView {
     this.durationLabel.string = page.speed.durationText;
     this.remainingLabel.string = page.speed.remainingText;
     this.offerDetailLabel.string = offer.detail;
-    this.actionLabel.string = offer.button;
+    this.actionLabel.string = this.actionPending ? '处理中' : offer.button;
     this.feedbackLabel.string = feedback;
     this.feedbackLabel.node.active = Boolean(feedback);
-    this.bind(this.actionButton, offer.enabled, () => this.event.emit('action', offer.action));
-    this.bind(this.dismissButton, true, () => this.event.emit('close'));
+    this.bind(this.actionButton, offer.enabled && !this.actionPending, () => this.event.emit('action', offer.action));
+    this.bind(this.dismissButton, !this.actionPending, () => this.event.emit('close'));
   }
 }

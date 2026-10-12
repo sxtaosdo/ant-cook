@@ -79,12 +79,13 @@ function provider({ editor = true, realRelease = false } = {}) {
   mocks.progressModel = { ProgressModel: { async new() { return { page: null, close() { state.popupModelCloses = (state.popupModelCloses ?? 0) + 1; } }; } } };
   class PopupView extends View { event = { on() {}, off() {}, targetOff() {} }; isAvailable() { return this.node.isValid; } }
   mocks.progressView = { ColonyProgressView: PopupView };
-  mocks.settingsView = { ColonySettingsView: PopupView };
+  mocks.settingsView = { ColonySettingsView: class extends PopupView {} };
   mocks.confirmView = { ColonyConfirmView: PopupView };
   mocks.socialPopupView = { ColonySocialPopupView: PopupView };
   mocks.shopView = { ColonyShopView: PopupView };
   mocks.colonyUtil = { ColonyUtil: { applyUiLayer() {} } };
   mocks.resultPopupNav = { swallowMkInterrupt: async value => { try { await value; } catch (cause) { if (cause !== '中断') throw cause; } } };
+  mocks.contracts = load(fileURLToPath(new URL('../../assets/shell/contracts.ts', import.meta.url)));
   const { ProgressControl } = load(fileURLToPath(new URL('../../assets/Colony/popups/progress/script/progressControl.ts', import.meta.url)));
   return { state, ui, ObjectPool, MVCControlBase, ProgressControl, PopupView, bundle: state.bundle, BundleManageBase: MKBundle_.BundleManageBase, View, Node, Scene, Prefab, scene };
 }
