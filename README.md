@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.89`**
+**当前版本：`v0.3.0.90`**
 
 状态: Draft
 
@@ -36,7 +36,9 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 
 依赖消费检查点 v78 `ae80d6ccc12458c60a9e1214bafc315f939286ca` 已将产品 index／checkout 更新为 P0002 v2.7.0 `39f168e7abdac9215d0ea21f2a5a3585262e9970`，公开入口已提供 `DouyinCredentialAdapter`；v2.6.1 遥测边界修正与抖音登录 Port 随依赖消费。产品 `LoginFacade` 仍默认关闭，缺配置或可信交换时保持游客。本片只更新 4060 产品依赖与消费测试，不更新父仓 pin、不注入真实 credential／exchange、不接新 SDK，也不外发认证或遥测；真实存档与本地资料合同保持。
 
-v76 在 P0002 v2.6.0 上通过 Node 22.23.3 strict 与受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试（5 项新增及既有公共模块 2 项）。v78 在实际 v2.7.0 依赖上通过 strict 与公共模块／Shell 遥测 2 文件共 23 项消费测试（新增 2 项），验证启动和缺可信交换时零平台调用，以及显式操作后平台 code 仍须经可信交换才能激活会话。tt API／交换、cc、绘图及场景 IO 均为替身，未重跑无关全量套件。v78 的 gitlink 与测试 2/2 已经 OCR 选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。v76／v78 检查时 ProductNavigation 尚无三项账号序列化绑定，两个历史源码片未修改 Prefab 或调用 Creator／Companion；2026-10-12 的绑定制作和最小 View 兼容修补见下述 v82 回执。新入口可见性、原生按钮触摸及生命周期仍待 750×1334 验收，真实 SDK／可信后台也未验。v76 与 v78 证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/` 和 `C:/Users/33272/AppData/Local/Temp/4060-framework-v27-consumption-20261011/`。
+v76 在 P0002 v2.6.0 上通过 Node 22.23.3 strict 与受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试（5 项新增及既有公共模块 2 项）。v78 在实际 v2.7.0 依赖上通过 strict 与公共模块／Shell 遥测 2 文件共 23 项消费测试（新增 2 项），验证启动和缺可信交换时零平台调用，以及显式操作后平台 code 仍须经可信交换才能激活会话。tt API／交换、cc、绘图及场景 IO 均为替身，未重跑无关全量套件。v78 的 gitlink 与测试 2/2 已经 OCR 选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。v76／v78 检查时 ProductNavigation 尚无三项账号序列化绑定，两个历史源码片未修改 Prefab 或调用 Creator／Companion；2026-10-12 的绑定制作和最小 View 兼容修补见下述 v82 回执。**以上“新入口可见性、原生按钮触摸及生命周期仍待 750×1334 验收”是 v76／v78 记录时的状态；本轮仅完成默认游客路径验收。** v76 与 v78 证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/` 和 `C:/Users/33272/AppData/Local/Temp/4060-framework-v27-consumption-20261011/`。
+
+2026-10-13 v0.3.0.89 源码与受保护 Owner 工作树上的 750×1334 fresh isolated Edge 原生回执（operation `9eebff20-8352-44a6-b127-20c7a2ee6f52`）：66/66 步骤通过，四类运行诊断均为空。经 Ant 公开 `openProgress('settings')` 打开设置，再真实触摸“切换玩法”打开导航，验证游客／未配置状态、登录操作隐藏、继续当前玩法、切换 Cook 并进入地图设置、从 Cook 切换及返回 Ant；整页 reload 后再次打开导航，默认游客提示仍可见。三个阶段的 `playerId`、昵称、头像与注册时间逐项一致，15 张 PNG 已冻结。Node 22.23.3 strict 与公共模块／Shell／推荐生命周期定向测试 36/36 通过；71 个源码／Owner／既有 Meta 文件哈希保持，框架 32 份 Meta 与 pin 保留。此回执仅证明默认游客路径闭环；未注入认证 fakePort、未测真实 SDK／后端，pending／active／取消登录仍只有既有离线替身证据。该采集不是 v0.3.0.90 干净构建；正式 Creator 产物关联仍为 `UNCONFIRMED`，未做本轮新 Build／Smoke。短时 Profiler 的 `PERF_BUDGET` 提示保留（P95 16.8ms），不构成性能通过。Cook 固定 UI 尚未迁移，Cook 设置页为下一明确排队切片。证据见任务目录 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-shell-account/` 及其 `native-verification.json`。
 
 ## 加速弹窗、货币栏与设置的当前状态
 
