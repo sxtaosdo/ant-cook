@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.91`**
+**当前版本：`v0.3.0.92`**
 
 状态: Draft
 
@@ -38,7 +38,7 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 
 v76 在 P0002 v2.6.0 上通过 Node 22.23.3 strict 与受影响 Shell／切玩法／推荐生命周期 4 文件共 46 项离线测试（5 项新增及既有公共模块 2 项）。v78 在实际 v2.7.0 依赖上通过 strict 与公共模块／Shell 遥测 2 文件共 23 项消费测试（新增 2 项），验证启动和缺可信交换时零平台调用，以及显式操作后平台 code 仍须经可信交换才能激活会话。tt API／交换、cc、绘图及场景 IO 均为替身，未重跑无关全量套件。v78 的 gitlink 与测试 2/2 已经 OCR 选择并由宿主审阅，普通只读 reviewer 无确定 P1/P2，硬隔离未核验。v76／v78 检查时 ProductNavigation 尚无三项账号序列化绑定，两个历史源码片未修改 Prefab 或调用 Creator／Companion；2026-10-12 的绑定制作和最小 View 兼容修补见下述 v82 回执。**以上“新入口可见性、原生按钮触摸及生命周期仍待 750×1334 验收”是 v76／v78 记录时的状态；本轮仅完成默认游客路径验收。** v76 与 v78 证据分别位于 `C:/Users/33272/AppData/Local/Temp/4060-shell-login-20261011/` 和 `C:/Users/33272/AppData/Local/Temp/4060-framework-v27-consumption-20261011/`。
 
-2026-10-13 v0.3.0.89 源码与受保护 Owner 工作树上的 750×1334 fresh isolated Edge 原生回执（operation `9eebff20-8352-44a6-b127-20c7a2ee6f52`）：66/66 步骤通过，四类运行诊断均为空。经 Ant 公开 `openProgress('settings')` 打开设置，再真实触摸“切换玩法”打开导航，验证游客／未配置状态、登录操作隐藏、继续当前玩法、切换 Cook 并进入地图设置、从 Cook 切换及返回 Ant；整页 reload 后再次打开导航，默认游客提示仍可见。三个阶段的 `playerId`、昵称、头像与注册时间逐项一致，15 张 PNG 已冻结。Node 22.23.3 strict 与公共模块／Shell／推荐生命周期定向测试 36/36 通过；71 个源码／Owner／既有 Meta 文件哈希保持，框架 32 份 Meta 与 pin 保留。此回执仅证明默认游客路径闭环；未注入认证 fakePort、未测真实 SDK／后端，pending／active／取消登录仍只有既有离线替身证据。该采集不是 v0.3.0.90 干净构建；正式 Creator 产物关联仍为 `UNCONFIRMED`，未做本轮新 Build／Smoke。短时 Profiler 的 `PERF_BUDGET` 提示保留（P95 16.8ms），不构成性能通过。Cook 固定 UI 尚未迁移，Cook 设置页为下一明确排队切片。证据见任务目录 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-shell-account/` 及其 `native-verification.json`。
+2026-10-13 v0.3.0.89 源码与受保护 Owner 工作树上的 750×1334 fresh isolated Edge 原生回执（operation `9eebff20-8352-44a6-b127-20c7a2ee6f52`）：66/66 步骤通过，四类运行诊断均为空。经 Ant 公开 `openProgress('settings')` 打开设置，再真实触摸“切换玩法”打开导航，验证游客／未配置状态、登录操作隐藏、继续当前玩法、切换 Cook 并进入地图设置、从 Cook 切换及返回 Ant；整页 reload 后再次打开导航，默认游客提示仍可见。三个阶段的 `playerId`、昵称、头像与注册时间逐项一致，15 张 PNG 已冻结。Node 22.23.3 strict 与公共模块／Shell／推荐生命周期定向测试 36/36 通过；71 个源码／Owner／既有 Meta 文件哈希保持，框架 32 份 Meta 与 pin 保留。此回执仅证明默认游客路径闭环；未注入认证 fakePort、未测真实 SDK／后端，pending／active／取消登录仍只有既有离线替身证据。该采集不是 v0.3.0.90 干净构建；正式 Creator 产物关联仍为 `UNCONFIRMED`，未做本轮新 Build／Smoke。短时 Profiler 的 `PERF_BUDGET` 提示保留（P95 16.8ms），不构成性能通过。Cook 固定 UI 第一切片现在为设置页，另外10页仍排队。证据见任务目录 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-shell-account/` 及其 `native-verification.json`。
 
 ## 加速弹窗、货币栏与设置的当前状态
 
@@ -104,7 +104,9 @@ R01–R07、R11–R13 已有源码实现及历史记录，本阶段不重复核�
 
 运行报告成功与协调结果分别保留：39步客户端及operation记录仍为 FAILED／DAEMON_UNAVAILABLE，本地原生报告后续完成；43步返回 UNKNOWN_OUTCOME／HTTP_500（Request body is too large），operation记录仍STARTED。未重放、删字段或手工标记成功。当前同一daemon PID34328的inflight全为0、unknown为空；新fencing13租约已过期，正常release返回LEASE_EXPIRED，不声称释放成功。恢复证据：`C:/Users/33272/AppData/Local/Temp/4060-level-native-recovery-20261011`；原生报告分别为项目`temp/creator-ai-bridge/playtests/playtest-1791710995826.json`和`playtest-1791711731942.json`。仅v73首关启动截图已保存Library：`libfile_531d7bf9e1d88191b46c203835719526`，不代表全关卡或性能验收。32份Owner、6份生产数据和9份框架Meta哈希保持；源码／资源、真实存档及Companion／服务未改。
 
-Cook 11 页固定 UI 迁移、当前真机性能，以及广告／支付 SDK、AppID 与远程服务配置仍为后续；本轮没有扩展到这些任务。
+Cook 固定 UI 共11页：设置页已完成第一切片，其余10页排队。当前真机性能、广告／支付 SDK、AppID 与远程服务配置仍待后续；本轮没有扩展到这些任务。
+
+2026-10-13 Cook 设置页固定 UI 第一切片：Creator 3.8.8 标准工程 `04c4cde24ee76d83` 保存操作 `22dcee75-1cac-45a0-9794-76412c3fb6de` 后关闭并复开读回 `SettingsFlowGroup.prefab`（revision `rev-6d3ff1db`）；65个固定节点、根节点16项类型化绑定、原 solid 与 `recovery.jpg` SpriteFrame 静态引用保持，无新增美术。同步父 View 与固定根的视口尺寸，避免长屏 Widget 将遮罩／渐隐重对齐至1334高；补丁后按新源码 SHA 重采三尺寸，前候选116步另存且不累计。设置／恢复页复用同类 View 清理、既有集中触摸目标与业务命令，并保留 save-pending 和 Shell 输入门。Node 22 strict 通过，新增6项真实 View／Presentation 替身覆盖与 Cook host 6项、save 6项共18/18通过、无 skip；源码／资产／测试 OCR 宿主审阅及注册 reviewer 均无确定 P1/P2。基于 v0.3.0.90 HEAD `db4f076` 加本轮限定变更和受保护 Owner 工作树，750×1334、390×844、360×800 三组 fresh isolated 原生运行分别76/76、20/20、20/20，共116步通过，四类原始运行诊断均为空，26张 PNG 已冻结。保留各组 `PERF_BUDGET` 提示（P95 16.9ms），不代表性能通过；真实保存故障仅有离线验证，正式 Creator 产物关联仍 `UNCONFIRMED`，三变体新 Build／Smoke 仍排队。既有账号默认游客及未接真实 SDK／后台边界不变。框架32份 Meta 与 P0002 pin `39f168e7abdac9215d0ea21f2a5a3585262e9970` 保持；本轮70个排除本轮代码、文档和版本镜像的基线文件未变。证据见 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-cook-settings/` 下 `creator-readback-verification.json`、`native-verification-final.json` 与 `screenshots-final/`。
 
 ## 棋盘编辑器
 
