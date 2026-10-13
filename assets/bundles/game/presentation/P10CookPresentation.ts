@@ -222,8 +222,19 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.artRequestToken += 1;
         this.transitionOpacity = null;
         this.transitionFadeElapsed = 0;
-        this.node.destroyAllChildren();
+        const settings = this.pageView instanceof SettingsFlowScreenGroup ? this.pageView : null;
+        const fixedRoot = settings?.settingsRoot;
+        // Settings and recovery share one MK View; keep the authored settings subtree alive.
+        for (const child of [...this.node.children]) if (child !== fixedRoot) child.destroy();
+        settings?.show(screen);
+        this.backgroundRoot = this.contentRoot = this.safeAreaRoot = this.modalRoot = null;
+        this.transition = null;
         this.hudTime = this.hudPatience = this.hudOrder = this.hudProgress = null;
+        if (screen === 'settings') {
+            this.activePageRoot = null;
+            this.artTask = Promise.resolve();
+            return;
+        }
         this.backgroundRoot = this.layer('BackgroundRoot', 0);
         this.contentRoot = this.layer('ContentRoot', 1);
         this.safeAreaRoot = this.layer('SafeAreaRoot', 2);
@@ -503,29 +514,29 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private showSettings(): void {
         const model = this.requireReadModel();
         this.clear('settings');
-        this.frame('设置与无障碍', '按你的节奏经营', true);
+        const view = this.pageView;
+        if (!(view instanceof SettingsFlowScreenGroup)) throw new Error('Cook settings view is unavailable');
+        view.presentSettings(model, this.viewport);
+        const bindings = view.settingsBindings();
+        this.transition = view.transition;
+        if (this.transition) this.transition.active = true;
+        this.finishArtTransition();
         const settings = model.progress.settings;
-        this.settingRow('音效', settings.effectsVolume > 0 ? '开启' : '已关闭', 350, settings.effectsVolume > 0, () => {
+        this.tap(bindings.effects, () => {
             this.publish({ type: 'p10.toggle-setting', payload: { key: 'effectsVolume', value: settings.effectsVolume > 0 ? 0 : 1 } });
         });
-        this.settingRow('音乐', settings.musicVolume > 0 ? '开启' : '已关闭', 220, settings.musicVolume > 0, () => {
+        this.tap(bindings.music, () => {
             this.publish({ type: 'p10.toggle-setting', payload: { key: 'musicVolume', value: settings.musicVolume > 0 ? 0 : 1 } });
         });
-        this.settingRow('色弱模式', settings.colorBlindMode ? '已开启' : '已关闭', 90, settings.colorBlindMode, () => {
+        this.tap(bindings.colorBlind, () => {
             this.publish({ type: 'p10.toggle-setting', payload: { key: 'colorBlindMode', value: !settings.colorBlindMode } });
         });
-        this.settingRow('减弱动效', settings.reducedMotion ? '已开启' : '已关闭', -40, settings.reducedMotion, () => {
+        this.tap(bindings.reducedMotion, () => {
             this.publish({ type: 'p10.toggle-setting', payload: { key: 'reducedMotion', value: !settings.reducedMotion } });
         });
-        this.button('存档恢复', this.node, 0, -230, 520, 82, C.panel2, () => this.navigation.showRecovery());
-        this.button('切换玩法', this.node, 0, -340, 520, 100, C.jade, () => this.navigation.showProductNavigation?.());
-        this.text('状态同时使用文字与形状表达，不只依赖颜色', this.node, 0, -435, 20, 620, 40, C.muted, HorizontalTextAlignment.CENTER);
-    }
-
-    private settingRow(name: string, value: string, y: number, enabled: boolean, action: () => void): void {
-        this.box(`Setting${name}`, this.node, 0, y, 620, 104, C.panel);
-        this.text(name, this.node, -190, y, 25, 230, 42, C.cream, HorizontalTextAlignment.LEFT, true);
-        this.button(`${enabled ? '●' : '○'} ${value}`, this.node, 180, y, 230, 64, enabled ? C.jade : C.panel2, action);
+        this.tap(bindings.back, () => this.navigation.showMap());
+        this.tap(bindings.recovery, () => this.navigation.showRecovery());
+        this.tap(bindings.product, () => this.navigation.showProductNavigation?.());
     }
 
     private showRecovery(): void {
