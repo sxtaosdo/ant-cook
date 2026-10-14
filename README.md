@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.93`**
+**当前版本：`v0.3.0.94`**
 
 状态: Draft
 
@@ -104,9 +104,11 @@ R01–R07、R11–R13 已有源码实现及历史记录，本阶段不重复核�
 
 运行报告成功与协调结果分别保留：39步客户端及operation记录仍为 FAILED／DAEMON_UNAVAILABLE，本地原生报告后续完成；43步返回 UNKNOWN_OUTCOME／HTTP_500（Request body is too large），operation记录仍STARTED。未重放、删字段或手工标记成功。当前同一daemon PID34328的inflight全为0、unknown为空；新fencing13租约已过期，正常release返回LEASE_EXPIRED，不声称释放成功。恢复证据：`C:/Users/33272/AppData/Local/Temp/4060-level-native-recovery-20261011`；原生报告分别为项目`temp/creator-ai-bridge/playtests/playtest-1791710995826.json`和`playtest-1791711731942.json`。仅v73首关启动截图已保存Library：`libfile_531d7bf9e1d88191b46c203835719526`，不代表全关卡或性能验收。32份Owner、6份生产数据和9份框架Meta哈希保持；源码／资源、真实存档及Companion／服务未改。
 
-Cook 固定 UI 共11页：设置页已完成第一切片，其余10页排队。当前真机性能、广告／支付 SDK、AppID 与远程服务配置仍待后续；本轮没有扩展到这些任务。
+Cook 固定 UI 共11页：设置页与恢复页已完成切片验证（2/11），其余9页排队；当前真机性能、广告／支付 SDK、AppID 与远程服务配置仍待后续。
 
 2026-10-13 Cook 设置页固定 UI 第一切片：Creator 3.8.8 标准工程 `04c4cde24ee76d83` 保存操作 `22dcee75-1cac-45a0-9794-76412c3fb6de` 后关闭并复开读回 `SettingsFlowGroup.prefab`（revision `rev-6d3ff1db`）；65个固定节点、根节点16项类型化绑定、原 solid 与 `recovery.jpg` SpriteFrame 静态引用保持，无新增美术。同步父 View 与固定根的视口尺寸，避免长屏 Widget 将遮罩／渐隐重对齐至1334高；补丁后按新源码 SHA 重采三尺寸，前候选116步另存且不累计。设置／恢复页复用同类 View 清理、既有集中触摸目标与业务命令，并保留 save-pending 和 Shell 输入门。Node 22 strict 通过，新增6项真实 View／Presentation 替身覆盖与 Cook host 6项、save 6项共18/18通过、无 skip；源码／资产／测试 OCR 宿主审阅及注册 reviewer 均无确定 P1/P2。基于 v0.3.0.90 HEAD `db4f076` 加本轮限定变更和受保护 Owner 工作树，750×1334、390×844、360×800 三组 fresh isolated 原生运行分别76/76、20/20、20/20，共116步通过，四类原始运行诊断均为空，26张 PNG 已冻结。保留各组 `PERF_BUDGET` 提示（P95 16.9ms），不代表性能通过；真实保存故障仅有离线验证，正式 Creator 产物关联仍 `UNCONFIRMED`，三变体新 Build／Smoke 仍排队。既有账号默认游客及未接真实 SDK／后台边界不变。框架32份 Meta 与 P0002 pin `39f168e7abdac9215d0ea21f2a5a3585262e9970` 保持；本轮70个排除本轮代码、文档和版本镜像的基线文件未变。证据见 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-cook-settings/` 下 `creator-readback-verification.json`、`native-verification-final.json` 与 `screenshots-final/`。
+
+2026-10-14 Cook 恢复页固定 UI 第二切片：Creator 3.8.8 Preview（7456）在 v0.3.0.92 HEAD `43835b0` 加本轮五个限定功能文件及受保护 Owner 工作树上验收，非后续 v0.3.0.93／文档 v0.3.0.94 的干净构建。标准 Creator 新会话保存并读回后，恢复页增加42个固定节点及11项类型化绑定；设置页原65节点／16绑定完整保留，合计107节点／27绑定，0个 cc.Button 二次路由。恢复继续沿用既有 resume／reset／navigation 事件及 Host／Application／Core 存档链；存档失败仅离线覆盖，本轮原生未注入失败。Node22 strict 与22项定向测试通过，无失败或跳过。三尺寸 fresh isolated 原生回执：750×1334 57/57、390×844 33/33、360×800 33/33，共123步；有效检查点恢复及三次重载由57步主运行覆盖，手机两组覆盖无检查点返回／重置／默认设置／重开，采集PNG尺寸不等于重载后Canvas有效像素尺寸。四类原始诊断均为空，29张 PNG 冻结。每组保留 PERF_BUDGET（P95依次16.8／16.8／16.9ms），不代表性能通过；正式 Creator 产物关联仍为 UNCONFIRMED，三变体新 Build／Smoke 累计排队，真实 SDK／后台未验。Cook固定UI共11页，设置与恢复两页完成（2/11），其余9页排队；默认游客账号边界保持。框架32份 Meta、P0002 pin `39f168e7abdac9215d0ea21f2a5a3585262e9970` 保持；原生采集前73个受保护基线文件未变，文档和版本镜像更新后最终核对70个排除本轮改动的文件。若后续核对需恢复资产状态，以 Creator readback revision 与本回执作核对基线，保留设置页原节点和绑定；证据见 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-cook-recovery/` 下三份回执及 `screenshots/`。
 
 ## 棋盘编辑器
 
