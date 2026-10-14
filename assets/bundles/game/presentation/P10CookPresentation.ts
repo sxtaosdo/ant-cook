@@ -223,14 +223,14 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.transitionOpacity = null;
         this.transitionFadeElapsed = 0;
         const settings = this.pageView instanceof SettingsFlowScreenGroup ? this.pageView : null;
-        const fixedRoot = settings?.settingsRoot;
-        // Settings and recovery share one MK View; keep the authored settings subtree alive.
-        for (const child of [...this.node.children]) if (child !== fixedRoot) child.destroy();
+        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot];
+        // Settings and recovery share one MK View; keep both authored subtrees alive.
+        for (const child of [...this.node.children]) if (!fixedRoots.includes(child)) child.destroy();
         settings?.show(screen);
         this.backgroundRoot = this.contentRoot = this.safeAreaRoot = this.modalRoot = null;
         this.transition = null;
         this.hudTime = this.hudPatience = this.hudOrder = this.hudProgress = null;
-        if (screen === 'settings') {
+        if (screen === 'settings' || screen === 'recovery') {
             this.activePageRoot = null;
             this.artTask = Promise.resolve();
             return;
@@ -542,21 +542,22 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private showRecovery(): void {
         const model = this.requireReadModel();
         this.clear('recovery');
-        this.frame('存档恢复', '检查点有效 · 可安全回退', true);
+        const view = this.pageView;
+        if (!(view instanceof SettingsFlowScreenGroup)) throw new Error('Cook recovery view is unavailable');
+        view.presentRecovery(model, this.viewport);
+        const bindings = view.recoveryBindings();
+        this.transition = view.recoveryTransition;
+        if (this.transition) this.transition.active = true;
+        this.finishArtTransition();
         const progress = model.progress;
-        this.text('盾', this.node, 0, 300, 110, 200, 160, C.cyan, HorizontalTextAlignment.CENTER, true);
-        this.box('Checkpoint', this.node, 0, 110, 610, 180, C.panel);
-        this.text('最近安全检查点', this.node, -200, 155, 24, 300, 40, C.gold, HorizontalTextAlignment.LEFT, true);
-        this.text(`金币 ${progress.coins} · 星章 ${progress.totalStars} · 声望 ${progress.reputation}`, this.node, 0, 92, 22, 540, 40, C.cream, HorizontalTextAlignment.CENTER);
-        this.text(progress.hasCheckpoint ? '检查点有效，可恢复关卡' : '安全档有效，无未完成关卡', this.node, 0, 42, 19, 540, 34, C.cyan, HorizontalTextAlignment.CENTER);
-        this.button(progress.hasCheckpoint ? '恢复检查点' : '返回地图', this.node, 0, -90, 450, 82, C.jade, () => {
+        this.tap(bindings.resume, () => {
             if (progress.hasCheckpoint) this.publish({ type: 'p10.resume-checkpoint', payload: {} });
             else this.navigation.showMap();
         });
-        this.button('重置演示存档', this.node, 0, -205, 450, 76, C.danger, () => {
+        this.tap(bindings.reset, () => {
             this.publish({ type: 'p10.reset-save', payload: {} });
         });
-        this.text('重置只影响本地演示数据，不操作微信云存档', this.node, 0, -340, 19, 610, 38, C.muted, HorizontalTextAlignment.CENTER);
+        this.tap(bindings.back, () => this.navigation.showMap());
     }
 
     private async showArt(name: ScreenArtScreen): Promise<void> {

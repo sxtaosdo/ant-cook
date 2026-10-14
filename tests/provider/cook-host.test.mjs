@@ -140,3 +140,34 @@ test('restored checkpoint synchronizes restaurant and earlier level before rende
     await restored.root.close('recovery');
   }
 });
+
+test('recovery reset persists once and a rejected save retries identical bytes before returning to Map', async () => {
+  for (const failReset of [false, true]) {
+    const first = fixture(); await first.root.boot();
+    await first.root.routeIntent({ type: 'p10.start-level', payload: { levelIndex: 0 } });
+    assert.equal(first.root.application.hasCheckpoint, true);
+    await first.root.close('recovery');
+    const restored = fixture({ values: first.state.values }); await restored.root.boot();
+    assert.equal(restored.root.bootstrap.StateMachine.current.constructor.name, 'RecoveryState');
+    const before = restored.state.writes.length; restored.state.fail = failReset;
+    await restored.root.routeIntent({ type: 'p10.reset-save', payload: {} });
+    assert.equal(restored.state.writes.length, before + 1);
+    assert.equal(restored.root.application.hasCheckpoint, false);
+    if (failReset) {
+      assert.equal(restored.root.application.hasPendingSave, true);
+      assert.equal(restored.root.bootstrap.StateMachine.current.constructor.name, 'RecoveryState');
+      const pendingBytes = restored.state.writes.at(-1);
+      await restored.root.routeIntent({ type: 'p10.reset-save', payload: {} });
+      assert.equal(restored.state.writes.length, before + 1);
+      restored.state.fail = false; assert.equal((await restored.root.flush()).ok, true);
+      assert.equal(restored.state.writes.at(-1), pendingBytes);
+      assert.equal(restored.state.writes.length, before + 2);
+    }
+    assert.equal(restored.root.bootstrap.StateMachine.current.constructor.name, 'MapState');
+    await restored.root.close('recovery');
+    const reboot = fixture({ values: restored.state.values }); await reboot.root.boot();
+    assert.equal(reboot.root.application.hasCheckpoint, false);
+    assert.equal(reboot.root.bootstrap.StateMachine.current.constructor.name, 'MapState');
+    await reboot.root.close('recovery');
+  }
+});

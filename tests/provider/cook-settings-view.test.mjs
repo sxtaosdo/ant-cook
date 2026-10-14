@@ -52,7 +52,7 @@ const { P10CookPresentation } = load('P10CookPresentation', {
   '../ui/ViewportLayout': {}, '../ui/ScreenArtManifest': { artPathFor: () => 'recovery', SCREEN_ART_MANIFEST: { recovery: { overlayAlpha: 72 } } },
 });
 const viewport = { width: 750, height: 1334, topY: 643, bottomY: -643 };
-function model(settings = {}) { return { screen: 'settings', progress: { coins: 42, totalStars: 3, settings: { effectsVolume: 1, musicVolume: 1, colorBlindMode: false, reducedMotion: false, ...settings } } }; }
+function model(settings = {}) { return { screen: 'settings', progress: { coins: 42, totalStars: 3, reputation: 7, hasCheckpoint: false, settings: { effectsVolume: 1, musicVolume: 1, colorBlindMode: false, reducedMotion: false, ...settings } } }; }
 function fixture() {
   const view = new SettingsFlowScreenGroup(); view.node = new UiNode('SettingsFlowGroup');
   view.node.addComponent(UiTransform);
@@ -64,6 +64,13 @@ function fixture() {
   for (const field of ['currencyLabel', 'effectsStatus', 'musicStatus', 'colorBlindStatus', 'reducedMotionStatus']) view[field] = { string: '', isValid: true };
   const background = new UiNode('background'); view.settingsRoot.addChild(background); background.addComponent(UiTransform);
   view.background = background.addComponent(Sprite); view.background.spriteFrame = frame;
+  view.recoveryRoot = new UiNode('recoveryRoot'); view.node.addChild(view.recoveryRoot); view.recoveryRoot.addComponent(UiTransform);
+  for (const field of ['recoveryHeader', 'recoveryTransition', 'resumeButton', 'resetButton', 'recoveryBack']) {
+    view[field] = new UiNode(field); view.recoveryRoot.addChild(view[field]); view[field].addComponent(UiTransform);
+  }
+  for (const field of ['recoveryCurrency', 'checkpointSummary', 'checkpointStatus', 'resumeLabel']) view[field] = { string: '', isValid: true };
+  const recoveryArt = new UiNode('recoveryArt'); view.recoveryRoot.addChild(recoveryArt); recoveryArt.addComponent(UiTransform);
+  view.recoveryBackground = recoveryArt.addComponent(Sprite); view.recoveryBackground.spriteFrame = frame;
   const intents = [], navigationCalls = []; let navigationEnabled = true;
   const presentation = new P10CookPresentation(new UiNode('module'), { publish: intent => intents.push(intent) }, {
     canReceiveInput: () => navigationEnabled, showMap: () => navigationCalls.push('map'), showRecovery: () => navigationCalls.push('recovery'), showProductNavigation: () => navigationCalls.push('product'),
@@ -110,12 +117,12 @@ test('settings and recovery rerenders preserve the fixed subtree and replace all
     f.presentation.showSettings(); assert.equal(f.presentation.tapTargets.length, 7);
     f.presentation.showRecovery(); await f.presentation.artTask;
     assert.equal(fixed.isValid, true); assert.equal(fixed.active, false);
-    const dynamic = f.view.node.children.filter(child => child !== fixed);
-    assert.ok(dynamic.length > 0);
+    assert.equal(f.view.recoveryRoot.active, true); assert.equal(f.presentation.tapTargets.length, 3);
+    const dynamic = new UiNode('legacyDynamic'); f.view.node.addChild(dynamic);
     f.presentation.showSettings();
-    assert.equal(f.view.node.children.length, 1); assert.equal(f.view.node.children[0], fixed);
+    assert.equal(f.view.node.children.length, 2); assert.equal(f.view.node.children[0], fixed);
     assert.equal(fixed.active, true); assert.equal(f.presentation.tapTargets.length, 7);
-    assert.ok(dynamic.every(child => !child.isValid));
+    assert.equal(dynamic.isValid, false); assert.equal(f.view.recoveryRoot.active, false);
   }
 });
 
@@ -145,4 +152,39 @@ test('missing or destroyed fixed bindings fail visibly instead of publishing sta
   const f = fixture(); f.view.effectsButton.destroy();
   assert.throws(() => f.presentation.showSettings(), /Cook settings binding is missing: effectsButton/);
   assert.equal(f.presentation.tapTargets.length, 0); assert.equal(f.intents.length, 0);
+});
+
+test('saved recovery root and all eleven typed references remain separate from settings', () => {
+  const records = JSON.parse(readFileSync(new URL('../../assets/bundles/game/prefabs/SettingsFlowGroup.prefab', import.meta.url), 'utf8'));
+  const component = records.find(record => Object.hasOwn(record, 'checkpointSummary'));
+  assert.ok(component, 'Creator must save recovery bindings');
+  const deref = ref => records[ref.__id__], root = deref(component.recoveryRoot);
+  assert.equal(deref(root._parent), deref(component.node)); assert.notEqual(root, deref(component.settingsRoot));
+  const descendants = new Set(); const walk = node => { descendants.add(node); for (const child of node._children) walk(deref(child)); }; walk(root);
+  for (const key of ['recoveryHeader', 'recoveryTransition', 'resumeButton', 'resetButton', 'recoveryBack']) assert.ok(descendants.has(deref(component[key])), key);
+  for (const key of ['recoveryBackground', 'recoveryCurrency', 'checkpointSummary', 'checkpointStatus', 'resumeLabel']) assert.ok(descendants.has(deref(deref(component[key]).node)), key);
+});
+
+test('recovery projects checkpoint branches and viewport geometry without changing progress', () => {
+  const f = fixture(), before = JSON.stringify(f.presentation.readModel);
+  f.view.presentRecovery(f.presentation.readModel, { ...viewport, height: 1800, topY: 820, bottomY: -840 });
+  assert.equal(f.view.resumeLabel.string, '返回地图'); assert.equal(f.view.checkpointStatus.string, '安全档有效，无未完成关卡');
+  assert.equal(f.view.checkpointSummary.string, '金币 42 · 星章 3 · 声望 7');
+  assert.equal(f.view.node.getComponent(UiTransform).contentSize.height, 1800);
+  assert.equal(f.view.recoveryRoot.getComponent(UiTransform).contentSize.height, 1800);
+  assert.equal(f.view.recoveryBack.position.y, -807); assert.equal(JSON.stringify(f.presentation.readModel), before);
+  f.presentation.readModel.progress.hasCheckpoint = true; f.view.presentRecovery(f.presentation.readModel, viewport);
+  assert.equal(f.view.resumeLabel.string, '恢复检查点'); assert.equal(f.view.checkpointStatus.string, '检查点有效，可恢复关卡');
+});
+
+test('recovery resume/reset routes once, respects input guards, and never mutates its projection', () => {
+  const f = fixture(); f.presentation.showRecovery(); f.presentation.showRecovery(); f.tap(f.view.resumeButton);
+  assert.deepEqual(f.navigationCalls, ['map']); assert.equal(f.intents.length, 0);
+  f.presentation.readModel.progress.hasCheckpoint = true; f.presentation.showRecovery(); const before = JSON.stringify(f.presentation.readModel);
+  f.tap(f.view.resumeButton); f.tap(f.view.resetButton);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.intents)), [{ type: 'p10.resume-checkpoint', payload: {} }, { type: 'p10.reset-save', payload: {} }]);
+  assert.equal(JSON.stringify(f.presentation.readModel), before);
+  f.presentation.setInputEnabled(false); f.tap(f.view.resetButton); f.tap(f.view.recoveryBack);
+  f.presentation.setInputEnabled(true); f.setNavigationEnabled(false); f.tap(f.view.resumeButton);
+  assert.equal(f.intents.length, 2); assert.deepEqual(f.navigationCalls, ['map']);
 });

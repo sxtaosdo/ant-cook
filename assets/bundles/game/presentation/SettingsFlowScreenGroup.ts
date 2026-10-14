@@ -23,11 +23,23 @@ export class SettingsFlowScreenGroup extends mk.ViewBase {
     @property(Node) public backButton: Node | null = null;
     @property(Node) public recoveryButton: Node | null = null;
     @property(Node) public productButton: Node | null = null;
+    @property(Node) public recoveryRoot: Node | null = null;
+    @property(Node) public recoveryHeader: Node | null = null;
+    @property(Sprite) public recoveryBackground: Sprite | null = null;
+    @property(Node) public recoveryTransition: Node | null = null;
+    @property(Label) public recoveryCurrency: Label | null = null;
+    @property(Label) public checkpointSummary: Label | null = null;
+    @property(Label) public checkpointStatus: Label | null = null;
+    @property(Node) public resumeButton: Node | null = null;
+    @property(Label) public resumeLabel: Label | null = null;
+    @property(Node) public resetButton: Node | null = null;
+    @property(Node) public recoveryBack: Node | null = null;
 
     public show(screen: P10Screen): boolean {
         const active = screen === 'settings' || screen === 'recovery';
         this.node.active = active;
         if (this.settingsRoot) this.settingsRoot.active = screen === 'settings';
+        if (this.recoveryRoot) this.recoveryRoot.active = screen === 'recovery';
         return active;
     }
 
@@ -70,6 +82,37 @@ export class SettingsFlowScreenGroup extends mk.ViewBase {
         this.require(status, node.name + '.status').string = `${enabled ? '●' : '○'} ${enabled ? (useAlready ? '已开启' : '开启') : '已关闭'}`;
         this.require(node.getComponent(Sprite), node.name + '.Sprite').color = enabled
             ? new Color(38, 184, 135, 255) : new Color(20, 49, 68, 255);
+    }
+
+    public recoveryBindings() {
+        return {
+            root: this.require(this.recoveryRoot, 'recoveryRoot'),
+            resume: this.require(this.resumeButton, 'resumeButton'),
+            reset: this.require(this.resetButton, 'resetButton'),
+            back: this.require(this.recoveryBack, 'recoveryBack'),
+        };
+    }
+
+    public presentRecovery(model: P10ReadModel, viewport: ViewportLayout): void {
+        const bindings = this.recoveryBindings();
+        this.require(this.node.getComponent(UITransform), 'view.UITransform')
+            .setContentSize(viewport.width, viewport.height);
+        this.require(bindings.root.getComponent(UITransform), 'recoveryRoot.UITransform')
+            .setContentSize(viewport.width, viewport.height);
+        this.require(this.recoveryHeader, 'recoveryHeader').setPosition(0, viewport.topY - 48, 0);
+        bindings.back.setPosition(-286, viewport.bottomY + 33, 0);
+        const background = this.require(this.recoveryBackground, 'recoveryBackground');
+        const frame = this.require(background.spriteFrame, 'recoveryBackground.spriteFrame');
+        const scale = Math.max(viewport.width / Math.max(1, frame.originalSize.width),
+            viewport.height / Math.max(1, frame.originalSize.height));
+        this.require(background.node.getComponent(UITransform), 'recoveryBackground.UITransform')
+            .setContentSize(frame.originalSize.width * scale, frame.originalSize.height * scale);
+        const progress = model.progress;
+        this.require(this.recoveryCurrency, 'recoveryCurrency').string = `金币 ${progress.coins}  ★ ${progress.totalStars}`;
+        this.require(this.checkpointSummary, 'checkpointSummary').string = `金币 ${progress.coins} · 星章 ${progress.totalStars} · 声望 ${progress.reputation}`;
+        this.require(this.checkpointStatus, 'checkpointStatus').string = progress.hasCheckpoint
+            ? '检查点有效，可恢复关卡' : '安全档有效，无未完成关卡';
+        this.require(this.resumeLabel, 'resumeLabel').string = progress.hasCheckpoint ? '恢复检查点' : '返回地图';
     }
 
     private require<T>(value: T | null, name: string): T {
