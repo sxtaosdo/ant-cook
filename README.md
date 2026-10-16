@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.95`**
+**当前版本：`v0.3.0.96`**
 
 状态: Draft
 
@@ -20,11 +20,15 @@ Settings 账号行资产仍未纳入提交。HEAD 的 270 对象、Owner 原基�
 
 唯一 MK 能力提供者来自 v1.1.5；本副本局部修正场景取消、main 初始化等待、UI 注册身份、注销与失败清理、池迟到资源释放及 strict 类型，不能称为未修改的原版 MK。没有引入第二套 UI、资源、音频或池运行时。
 
-验证使用 Node 22：`npm run typecheck` 与 `npm test`。执行集合为 `tests/unit` 与 `tests/provider`；后者运行实际 MKUIManage、MKBundle、MKObjectPool、MKStatusTask 源码，但 cc、IO、Release/View/Event 辅助能力使用替身，不是 Cocos Runtime 验收。`tests/ant` 和 `tests/cook` 是迁移时保留的来源测试材料，其中旧迁移断言不属于新产品兼容合同。Provider 的严格类型差异检查见 `P8000/dual-game-build/provider-typecheck.mjs`；仅证明相对字节核实的来源 baseline 无新增诊断，不表示 Provider 零诊断。
+验证使用 Node 22：`npm run typecheck` 与 `npm test`。执行集合为 `tests/unit`、`tests/provider` 及 `tests/ant/application/rewarded-ads.test.ts`；Provider 测试运行实际 MKUIManage、MKBundle、MKObjectPool、MKStatusTask 源码，但 cc、IO、Release/View/Event 辅助能力使用替身，不是 Cocos Runtime 验收。其余 `tests/ant` 和 `tests/cook` 是迁移时保留的来源测试材料，其中旧迁移断言不属于新产品兼容合同。Provider 的严格类型差异检查见 `P8000/dual-game-build/provider-typecheck.mjs`；仅证明相对字节核实的来源 baseline 无新增诊断，不表示 Provider 零诊断。
+
+2026-10-16 广告适配器回归检查点 v0.3.0.95 `eb5d041102f5298fe7c072f33e402dcba2a5e0a8`：修正迁移测试的相对导入（原路径误指向不存在的 `tests/assets`），把原有12项测试纳入标准入口，未改断言或业务代码。修前实际报 `ERR_MODULE_NOT_FOUND`；修后 Node 22.23.3 定向12/12、零跳过，适配器及测试 strict 通过。覆盖完整观看、取消、失败、重复／迟到回调、并发、换局、销毁及原奖励保存失败重试；平台和存储回调为替身。本轮未重跑完整 `npm test` 或已收束的 Speed 验收，不代表真实 SDK、Creator 或真机通过。OCR 宿主审阅和独立 reviewer 均无确定发现；硬隔离未核验。
 
 `P8000/dual-game-build/build-input.mjs` 在任务 Temp 目录创建独立 Creator 输入，支持 `ant`、`cook`、`both`，物理排除未选玩法。`SHARED_ASSETS.json` 记录通用遮罩纹理的构建期共享归属，纹理和 meta 保留原字节及 UUID；原目录不移动。工具拒绝没有 Creator 保存的 `assets/shell/Bootstrap.scene` 的正式输入。
 
 Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存并回读；Bridge 0.3.118 已获批安装登记。Preview 已验证两个来源入口、双向往返、退出保存故障重试及持续就绪。蚂蚁界面调整通过 Creator 保存。正式构建使用工具生成的隔离输入，排除 P0002 的开发示例入口；运行、多尺寸和产物验收以对应源码 SHA 的本次任务回执为准，业务替身测试不能代替它们。广告单元、AppID和远程服务尚未配置。
+
+2026-10-16 工具链核查：历史 Node22 不能启动当前 Companion 的原生 SQLite 依赖，隔离内存检查确认 ABI 127 与已编译模块 ABI 141 不符；未安装或重编依赖。随后宿主标准查询确认已有 Node25.2.1 Daemon、准确的4060工程、零 inflight 和 RELEASED 租约；未将其他执行产生的新实例归为本任务启动成功。Creator info／Preview status 均返回 Bridge `127.0.0.1:6525` 连接拒绝，因此未启动 Creator、刷新 Preview 或执行新试玩。实际运行入口 SHA 与磁盘一致，其生产产物关联仍默认 `unconfirmed`，不使用 test-only 开关提升验收。真实登录保持关闭、三个广告位为空、支付仍为不可用占位；正式产物关联、真实 SDK／后台和真机性能继续待验。回执目录：`C:/Users/33272/AppData/Local/Temp/4060-sdk-resume-20261016-010555/`。
 
 跨玩法推荐由业务模块提供可选的纯只读 `promotionReady()` 资格：Ant连续主线首通18关、永久引导完成或跳过且处于无弹窗安全首页；Cook首餐厅完成且成功保存、处于安全地图。Shell仅在双玩法构建、入口与恢复均就绪时展示现有原生选择面板，玩家主动选择才执行安全切换，不发放奖励。拒绝先保存到shell独立元数据，成功后同一来源方向7天内不提示；保存失败保留重试，同一会话每方向最多主动展示一次。两方向冷却独立，不保存永久停止标记；单玩法构建不展示推荐。
 
