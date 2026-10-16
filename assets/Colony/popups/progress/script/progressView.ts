@@ -137,8 +137,8 @@ export class ColonyProgressView extends ColonyPopupView {
         .catch(cause => { if (revision === this.revision && this.isAvailable()) console.error('Failed to load basket icon', cause); });
     }
     if (row.basketItems) {
-      title.setPosition(-100, 86, 0);
-      detail.setPosition(-100, 49, 0);
+      title.setPosition(-35, 86, 0);
+      detail.setPosition(-35, 49, 0);
       title.getComponent(UITransform)!.setContentSize(230, 34);
       detail.getComponent(UITransform)!.setContentSize(230, 64);
     }

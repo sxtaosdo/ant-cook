@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.97`**
+**当前版本：`v0.3.0.98`**
 
 状态: Draft
 
@@ -33,6 +33,8 @@ Bootstrap.scene 已由 Creator 3.8.8 创建、绑定 ProductBootstrap、保存�
 同日后续 Preview 恢复（采集源码 v0.3.0.96 `b4af43606e69a360c1e5c3e50856162c80da70d1` 加保留的 Owner 工作树）：父任务确认 P1060 终态后，只读核实其 fence32 为 EXPIRED，未改称 RELEASED。正常取得4060 fence24，以现有 Node25.2.1 和稳定 operationId 经原 `creator_start`／Dashboard 入口启动独立 Creator PID17780；3.8.8、工程指纹及会话 `ba55e900-c0ad-4db7-af60-9494acd53e7c` 已读回。Bootstrap 文档 revision `rev-b93bd451`；真实编译返回 compiled／imported／componentRegistered、errors为空，Node22.23.3 项目 strict 通过。4060 Preview 在7457，P1060仍在7456；P1060 PID7216和Dashboard21728保留，前后URL／启动时间／会话不变。首次只读P1060连接数已为0，交接信息曾为1，不能声称保留了一条实际已核实在线连接；本任务未停止、刷新或关闭它。
 
 750×1334 两次独立浏览器／上下文原生运行分别15/15、10/10，四类运行诊断均0，四张PNG冻结。通过公开测试桥打开／关闭设置并观察真实界面，未编辑资料或验证真实触摸／保存。首轮设置截图处于既有0.32秒币栏入场动画，保留上缘1397.6的过渡帧；600ms后补查及看图确认稳定币栏 `y=1269,height=65`、上缘1334、安全区偏移0，关闭后首轮亦已等待至隐藏。用于独立上下文的标准 profilerCapture 请求采样时长0，实际0样本，不构成性能通过。服务端 verificationId `55de8776-9553-4ca3-9aed-b6da3ed763b1` 的正式产物关联仍为 UNCONFIRMED：缺编译完成事件及页面可回传的产物标识。四个原操作均查询为SUCCEEDED，fence24正常RELEASED、心跳结束、inflight全0／unknown空；共享daemon未重启。71份保护文件、框架pin及既有Owner改动保持，无Prefab／Scene／Meta直接写入、真实SDK或新Build／Smoke。此证据不代表后续文档版本的干净构建。回执目录：`C:/Users/33272/AppData/Local/Temp/4060-preview-handoff-20261016-014548/`。
+
+2026-10-16 主题收集行布局修正：当前列表使用 `progress.prefab` 内嵌 Row0，`progressView.renderRow` 的主题行分支把标题／进度向左移到摊位图标内。本次仅将两处文字横坐标恢复为既有带图标行的 -35，保留图标、按钮、字号、行尺寸和其他行布局；未接入或改写 Owner 未跟踪的独立行 Prefab。修改前逐字节恢复快照已保存，Node22 strict 已通过；修改后 Creator 导入及 750×1334 受影响页面在源码检查点后独立取证，结果记录于 `C:/Users/33272/AppData/Local/Temp/4060-theme-row-layout-20261016-103108/`，实际运行结果以该任务回执为准，正式编译产物与 Preview 关联仍待验证。前轮 GM 用例因误把调试菜单算作业务弹窗而失败，源码原本明确排除 GM；原 FAILED 回执保留，这是测试口径问题，不是本次修复的产品缺陷。
 
 跨玩法推荐由业务模块提供可选的纯只读 `promotionReady()` 资格：Ant连续主线首通18关、永久引导完成或跳过且处于无弹窗安全首页；Cook首餐厅完成且成功保存、处于安全地图。Shell仅在双玩法构建、入口与恢复均就绪时展示现有原生选择面板，玩家主动选择才执行安全切换，不发放奖励。拒绝先保存到shell独立元数据，成功后同一来源方向7天内不提示；保存失败保留重试，同一会话每方向最多主动展示一次。两方向冷却独立，不保存永久停止标记；单玩法构建不展示推荐。
 
