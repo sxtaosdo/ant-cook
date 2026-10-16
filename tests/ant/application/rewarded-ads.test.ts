@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { RewardedAds, type RewardedVideo } from '../../assets/Colony/scripts/application/rewardedAds.js';
+import { RewardedAds, type RewardedVideo } from '../../../assets/Colony/scripts/application/rewardedAds.js';
 
 function fixture() {
   let close: (result?: { isEnded?: boolean }) => void = () => {};
