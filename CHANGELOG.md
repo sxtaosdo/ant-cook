@@ -4,6 +4,8 @@
 
 ## 未发布（初始版本基线 0.3.0.0；本地检查点按 Hook 递增） — 联合工程首切片
 
+- 2026-10-16 修复每日挑战提示遮挡棋盘顶行：每日挑战分支将现有 `FeedbackLabel` 移回 HUD 提示区并居中，保留字号、颜色和提示文字；主线布局、玩法、Prefab 和弹窗样式保持。原图及修复后的 750×1334 隔离 Preview、主页／主线／挑战状态回归回执见 `C:/Users/33272/AppData/Local/Temp/4060-daily-feedback-layout-20261016-0407Z/`。仅建立本任务本地检查点；原 UNKNOWN Build 不重放、不另起 Build，正式产物关联仍 UNCONFIRMED。
+
 - 2026-10-16 修复主题收集行摊位图标覆盖标题和收集进度：只调整当前生效的 `progressView.renderRow` 主题行两处文字横坐标，沿用已有带图标行布局，保留图标、按钮、字号及其他行行为。独立 `progressRow.prefab` 尚未被实际列表使用，不纳入本次修改或提交；既有 Owner／Meta／真实存档及框架 pin 保持。恢复快照已保存、strict 已通过；修改后 Creator／750×1334 验证在源码检查点后独立取证，结果见 `C:/Users/33272/AppData/Local/Temp/4060-theme-row-layout-20261016-103108/`；原生结果以回执为准，不用文档版本或刷新时间冒充产物关联。前轮 GM 可见性断言 FAILED 原样保留：原合同将 GM 调试菜单排除在业务弹窗外，属于测试分类口径错误；生产关联仍 UNCONFIRMED，不新增或伪造产物 ID。
 
 - 2026-10-16（Preview 恢复；采集源码 v0.3.0.96 `b4af43606e69a360c1e5c3e50856162c80da70d1` 加受保护Owner工作树，文档单独提交）父任务移交共享窗口后，正常取得4060 fence24，经现有Node25及原Dashboard入口启动独立Creator PID17780／3.8.8／新会话，Bootstrap编译导入、组件注册及Node22项目strict通过。4060 Preview恢复到7457，与P1060的7456并存；保留P1060 Creator7216、Dashboard21728及原Preview URL／会话／启动时间。P1060 fence32实际EXPIRED；本任务首次只读连接数为0（交接时曾为1），前后均0，不冒称维持一条已核实在线连接，也未停止／刷新P1060。750×1334独立浏览器两次原生15/15及10/10，四类诊断0、四张PNG冻结；公开测试桥开关设置，未编辑资料、未验真实触摸保存。首轮币栏过渡帧被既有0.32秒入场动画裁切，回执保留；600ms后的稳定检查确认上缘1334／安全区偏移0，第一轮关闭后等待到隐藏。标准零时长profilerCapture只用于独立上下文，0样本不作性能证明。服务端产物关联仍UNCONFIRMED，缺编译完成事件及页面产物回传，未冒用测试开关。四个原操作SUCCEEDED已查，fence24正常RELEASED、心跳结束、在途0／unknown空；无共享daemon重启、安装、序列化资产编辑、真实SDK或Build／Smoke。71份Owner／生产／Meta／Bootstrap保护文件和框架pin保持，原Git修改保留，不push／tag／父pin；截图来自v96及保留工作树，不是后续文档版本干净构建。证据：`C:/Users/33272/AppData/Local/Temp/4060-preview-handoff-20261016-014548/`。

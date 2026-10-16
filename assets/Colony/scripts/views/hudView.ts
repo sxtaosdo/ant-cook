@@ -152,6 +152,8 @@ export class ColonyHudView extends mk.StaticViewBase {
     this.boardTotal = initial;
     this.node.getChildByName('BoardCount')!.active = false;
     this.levelLabel!.node.active = false;
+    // Keep the daily status in the existing HUD feedback row above the board.
+    this.feedbackLabel!.node.setPosition(0, -42, 0);
     this.updateLevelRail(remaining);
   }
 

@@ -1,8 +1,10 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.98`**
+**当前版本：`v0.3.0.99`**
 
 状态: Draft
+
+2026-10-16 每日挑战提示布局窄修：仅在 `ColonyHudView.setDailyChallenge` 中将既有 `FeedbackLabel` 居中移回 HUD 提示行（局部坐标 `0, -42`），避免“每日挑战 · 免费无限重试”覆盖棋盘顶行；沿用原文字、字号和颜色，主线仍由原皮肤布局恢复坐标，不修改 Prefab、玩法或弹窗样式。修复前后截图及 750×1334 隔离 Preview 回执保存在 `C:/Users/33272/AppData/Local/Temp/4060-daily-feedback-layout-20261016-0407Z/`，实际结果以该目录回执为准。原 UNKNOWN Build 保持原记录，本轮不 Build；正式 Preview 产物关联仍为 UNCONFIRMED。
 
 项目代号为 4060；物理目录仍为 `ant-cook`，存档 namespace 和两个玩法名称保持现有合同。
 
