@@ -27,6 +27,8 @@ import { ProgressionScreenGroup } from './ProgressionScreenGroup';
 import { SettingsFlowScreenGroup } from './SettingsFlowScreenGroup';
 
 const PANEL_FRAME_PATH = 'resources/ui/solid/spriteFrame';
+type CookPageViewType = typeof MapFlowScreenGroup | typeof KitchenFlowScreenGroup
+    | typeof ProgressionScreenGroup | typeof SettingsFlowScreenGroup;
 
 const RESTAURANT_PRESENTATION = [
     { city: '北京', icon: '饼' },
@@ -90,7 +92,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private cleanupSteps: Map<string, () => Promise<unknown>> | null = null;
     private shutdownTask: Promise<void> | null = null;
     private pageView: mk.ViewBase | null = null;
-    private pageType: typeof MapFlowScreenGroup | null = null;
+    private pageType: CookPageViewType | null = null;
     private renderTask: Promise<void> | null = null;
     private renderError: unknown = null;
     private artTask: Promise<void> = Promise.resolve();
@@ -196,7 +198,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         }
     }
 
-    private typeFor(screen: P10Screen): typeof MapFlowScreenGroup {
+    private typeFor(screen: P10Screen): CookPageViewType {
         return screen === 'map' || screen === 'level' || screen === 'story' ? MapFlowScreenGroup
             : screen === 'kitchen' || screen === 'pause' || screen === 'result' ? KitchenFlowScreenGroup
             : screen === 'upgrade' || screen === 'decor' || screen === 'unlock' ? ProgressionScreenGroup
@@ -223,14 +225,16 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.transitionOpacity = null;
         this.transitionFadeElapsed = 0;
         const settings = this.pageView instanceof SettingsFlowScreenGroup ? this.pageView : null;
-        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot];
-        // Settings and recovery share one MK View; keep both authored subtrees alive.
+        const map = this.pageView instanceof MapFlowScreenGroup ? this.pageView : null;
+        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot, map?.mapRoot];
+        // Shared Views retain authored roots while switching their logical pages.
         for (const child of [...this.node.children]) if (!fixedRoots.includes(child)) child.destroy();
         settings?.show(screen);
+        map?.show(screen);
         this.backgroundRoot = this.contentRoot = this.safeAreaRoot = this.modalRoot = null;
         this.transition = null;
         this.hudTime = this.hudPatience = this.hudOrder = this.hudProgress = null;
-        if (screen === 'settings' || screen === 'recovery') {
+        if (screen === 'settings' || screen === 'recovery' || (screen === 'map' && map?.hasFixedMap)) {
             this.activePageRoot = null;
             this.artTask = Promise.resolve();
             return;
@@ -265,6 +269,24 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private showMap(): void {
         const model = this.requireReadModel();
         this.clear('map');
+        const view = this.pageView;
+        if (view instanceof MapFlowScreenGroup && view.hasFixedMap) {
+            view.presentMap(model, this.viewport, RESTAURANT_PRESENTATION);
+            const bindings = view.mapBindings();
+            model.catalog.restaurants.forEach((restaurant, index) => {
+                if (model.progress.restaurants[restaurant.id].unlocked) this.tap(bindings.cards[index], () => {
+                    this.publish({ type: 'p10.select-restaurant', payload: { restaurantIndex: index } });
+                });
+            });
+            this.tap(bindings.upgrade, () => this.navigation.showUpgrade());
+            this.tap(bindings.decor, () => this.navigation.showDecor());
+            this.tap(bindings.story, () => this.navigation.showStory());
+            this.tap(bindings.settings, () => this.navigation.showSettings());
+            this.transition = view.transition;
+            if (this.transition) this.transition.active = true;
+            this.finishArtTransition();
+            return;
+        }
         this.frame('街巷食光', '六店烟火 · 霓虹食途');
         const sectionHeader = this.box('MapSectionHeader', this.node, 0, 454, 650, 58, C.panel2);
         this.text('选择餐厅', sectionHeader, 0, 0, 30, 620, 48, C.gold, HorizontalTextAlignment.CENTER, true);

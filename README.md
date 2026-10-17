@@ -1,8 +1,10 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.100`**
+**当前版本：`v0.3.0.101`**
 
 状态: Draft
+
+2026-10-17 Map静态绑定源码准备（尚未完成Prefab/原生验收）：`MapFlowScreenGroup` 新增固定根、六卡数组、四入口及现有背景/标题栏/导航/过渡的类型化引用；`P10CookPresentation.clear()` 保留共享Map/level/story中的固定根，非Map隐藏，重渲染替换点击目标。Map根未绑定时继续现有动态页面；一旦绑定则严格检查六卡及完整引用，保持现行颜色、文案和导航，不添加设计或业务。21项Map/设置/Host离线回归及源码strict通过；独立审查无确定P1/P2。现有Map Prefab仍只有根节点，必须经4060标准Creator保存与复开读回后才可核销本页，Cook固定UI完成度仍2/11。证据为 `C:/Users/33272/AppData/Local/Temp/4060-map-binding-code-20261017-103340Z/`，本轮不以替身测试代替750×1334画面或原生生命周期。
 
 2026-10-17 离线验收补缺：修复 `tests/cook/cook-level-session.test.ts` 的迁移后路径，提供独立内存 save scope，并按现行业务读模型验证厨房、结算、重试、下一关、退出与重置，不再读取已移交 PageState 的 `screen`。三项会话测试加入标准 `test`，另有 `test:cook-session` 同时检查测试 strict 与执行。Node 22.23.3 下标准测试从380项增至383项，383/383通过、无skip；现行源码与会话测试 strict 均通过。旧 Cook application/save/boot 验证入口仍有历史路径及旧API假设，本次没有把它们计为通过，也未改业务、资源、真实存档或平台配置。完整日志与剩余项见 `C:/Users/33272/AppData/Local/Temp/4060-v99-offline-remaining-20261017-101201Z/`。
 
