@@ -1,8 +1,12 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.99`**
+**当前版本：`v0.3.0.100`**
 
 状态: Draft
+
+2026-10-17 离线验收补缺：修复 `tests/cook/cook-level-session.test.ts` 的迁移后路径，提供独立内存 save scope，并按现行业务读模型验证厨房、结算、重试、下一关、退出与重置，不再读取已移交 PageState 的 `screen`。三项会话测试加入标准 `test`，另有 `test:cook-session` 同时检查测试 strict 与执行。Node 22.23.3 下标准测试从380项增至383项，383/383通过、无skip；现行源码与会话测试 strict 均通过。旧 Cook application/save/boot 验证入口仍有历史路径及旧API假设，本次没有把它们计为通过，也未改业务、资源、真实存档或平台配置。完整日志与剩余项见 `C:/Users/33272/AppData/Local/Temp/4060-v99-offline-remaining-20261017-101201Z/`。
+
+三包构建已由 v99 `d17fbebd2e8969e0cf6dd2210ac34ffba76d6b43` 的独立回执补齐：Ant/Cook/Both 3/3、六次启动与三组隔离运行通过，证据为 `C:/Users/33272/AppData/Local/Temp/4060-v99-independent-build-20261016-084816Z/`；本轮不重复构建，旧 UNKNOWN Build 和正式 Creator Preview 关联 UNCONFIRMED 分别保留。仍有明确的非平台工作：Cook固定UI剩9页（map、level、kitchen、pause、result、upgrade、decor、story、unlock），三个组Prefab仍只有根节点；先排默认Map单页作者化、绑定与750×1334验收。第7关全程Profiler及真实设备温度/GC亦未完成。本轮资源项目占用Creator，不启动Creator、GPU、浏览器或共享服务。
 
 2026-10-16 每日挑战提示布局窄修：仅在 `ColonyHudView.setDailyChallenge` 中将既有 `FeedbackLabel` 居中移回 HUD 提示行（局部坐标 `0, -42`），避免“每日挑战 · 免费无限重试”覆盖棋盘顶行；沿用原文字、字号和颜色，主线仍由原皮肤布局恢复坐标，不修改 Prefab、玩法或弹窗样式。修复前后截图及 750×1334 隔离 Preview 回执保存在 `C:/Users/33272/AppData/Local/Temp/4060-daily-feedback-layout-20261016-0407Z/`，实际结果以该目录回执为准。原 UNKNOWN Build 保持原记录，本轮不 Build；正式 Preview 产物关联仍为 UNCONFIRMED。
 

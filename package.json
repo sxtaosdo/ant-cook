@@ -18,7 +18,8 @@
     "editor:csv": "node --import tsx scripts/compileThemeCsv.mjs --check",
     "verify:editor": "pnpm run editor:typecheck && pnpm run editor:test && pnpm run editor:csv",
     "typecheck": "tsc -p tests/tsconfig.creator.json",
-    "test": "node --loader ./tests/ts-loader.mjs --test tests/unit/*.test.ts tests/provider/*.test.mjs tests/ant/application/rewarded-ads.test.ts"
+    "test:cook-session": "tsc -p tests/cook/tsconfig.session.json && node --loader ./tests/ts-loader.mjs --test tests/cook/cook-level-session.test.ts",
+    "test": "node --loader ./tests/ts-loader.mjs --test tests/unit/*.test.ts tests/provider/*.test.mjs tests/ant/application/rewarded-ads.test.ts tests/cook/cook-level-session.test.ts"
   },
   "devDependencies": {
     "@types/node": "22.18.3",

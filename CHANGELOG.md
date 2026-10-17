@@ -4,6 +4,8 @@
 
 ## 未发布（初始版本基线 0.3.0.0；本地检查点按 Hook 递增） — 联合工程首切片
 
+- 2026-10-17 恢复现行 CookLevelSession 三项离线回归：修正目录迁移后的导入，使用独立内存存档作用域，将旧页面字段断言更新为业务厨房/结算状态，并核实重试与重置生成新attempt、下一关推进和退出清理checkpoint；接入标准test，新增带strict的 `test:cook-session`。Node22标准383/383、无skip，源码与测试strict通过；首轮旧路径失败及结算断言候选失败日志保留。没有修改业务、Prefab、Scene、Meta、真实存档或平台接入；v99三包已有独立通过证据，本轮不重跑，正式Creator Preview关联仍UNCONFIRMED，Cook另外9页及第7关性能仍未完成。
+
 - 2026-10-16 修复每日挑战提示遮挡棋盘顶行：每日挑战分支将现有 `FeedbackLabel` 移回 HUD 提示区并居中，保留字号、颜色和提示文字；主线布局、玩法、Prefab 和弹窗样式保持。原图及修复后的 750×1334 隔离 Preview、主页／主线／挑战状态回归回执见 `C:/Users/33272/AppData/Local/Temp/4060-daily-feedback-layout-20261016-0407Z/`。仅建立本任务本地检查点；原 UNKNOWN Build 不重放、不另起 Build，正式产物关联仍 UNCONFIRMED。
 
 - 2026-10-16 修复主题收集行摊位图标覆盖标题和收集进度：只调整当前生效的 `progressView.renderRow` 主题行两处文字横坐标，沿用已有带图标行布局，保留图标、按钮、字号及其他行行为。独立 `progressRow.prefab` 尚未被实际列表使用，不纳入本次修改或提交；既有 Owner／Meta／真实存档及框架 pin 保持。恢复快照已保存、strict 已通过；修改后 Creator／750×1334 验证在源码检查点后独立取证，结果见 `C:/Users/33272/AppData/Local/Temp/4060-theme-row-layout-20261016-103108/`；原生结果以回执为准，不用文档版本或刷新时间冒充产物关联。前轮 GM 可见性断言 FAILED 原样保留：原合同将 GM 调试菜单排除在业务弹窗外，属于测试分类口径错误；生产关联仍 UNCONFIRMED，不新增或伪造产物 ID。

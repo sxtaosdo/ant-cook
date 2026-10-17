@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.creator.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["cook-level-session.test.ts"]
+}

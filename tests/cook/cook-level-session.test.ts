@@ -4,10 +4,11 @@ import {
     COOK_GLOBAL_LEVEL_MAX,
     decodeCookGlobalLevel,
     encodeCookGlobalLevel,
-} from '../assets/bundles/game/application/cookLevelAddress.ts';
-import { CookLevelSession } from '../assets/bundles/game/application/cookLevelSession.ts';
-import { P10CookApplication } from '../assets/bundles/game/application/P10CookApplication.ts';
-import { MemoryStorageAdapter } from '../assets/bundles/game/infrastructure/save/MemoryStorageAdapter.ts';
+} from '../../assets/bundles/game/application/cookLevelAddress.ts';
+import { CookLevelSession } from '../../assets/bundles/game/application/cookLevelSession.ts';
+import { P10CookApplication } from '../../assets/bundles/game/application/P10CookApplication.ts';
+import { MemoryStorageAdapter } from '../../assets/bundles/game/infrastructure/save/MemoryStorageAdapter.ts';
+import { RunStatus } from '../../assets/bundles/game/core/types.ts';
 
 function createSession(): { app: P10CookApplication; session: CookLevelSession } {
     let sequence = 0;
@@ -15,8 +16,9 @@ function createSession(): { app: P10CookApplication; session: CookLevelSession }
         storage: new MemoryStorageAdapter(),
         clock: () => 200 + sequence,
         idGenerator: (seed) => `${seed}-${sequence++}`,
+        saveScope: { frameworkVersion: '2.0.7', sectionId: 'cook.session.test', primaryKey: 'cook.session.test.progress' },
     });
-    app.start();
+    assert.equal(app.start().ok, true);
     return { app, session: new CookLevelSession(app) };
 }
 
@@ -33,42 +35,50 @@ test('cook global level codec maps 1..240 to six restaurants × 40 levels', () =
     assert.equal(decodeCookGlobalLevel(COOK_GLOBAL_LEVEL_MAX + 1), null);
 });
 
-test('CookLevelSession bootReady and startLevel/retry/next/showHome gate the kitchen loop', () => {
+test('CookLevelSession bootReady and startLevel/retry/next/showHome gate the kitchen loop', (t) => {
     const { app, session } = createSession();
+    t.after(() => app.dispose());
     assert.equal(app.isStarted, true);
     assert.equal(session.bootReady(), true);
     assert.equal(session.startLevel(0), false);
     assert.equal(session.startLevel(1), true);
-    assert.equal(app.read().screen, 'kitchen');
+    assert.equal(app.read().kitchen?.status, RunStatus.Running);
+    const firstAttempt = app.read().kitchen!.attemptId;
     assert.equal(app.read().selection.restaurantIndex, 0);
     assert.equal(app.read().selection.levelIndex, 0);
 
     assert.equal(session.retry(), true);
-    assert.equal(app.read().screen, 'kitchen');
+    assert.equal(app.read().kitchen?.status, RunStatus.Running);
+    assert.notEqual(app.read().kitchen!.attemptId, firstAttempt);
 
-    // settle by serving until result
+    // Business state owns settlement; the page StateMachine owns the displayed screen.
     let guard = 100;
-    while (app.read().screen === 'kitchen' && guard-- > 0) {
+    while (app.read().kitchen?.status === RunStatus.Running && guard-- > 0) {
         const pending = app.read().kitchen?.orders.find((order) => order.state === 'Pending');
         assert.ok(pending);
         const served = app.dispatch({ type: 'p10.serve-dish', payload: { dishId: pending.dishId } });
         assert.equal(served.ok, true);
     }
-    assert.equal(app.read().screen, 'result');
+    assert.ok(guard > 0, 'level should settle within the bounded serve loop');
+    assert.equal(app.read().kitchen, null, 'settlement releases the active kitchen');
+    assert.ok(app.read().result);
+    assert.equal(app.read().lastSuccess, true);
     assert.equal(session.nextLevel(), true);
-    assert.equal(app.read().screen, 'kitchen');
+    assert.equal(app.read().kitchen?.status, RunStatus.Running);
     assert.equal(app.read().selection.levelIndex, 1);
 
     assert.equal(session.showHome(), true);
-    assert.equal(app.read().screen, 'map');
-    app.shutdown();
+    assert.equal(app.read().kitchen, null);
+    assert.equal(app.hasCheckpoint, false);
 });
 
-test('CookLevelSession reset reopens the current global level', () => {
+test('CookLevelSession reset reopens the current global level', (t) => {
     const { app, session } = createSession();
+    t.after(() => app.dispose());
     assert.equal(session.startLevel(1), true);
+    const firstAttempt = app.read().kitchen!.attemptId;
     assert.equal(session.reset(1), true);
     assert.equal(app.read().selection.levelIndex, 0);
-    assert.equal(app.read().screen, 'kitchen');
-    app.shutdown();
+    assert.equal(app.read().kitchen?.status, RunStatus.Running);
+    assert.notEqual(app.read().kitchen!.attemptId, firstAttempt);
 });
