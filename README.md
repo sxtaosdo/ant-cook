@@ -1,10 +1,14 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.106`**
+**当前版本：`v0.3.0.107`**
 
 状态: Draft
 
-2026-10-19 Level固定UI源码准备：在现有MapFlowScreenGroup追加15项可选类型化绑定及只读投影，沿用当前关卡页布局、素材、六格分页、0–3星、锁定与返回；40关末页显示4格，开局继续发送店内绝对关卡索引。Map/Level/Story清理保留两棵固定根，重绘替换触摸目标，原双重输入门保持；未绑定Level根时继续原动态页面，已绑定但缺失/跨树/损坏引用明确失败。Node22.23.3新增6/6实际View/Presentation隔离VM测试和源码strict通过，cc渲染/资源为替身；本轮5文件独立只读复审无确定P1/P2，硬隔离未核验。Prefab/Scene/Meta、业务规则及真实存档未改；未占用Creator、重放55步原生或重跑三包构建。获得产品独立索引提交窗口后，源码已形成检查点 v0.3.0.104 `35d93883ed446e12e9020dfe75695be0e5f77607`，文档另行提交；固定UI本地进度保持3/11。Level作者化、保存复开及750×1334原生验收待协调窗口，正式产物关联仍 **UNCONFIRMED**。本轮日志和精确Creator动作清单在 `C:/Users/33272/AppData/Local/Temp/4060-level-binding-code-20261019-034730Z/`。
+2026-10-19 Cook Level固定UI本地切片完成：源码检查点 v0.3.0.104 `35d93883ed446e12e9020dfe75695be0e5f77607` 增加15项可选绑定及六格只读投影，沿用原布局、素材、分页、0–3星与绝对关卡索引；共享Map/Level/Story保留固定根，未绑定Level根时兼容原动态页面，损坏绑定明确失败。Node22.23.3已有6/6实际View/Presentation隔离VM回归及源码strict通过，cc渲染/资源为替身；本轮不重复执行这些测试。
+
+用户批准82节点/15绑定后，经Creator 3.8.8标准事务 `afd7130b-4212-47f9-ab66-1d2fefb710f8` 保存，关闭复开后revision `rev-fd9c9ef8`；MapFlowGroup共199节点且全部UI_2D，原Map的354项节点/组件内容不变，三个槽位数组各6项，原level.jpg静态引用保持。资源检查点 v0.3.0.106 `ae3bbe2f01c396493302c95c73bb00a535856086` 只包含该Prefab及Hook版本镜像。OCR资源1/1宿主审阅及独立只读复审无确定P1/P2，硬隔离未核验；额外保存曾给Bootstrap写入三个默认字段，已仅回滚该次意外改动并标准刷新，最终71份保护文件逐字节保持。
+
+750×1334 fresh isolated原生操作 `f13bab64-b0e9-4c41-95d0-61b4ef242142` 查得SUCCEEDED，58/58步骤、四类运行诊断0。14张PNG均核对尺寸，8种独立画面已直接查看；锁定格/首末页越界/末页隐藏格点击后图像字节一致，分页、返回地图、共享Story往返、重入复位和首关开局正常。原生仅覆盖默认首餐厅/首关解锁，0–3星和其他餐厅索引仍以离线回归为据。采集基线为v105加该资源及受保护Owner工作树，不是v106或后续文档版本的干净构建；0样本Profiler不作性能证明，正式产物关联仍 **UNCONFIRMED**。Cook固定UI本地进度现为4/11。Creator及7457已关闭、心跳结束、fence39正常RELEASED；共享daemon仍有原nativeUncertain=2和NATIVE_OUTCOME_UNCONFIRMED，未清除或冒称全局排空。真实存档未操作，既有55步与三包不重跑；证据：`C:/Users/33272/AppData/Local/Temp/4060-level-approved-20261019-064520Z/`。
 
 2026-10-17 Cook Map本地切片已完成保存、复开与750×1334画面/触摸核对：v102 `287e2f23818c7cedaad12dd8aa4fbf6d9be5ad91` 的 `MapFlowGroup.prefab` 保留117节点、18项类型化绑定和原六卡/四入口布局；116个新增节点的图层修复后，全树为UI_2D，复开revision为 `rev-ea33d134`。既有9/9存盘资产与View/Presentation回归、v101源码strict及21项Map/设置/Host结果保留，本次只审核现成证据，没有重跑测试或作者化。
 
@@ -14,7 +18,7 @@
 
 2026-10-17 离线验收补缺：修复 `tests/cook/cook-level-session.test.ts` 的迁移后路径，提供独立内存 save scope，并按现行业务读模型验证厨房、结算、重试、下一关、退出与重置，不再读取已移交 PageState 的 `screen`。三项会话测试加入标准 `test`，另有 `test:cook-session` 同时检查测试 strict 与执行。Node 22.23.3 下标准测试从380项增至383项，383/383通过、无skip；现行源码与会话测试 strict 均通过。旧 Cook application/save/boot 验证入口仍有历史路径及旧API假设，本次没有把它们计为通过，也未改业务、资源、真实存档或平台配置。完整日志与剩余项见 `C:/Users/33272/AppData/Local/Temp/4060-v99-offline-remaining-20261017-101201Z/`。
 
-三包构建仍以 v99 `d17fbebd2e8969e0cf6dd2210ac34ffba76d6b43` 的独立回执为准：Ant/Cook/Both 3/3、六次启动与三组隔离运行通过，证据为 `C:/Users/33272/AppData/Local/Temp/4060-v99-independent-build-20261016-084816Z/`。Map完成后，Cook固定UI还余8页（level、kitchen、pause、result、upgrade、decor、story、unlock）；MapFlowGroup已有Map固定树，其level/story仍走原动态页面，另两组Prefab尚待作者化。第7关全程Profiler及真实设备温度/GC仍未完成。此次文档检查点不重跑构建，旧UNKNOWN Build和正式Creator Preview关联UNCONFIRMED分别保留。
+三包构建仍以 v99 `d17fbebd2e8969e0cf6dd2210ac34ffba76d6b43` 的独立回执为准：Ant/Cook/Both 3/3、六次启动与三组隔离运行通过，证据为 `C:/Users/33272/AppData/Local/Temp/4060-v99-independent-build-20261016-084816Z/`。Level完成后，Cook固定UI还余7页（kitchen、pause、result、upgrade、decor、story、unlock）；MapFlowGroup已有Map/Level固定树，story仍走原动态页面，另两组Prefab尚待作者化。第7关全程Profiler及真实设备温度/GC仍未完成。此次文档检查点不重跑构建，旧UNKNOWN Build和正式Creator Preview关联UNCONFIRMED分别保留。
 
 2026-10-16 每日挑战提示布局窄修：仅在 `ColonyHudView.setDailyChallenge` 中将既有 `FeedbackLabel` 居中移回 HUD 提示行（局部坐标 `0, -42`），避免“每日挑战 · 免费无限重试”覆盖棋盘顶行；沿用原文字、字号和颜色，主线仍由原皮肤布局恢复坐标，不修改 Prefab、玩法或弹窗样式。修复前后截图及 750×1334 隔离 Preview 回执保存在 `C:/Users/33272/AppData/Local/Temp/4060-daily-feedback-layout-20261016-0407Z/`，实际结果以该目录回执为准。原 UNKNOWN Build 保持原记录，本轮不 Build；正式 Preview 产物关联仍为 UNCONFIRMED。
 
@@ -128,7 +132,7 @@ R01–R07、R11–R13 已有源码实现及历史记录，本阶段不重复核�
 
 运行报告成功与协调结果分别保留：39步客户端及operation记录仍为 FAILED／DAEMON_UNAVAILABLE，本地原生报告后续完成；43步返回 UNKNOWN_OUTCOME／HTTP_500（Request body is too large），operation记录仍STARTED。未重放、删字段或手工标记成功。当前同一daemon PID34328的inflight全为0、unknown为空；新fencing13租约已过期，正常release返回LEASE_EXPIRED，不声称释放成功。恢复证据：`C:/Users/33272/AppData/Local/Temp/4060-level-native-recovery-20261011`；原生报告分别为项目`temp/creator-ai-bridge/playtests/playtest-1791710995826.json`和`playtest-1791711731942.json`。仅v73首关启动截图已保存Library：`libfile_531d7bf9e1d88191b46c203835719526`，不代表全关卡或性能验收。32份Owner、6份生产数据和9份框架Meta哈希保持；源码／资源、真实存档及Companion／服务未改。
 
-Cook 固定 UI 共11页：设置、恢复与Map已完成本地切片验证（3/11），其余8页排队；正式Creator产物关联仍UNCONFIRMED，真机性能、广告／支付 SDK、AppID 与远程服务配置仍待后续。
+Cook 固定 UI 共11页：设置、恢复、Map与Level已完成本地切片验证（4/11），其余7页排队；正式Creator产物关联仍UNCONFIRMED，真机性能、广告／支付 SDK、AppID 与远程服务配置仍待后续。
 
 2026-10-13 Cook 设置页固定 UI 第一切片：Creator 3.8.8 标准工程 `04c4cde24ee76d83` 保存操作 `22dcee75-1cac-45a0-9794-76412c3fb6de` 后关闭并复开读回 `SettingsFlowGroup.prefab`（revision `rev-6d3ff1db`）；65个固定节点、根节点16项类型化绑定、原 solid 与 `recovery.jpg` SpriteFrame 静态引用保持，无新增美术。同步父 View 与固定根的视口尺寸，避免长屏 Widget 将遮罩／渐隐重对齐至1334高；补丁后按新源码 SHA 重采三尺寸，前候选116步另存且不累计。设置／恢复页复用同类 View 清理、既有集中触摸目标与业务命令，并保留 save-pending 和 Shell 输入门。Node 22 strict 通过，新增6项真实 View／Presentation 替身覆盖与 Cook host 6项、save 6项共18/18通过、无 skip；源码／资产／测试 OCR 宿主审阅及注册 reviewer 均无确定 P1/P2。基于 v0.3.0.90 HEAD `db4f076` 加本轮限定变更和受保护 Owner 工作树，750×1334、390×844、360×800 三组 fresh isolated 原生运行分别76/76、20/20、20/20，共116步通过，四类原始运行诊断均为空，26张 PNG 已冻结。保留各组 `PERF_BUDGET` 提示（P95 16.9ms），不代表性能通过；真实保存故障仅有离线验证，正式 Creator 产物关联仍 `UNCONFIRMED`，三变体新 Build／Smoke 仍排队。既有账号默认游客及未接真实 SDK／后台边界不变。框架32份 Meta 与 P0002 pin `39f168e7abdac9215d0ea21f2a5a3585262e9970` 保持；本轮70个排除本轮代码、文档和版本镜像的基线文件未变。证据见 `C:/Users/33272/.codex/visualizations/2026/10/13/01a133f1-2bf5-7e53-b874-df47dc8e19f0/p4060-cook-settings/` 下 `creator-readback-verification.json`、`native-verification-final.json` 与 `screenshots-final/`。
 
