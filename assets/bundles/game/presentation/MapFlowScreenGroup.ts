@@ -27,13 +27,114 @@ export class MapFlowScreenGroup extends mk.ViewBase {
     @property(Node) public storyButton: Node | null = null;
     @property(Node) public settingsButton: Node | null = null;
 
+    // Optional until Creator saves the complete Level tree in this shared View.
+    @property(Node) public levelRoot: Node | null = null;
+    @property(Node) public levelHeaderRoot: Node | null = null;
+    @property(Sprite) public levelBackground: Sprite | null = null;
+    @property(Node) public levelTransition: Node | null = null;
+    @property(Label) public levelCurrencyLabel: Label | null = null;
+    @property(Label) public levelRestaurantTitle: Label | null = null;
+    @property(Label) public levelRestaurantSubtitle: Label | null = null;
+    @property(Label) public levelRestaurantIcon: Label | null = null;
+    @property([Node]) public levelButtons: Node[] = [];
+    @property([Label]) public levelLabels: Label[] = [];
+    @property([Sprite]) public levelPanels: Sprite[] = [];
+    @property(Sprite) public levelPreviousButton: Sprite | null = null;
+    @property(Sprite) public levelNextButton: Sprite | null = null;
+    @property(Label) public levelPageLabel: Label | null = null;
+    @property(Node) public levelBackButton: Node | null = null;
+
     public get hasFixedMap(): boolean { return this.mapRoot !== null; }
+    public get hasFixedLevel(): boolean { return this.levelRoot !== null; }
 
     public show(screen: P10Screen): boolean {
         const active = screen === 'map' || screen === 'level' || screen === 'story';
         this.node.active = active;
         if (this.mapRoot) this.mapRoot.active = screen === 'map';
+        if (this.levelRoot) this.levelRoot.active = screen === 'level';
         return active;
+    }
+
+    public levelBindings() {
+        const root = this.requireLevel(this.levelRoot, 'levelRoot');
+        if (root.parent !== this.node) throw new Error('Cook levelRoot must be a direct child of its View');
+        if (this.levelButtons.length !== 6 || this.levelLabels.length !== 6 || this.levelPanels.length !== 6
+            || new Set(this.levelButtons).size !== 6) throw new Error('Cook level requires six distinct bound slots');
+        const buttons = this.levelButtons.map((node, index) => this.levelNode(node, root, `levelButtons[${index}]`));
+        const labels = this.levelLabels.map((label, index) => this.levelComponent(label, buttons[index], `levelLabels[${index}]`));
+        const panels = this.levelPanels.map((panel, index) => {
+            const bound = this.levelComponent(panel, root, `levelPanels[${index}]`);
+            if (bound.node !== buttons[index]) throw new Error(`Cook level panel must belong to its slot: ${index}`);
+            return bound;
+        });
+        const previous = this.levelComponent(this.levelPreviousButton, root, 'levelPreviousButton');
+        const next = this.levelComponent(this.levelNextButton, root, 'levelNextButton');
+        const back = this.levelNode(this.levelBackButton, root, 'levelBackButton');
+        for (const node of [...buttons, previous.node, next.node, back])
+            this.requireLevel(node.getComponent(UITransform), `${node.name}.UITransform`);
+        return {
+            root, buttons, labels, panels, previous, next, back,
+            header: this.levelNode(this.levelHeaderRoot, root, 'levelHeaderRoot'),
+            background: this.levelComponent(this.levelBackground, root, 'levelBackground'),
+            transition: this.levelNode(this.levelTransition, root, 'levelTransition'),
+            currency: this.levelComponent(this.levelCurrencyLabel, root, 'levelCurrencyLabel'),
+            title: this.levelComponent(this.levelRestaurantTitle, root, 'levelRestaurantTitle'),
+            subtitle: this.levelComponent(this.levelRestaurantSubtitle, root, 'levelRestaurantSubtitle'),
+            icon: this.levelComponent(this.levelRestaurantIcon, root, 'levelRestaurantIcon'),
+            page: this.levelComponent(this.levelPageLabel, root, 'levelPageLabel'),
+        };
+    }
+
+    public presentLevel(model: P10ReadModel, viewport: ViewportLayout,
+        decoration: { readonly city: string; readonly icon: string }): void {
+        const bindings = this.levelBindings();
+        const restaurant = model.catalog.restaurants[model.selection.restaurantIndex] ?? model.catalog.restaurants[0];
+        const pageStart = model.selection.levelPage * 6;
+        this.requireLevel(this.node.getComponent(UITransform), 'view.UITransform').setContentSize(viewport.width, viewport.height);
+        this.requireLevel(bindings.root.getComponent(UITransform), 'levelRoot.UITransform').setContentSize(viewport.width, viewport.height);
+        bindings.header.setPosition(0, viewport.topY - 48, 0);
+        bindings.back.setPosition(-286, viewport.bottomY + 33, 0);
+        const frame = this.requireLevel(bindings.background.spriteFrame, 'levelBackground.spriteFrame');
+        const scale = Math.max(viewport.width / Math.max(1, frame.originalSize.width),
+            viewport.height / Math.max(1, frame.originalSize.height));
+        this.requireLevel(bindings.background.node.getComponent(UITransform), 'levelBackground.UITransform')
+            .setContentSize(frame.originalSize.width * scale, frame.originalSize.height * scale);
+        bindings.currency.string = `金币 ${model.progress.coins}  ★ ${model.progress.totalStars}`;
+        bindings.title.string = restaurant.name;
+        bindings.subtitle.string = `${decoration.city} · 今日营业`;
+        bindings.icon.string = decoration.icon;
+        bindings.buttons.forEach((button, slot) => {
+            const levelId = restaurant.levelIds[pageStart + slot];
+            button.active = levelId !== undefined;
+            if (levelId === undefined) { bindings.labels[slot].string = ''; return; }
+            const progress = model.progress.levels[levelId];
+            const stars = '★'.repeat(progress.bestStars) + '☆'.repeat(3 - progress.bestStars);
+            bindings.labels[slot].string = progress.unlocked ? `${pageStart + slot + 1}\n${stars}` : '锁定';
+            bindings.panels[slot].color = progress.unlocked ? new Color(20, 49, 68, 255) : new Color(42, 49, 58, 255);
+        });
+        const pageCount = Math.ceil(restaurant.levelIds.length / 6);
+        bindings.page.string = `${model.selection.levelPage + 1}/${pageCount}`;
+        bindings.previous.color = model.selection.levelPage > 0 ? new Color(20, 49, 68, 255) : new Color(5, 15, 30, 255);
+        bindings.next.color = model.selection.levelPage < pageCount - 1 ? new Color(20, 49, 68, 255) : new Color(5, 15, 30, 255);
+    }
+
+    private requireLevel<T>(value: T | null, name: string): T {
+        if (!value || !isValid(value, true)) throw new Error(`Cook level binding is missing: ${name}`);
+        return value;
+    }
+
+    private levelNode(value: Node | null, root: Node, name: string): Node {
+        const node = this.requireLevel(value, name);
+        let ancestor: Node | null = node.parent;
+        while (ancestor && ancestor !== root) ancestor = ancestor.parent;
+        if (ancestor !== root) throw new Error(`Cook level binding must belong to its root: ${name}`);
+        return node;
+    }
+
+    private levelComponent<T extends { node: Node }>(value: T | null, root: Node, name: string): T {
+        const component = this.requireLevel(value, name);
+        this.levelNode(component.node, root, name);
+        return component;
     }
 
     public mapBindings() {

@@ -226,7 +226,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.transitionFadeElapsed = 0;
         const settings = this.pageView instanceof SettingsFlowScreenGroup ? this.pageView : null;
         const map = this.pageView instanceof MapFlowScreenGroup ? this.pageView : null;
-        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot, map?.mapRoot];
+        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot, map?.mapRoot, map?.levelRoot];
         // Shared Views retain authored roots while switching their logical pages.
         for (const child of [...this.node.children]) if (!fixedRoots.includes(child)) child.destroy();
         settings?.show(screen);
@@ -234,7 +234,8 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.backgroundRoot = this.contentRoot = this.safeAreaRoot = this.modalRoot = null;
         this.transition = null;
         this.hudTime = this.hudPatience = this.hudOrder = this.hudProgress = null;
-        if (screen === 'settings' || screen === 'recovery' || (screen === 'map' && map?.hasFixedMap)) {
+        if (screen === 'settings' || screen === 'recovery' || (screen === 'map' && map?.hasFixedMap)
+            || (screen === 'level' && map?.hasFixedLevel)) {
             this.activePageRoot = null;
             this.artTask = Promise.resolve();
             return;
@@ -324,6 +325,29 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         const restaurant = model.catalog.restaurants[restaurantIndex] ?? model.catalog.restaurants[0];
         const presentation = RESTAURANT_PRESENTATION[restaurantIndex] ?? RESTAURANT_PRESENTATION[0];
         this.clear('level');
+        const view = this.pageView;
+        if (view instanceof MapFlowScreenGroup && view.hasFixedLevel) {
+            view.presentLevel(model, this.viewport, presentation);
+            const bindings = view.levelBindings();
+            const pageStart = levelPage * 6;
+            restaurant.levelIds.slice(pageStart, pageStart + 6).forEach((levelId, slot) => {
+                if (model.progress.levels[levelId].unlocked) this.tap(bindings.buttons[slot], () => {
+                    this.publish({ type: 'p10.start-level', payload: { levelIndex: pageStart + slot } });
+                });
+            });
+            this.tap(bindings.previous.node, () => {
+                if (levelPage > 0) this.publish({ type: 'p10.set-level-page', payload: { page: levelPage - 1 } });
+            });
+            this.tap(bindings.next.node, () => {
+                if (levelPage < Math.ceil(restaurant.levelIds.length / 6) - 1)
+                    this.publish({ type: 'p10.set-level-page', payload: { page: levelPage + 1 } });
+            });
+            this.tap(bindings.back, () => this.navigation.showMap());
+            this.transition = view.levelTransition;
+            if (this.transition) this.transition.active = true;
+            this.finishArtTransition();
+            return;
+        }
         this.frame(restaurant.name, `${presentation.city} · 今日营业`, true);
         this.box('Hero', this.node, 0, 350, 650, 238, C.panel);
         this.text(presentation.icon, this.node, -220, 352, 88, 150, 120, C.red, HorizontalTextAlignment.CENTER, true);
