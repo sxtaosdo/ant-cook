@@ -94,6 +94,7 @@ test('saved viewport layers, four navigation targets and static frames are ready
   assert.equal(component(backgroundNode, 'cc.Widget'), undefined);
   assert.deepEqual([size(backgroundNode).width, size(backgroundNode).height], [750.375, 1334]);
   const solid = frameUuid('../../assets/bundles/game/resources/ui/solid.png.meta');
-  for (const sprite of objects.filter(value => value.__type__ === 'cc.Sprite' && value !== background))
+  // Other logical pages in this shared View have their own saved artwork.
+  for (const sprite of objects.filter(value => value.__type__ === 'cc.Sprite' && value !== background && isInFixed(owner(value))))
     assert.equal(sprite._spriteFrame?.__uuid__, solid, owner(sprite)._name);
 });

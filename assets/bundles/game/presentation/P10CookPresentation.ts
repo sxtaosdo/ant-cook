@@ -226,16 +226,18 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.transitionFadeElapsed = 0;
         const settings = this.pageView instanceof SettingsFlowScreenGroup ? this.pageView : null;
         const map = this.pageView instanceof MapFlowScreenGroup ? this.pageView : null;
-        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot, map?.mapRoot, map?.levelRoot];
+        const kitchen = this.pageView instanceof KitchenFlowScreenGroup ? this.pageView : null;
+        const fixedRoots = [settings?.settingsRoot, settings?.recoveryRoot, map?.mapRoot, map?.levelRoot, kitchen?.pauseRoot];
         // Shared Views retain authored roots while switching their logical pages.
         for (const child of [...this.node.children]) if (!fixedRoots.includes(child)) child.destroy();
         settings?.show(screen);
         map?.show(screen);
+        kitchen?.show(screen);
         this.backgroundRoot = this.contentRoot = this.safeAreaRoot = this.modalRoot = null;
         this.transition = null;
         this.hudTime = this.hudPatience = this.hudOrder = this.hudProgress = null;
         if (screen === 'settings' || screen === 'recovery' || (screen === 'map' && map?.hasFixedMap)
-            || (screen === 'level' && map?.hasFixedLevel)) {
+            || (screen === 'level' && map?.hasFixedLevel) || (screen === 'pause' && kitchen?.hasFixedPause)) {
             this.activePageRoot = null;
             this.artTask = Promise.resolve();
             return;
@@ -434,6 +436,18 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private showPause(): void {
         const model = this.requireReadModel();
         this.clear('pause');
+        const view = this.pageView;
+        if (view instanceof KitchenFlowScreenGroup && view.hasFixedPause) {
+            view.presentPause(model, this.viewport);
+            const bindings = view.pauseBindings();
+            this.tap(bindings.resume, () => this.publish({ type: 'p10.resume', payload: {} }));
+            this.tap(bindings.restart, () => this.publish({ type: 'p10.restart', payload: { reason: 'pause-menu' } }));
+            this.tap(bindings.exit, () => this.publish({ type: 'p10.abandon', payload: {} }));
+            this.transition = bindings.transition;
+            this.transition.active = true;
+            this.finishArtTransition();
+            return;
+        }
         this.frame('营业暂停', '计时与顾客耐心已冻结');
         const snapshot = model.kitchen;
         this.text('Ⅱ', this.node, 0, 260, 110, 180, 150, C.cyan, HorizontalTextAlignment.CENTER, true);
