@@ -1,4 +1,4 @@
-import { Button, Color, EventTouch, Label, Node, Sprite, SpriteFrame, tween, Tween, UITransform, Vec3 } from 'cc';
+import { Button, Color, EventTouch, Graphics, Label, Node, Sprite, SpriteFrame, tween, Tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import type { ColonyReadModel } from '../application/contracts';
 import type { ObservableEvent, SlotStackState } from '../gameModel';
 import { colonyColor } from './colonyColors';
@@ -48,6 +48,7 @@ export class BoardPresentation {
   private readonly animationWaits = new Set<() => void>();
   private readonly originalSlotX: number[];
   private readonly puzzleCells = new Map<string, Readonly<{ row: number; column: number }>>();
+  private cancelEntrance: (() => void) | null = null;
 
   public constructor(
     private readonly boardRoot: Node,
@@ -107,8 +108,91 @@ export class BoardPresentation {
     this.createStacks(readModel);
   }
 
+  /** A single visual clock lifts the new board in a wave, then lands every cell exactly in place. */
+  public animateEntrance(): Promise<void> {
+    this.cancelEntrance?.();
+    if (this.disposed || !this.boardRoot.isValid || !this.cellNodes.size || !this.geometryValue) return Promise.resolve();
+    const geometry = this.geometryValue;
+    const center = geometry.toPosition((geometry.minRow + geometry.maxRow) / 2, (geometry.minColumn + geometry.maxColumn) / 2);
+    const radius = Math.max(geometry.cellSize, Math.hypot(geometry.maxColumn - geometry.minColumn, geometry.maxRow - geometry.minRow) * geometry.cellSize / 2);
+    const cells = [...this.cellNodes.values()].map(node => ({
+      node, position: node.position.clone(), scale: node.scale.clone(), angle: node.angle,
+      opacity: node.getComponent(UIOpacity) ?? node.addComponent(UIOpacity),
+      delay: Math.min(1, Math.hypot(node.position.x - center.x, node.position.y - center.y) / radius) * 0.34,
+      lift: Math.min(76, Math.max(38, geometry.cellSize * 2.4)),
+    }));
+    const panels = [this.slotRoot, this.stackRoot].map(node => ({
+      node, opacity: node.getComponent(UIOpacity) ?? node.addComponent(UIOpacity),
+    }));
+    const originals = [...cells, ...panels].map(entry => ({ opacity: entry.opacity, value: entry.opacity.opacity }));
+    const effects: Node[] = [];
+    const effect = (name: string): { node: Node; graphics: Graphics; opacity: UIOpacity } => {
+      const node = new Node(name); effects.push(node);
+      node.layer = this.boardRoot.layer; node.parent = this.boardRoot;
+      node.addComponent(UITransform).setContentSize(radius * 2 + 100, radius * 2 + 100);
+      return { node, graphics: node.addComponent(Graphics), opacity: node.addComponent(UIOpacity) };
+    };
+    const shadows = effect('BoardArrivalShadows');
+    shadows.node.setSiblingIndex(0);
+    shadows.graphics.fillColor = new Color(64, 42, 24, 24);
+    for (const cell of cells) shadows.graphics.ellipse(cell.position.x, cell.position.y - geometry.cellSize * 0.24, geometry.cellSize * 0.38, geometry.cellSize * 0.12);
+    shadows.graphics.fill(); // Draw once; only the layer's opacity changes during flight.
+    const halo = effect('BoardArrivalRipple');
+    halo.node.setPosition(center.x, center.y); halo.node.setSiblingIndex(1);
+    halo.graphics.lineWidth = 2;
+    halo.graphics.strokeColor = new Color(255, 225, 154, 255);
+    halo.graphics.circle(0, 0, radius * 0.82); halo.graphics.stroke();
+    const clock = { time: 0 };
+    const generation = this.visualGeneration;
+    return new Promise(resolve => {
+      let finished = false;
+      const finish = (): void => {
+        if (finished) return;
+        finished = true;
+        Tween.stopAllByTarget(clock);
+        for (const cell of cells) if (cell.node.isValid) {
+          cell.node.setPosition(cell.position); cell.node.setScale(cell.scale); cell.node.angle = cell.angle;
+        }
+        for (const original of originals) if (original.opacity.isValid) original.opacity.opacity = original.value;
+        for (const node of effects) if (node.isValid) node.destroy();
+        if (this.cancelEntrance === finish) this.cancelEntrance = null;
+        resolve();
+      };
+      this.cancelEntrance = finish;
+      const smooth = (value: number): number => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
+      const update = (): void => {
+        if (this.disposed || generation !== this.visualGeneration || !this.boardRoot.isValid) { finish(); return; }
+        const time = clock.time;
+        for (const cell of cells) {
+          if (!cell.node.isValid) continue;
+          const age = Math.max(0, Math.min(0.84, time - cell.delay));
+          let height = 0, squash = 0;
+          if (age < 0.30) height = cell.lift * (1 - Math.pow(1 - age / 0.30, 3));
+          else if (age < 0.38) height = cell.lift;
+          else if (age < 0.62) height = cell.lift * (1 - Math.pow((age - 0.38) / 0.24, 2));
+          else if (age < 0.70) squash = Math.sin((age - 0.62) / 0.08 * Math.PI) * 0.10;
+          else height = Math.sin((age - 0.70) / 0.14 * Math.PI) * 4 * (1 - (age - 0.70) / 0.14);
+          const appear = smooth(age / 0.16), lift = height / cell.lift;
+          const scale = (0.48 + 0.52 * appear) * (1 + lift * 0.055);
+          cell.node.setPosition(cell.position.x, cell.position.y + height, cell.position.z);
+          cell.node.setScale(cell.scale.x * scale * (1 + squash), cell.scale.y * scale * (1 - squash), cell.scale.z);
+          cell.node.angle = cell.angle + Math.sin(cell.position.x * 0.035 + cell.position.y * 0.017) * lift * 3;
+          cell.opacity.opacity = Math.round(255 * appear);
+        }
+        for (const panel of panels) if (panel.node.isValid) panel.opacity.opacity = Math.round(255 * smooth((time - 0.32) / 0.32));
+        shadows.opacity.opacity = Math.round(46 * smooth(time / 0.16) * (1 - smooth((time - 0.62) / 0.50)));
+        const wave = smooth(time / 1.18);
+        halo.node.setScale(0.08 + wave * 1.20, 0.08 + wave * 1.20, 1);
+        halo.opacity.opacity = Math.round(100 * Math.sin(Math.PI * wave) * (1 - wave));
+      };
+      update();
+      tween(clock).to(1.18, { time: 1.18 }, { onUpdate: update }).call(finish).start();
+    });
+  }
+
   /** 回收全部表现节点并重置瞬态。 */
   public recycle(): void {
+    this.cancelEntrance?.();
     ++this.visualGeneration;
     for (const token of this.zeroExits.keys()) {
       Tween.stopAllByTarget(token);

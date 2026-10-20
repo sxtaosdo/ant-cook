@@ -104,5 +104,7 @@ export async function prepareThemePresentation(
   board.reset(read);
   const geometry = board.geometry;
   if (geometry) transport.setBoardGeometry(geometry);
+  await board.animateEntrance();
+  if (!isCurrent()) return;
   session.inputLocked = false;
 }
