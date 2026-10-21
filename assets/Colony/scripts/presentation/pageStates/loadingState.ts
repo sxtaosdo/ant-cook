@@ -1,14 +1,15 @@
 import type { IState } from 'db://shidai3/index';
 import mk from 'mk';
 import { ColonyToastView } from '../../../popups/toast/script/toastView';
-import { JsonAsset, SpriteFrame } from 'cc';
+import { assetManager, JsonAsset, SpriteFrame } from 'cc';
+import { PREVIEW } from 'cc/env';
 import { readLevelDifficulty } from '../../application/levelDifficulty';
 import GlobalConfig from 'GlobalConfig';
 import { readLeaderboardConfig } from '../../application/leaderboard/leaderboard';
 import { readSocialConfig } from '../../application/social/social';
 import { ColonyResultFailView } from '../../../popups/resultFail/script/resultFailView';
 import { ColonyResultSuccessView } from '../../../popups/resultSuccess/script/resultSuccessView';
-import { createOperationalCatalog } from '../../application/operationalLevels';
+import { RuntimeLevelCatalog } from '../../application/runtimeLevelCatalog';
 import { ColonyProgressView } from '../../../popups/progress/script/progressView';
 import { ColonyCommunityView } from '../../../popups/progress/script/communityView';
 import { ColonySettingsView } from '../../../popups/settings/script/settingsView';
@@ -72,7 +73,7 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
       if (session.destroyed) return;
       const message = cause instanceof Error ? cause.message : String(cause);
       session.app.setError({ code: 'CONFIG', message });
-      if (session.loadingView) session.loadingView.setError(message.includes('存档') ? message : '补给准备失败，请重新进入');
+      if (session.loadingView) session.loadingView.setError(message.includes('存档') || message.startsWith('关卡JSON') ? message : '补给准备失败，请重新进入');
       else { session.homeView!.setVisible(true); session.homeView!.setFeedback('补给准备失败，请重新进入'); }
       console.error(`[Colony] startup failed: ${message}`);
       session.reportModuleFailure(cause);
@@ -133,13 +134,26 @@ export class LoadingState implements IState<ColonySceneBootstrap> {
   /** 加载开发关卡目录并构建 ColonyFlowModel。 */
   private async loadLevelCatalog(session: ColonySceneBootstrap): Promise<void> {
     try {
-      const catalog = createOperationalCatalog();
+      const imported = await mk.asset.get('db://assets/Colony/config/runtime-levels.json', JsonAsset, session.node);
+      if (session.destroyed) return;
+      if (!imported) throw new Error('关卡JSON未加载，请等待Creator导入完成后刷新');
+      // Preview reloads this one imported asset without engine caching and with HTTP revalidation; global caches stay unchanged.
+      const config = PREVIEW ? await new Promise<JsonAsset>((resolve, reject) => {
+        assetManager.loadAny({ uuid: imported.uuid }, { reloadAsset: true, cacheAsset: false, xhrHeader: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } }, (error: Error | null, value: unknown) => {
+          if (error) reject(new Error(`关卡JSON加载失败：${error.message}`));
+          else if (!(value instanceof JsonAsset)) reject(new Error('关卡JSON资源类型无效'));
+          else resolve(value);
+        });
+      }) : imported;
+      if (session.destroyed) return;
+      const catalog = RuntimeLevelCatalog.parse(config.json);
       session.catalog = catalog;
       session.play = new ColonyFlowModel(catalog);
     } catch (cause) {
       session.play = null;
       session.catalog = null;
-      throw cause instanceof Error ? cause : new Error(String(cause));
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(detail.startsWith('关卡JSON') ? detail : `关卡JSON加载失败：${detail}`);
     }
   }
 }

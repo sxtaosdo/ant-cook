@@ -4,5 +4,5 @@
     "rootDir": "../..", "types": ["node"], "allowJs": true, "checkJs": false,
     "allowImportingTsExtensions": true, "noEmit": true
   },
-  "include": ["levelPipeline.ts", "compile-level.ts", "../compileThemeCsv.mjs"]
+  "include": ["levelPipeline.ts", "compile-level.ts", "../compileThemeCsv.mjs", "runtimeLevelStore.ts"]
 }

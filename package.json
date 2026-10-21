@@ -13,7 +13,7 @@
   "scripts": {
     "editor:board": "node --import tsx scripts/board-editor/serve.mjs",
     "editor:typecheck": "tsc -p scripts/board-editor/tsconfig.json --noEmit && tsc -p scripts/board-editor/tsconfig.level.json",
-    "editor:test": "node --import tsx --test tests/editor/*.test.ts",
+    "editor:test": "node --import tsx --test tests/editor/*.test.ts tests/editor/runtime-level-loading.test.mjs",
     "editor:levels": "node --import tsx scripts/board-editor/compile-level.ts",
     "editor:csv": "node --import tsx scripts/compileThemeCsv.mjs --check",
     "verify:editor": "pnpm run editor:typecheck && pnpm run editor:test && pnpm run editor:csv",

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readPalette } from './palette.mjs';
 import { LevelPipeline } from './levelPipeline.ts';
+import { RuntimeLevelStore } from './runtimeLevelStore.ts';
 
 const root = new URL('../../', import.meta.url);
 const executionFingerprint = JSON.stringify(LevelPipeline.dependencyHashes());
@@ -21,7 +22,7 @@ async function body(req, allowed) {
   return value;
 }
 
-export async function createLevelEditorServer(port = 7469) {
+export async function createLevelEditorServer(port = 7469, { runtimeProjectRoot = fileURLToPath(root) } = {}) {
   if (!Number.isSafeInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid explicit port');
   if (Number(process.versions.node.split('.')[0]) !== 22) throw new Error('Use the existing Node22 runtime');
   // Every start gets private compiled files. Existing7468/old output/browser remains untouched.
@@ -40,18 +41,23 @@ export async function createLevelEditorServer(port = 7469) {
   for (const file of ['boardRoute', 'levelCatalog']) {
     for (const suffix of ['', '.js']) await add(`/assets/Colony/scripts/application/${file}${suffix}`, join(output, 'assets/Colony/scripts/application', `${file}.js`), 'text/javascript; charset=utf-8');
   }
-  const candidates = new Map();
+  const candidates = new Map(), runtimeStore = new RuntimeLevelStore(runtimeProjectRoot);
   const server = createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
     const expected = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
     if (!expected.has(req.headers.host) || (req.headers.origin && ![...expected].some(host => req.headers.origin === `http://${host}`))) { json(res, 403, {error: 'Local same-origin request required'}); return; }
     try {
       if (req.method === 'GET') {
+        if (req.url === '/api/level/runtime-config') { const value = runtimeStore.read(); json(res, 200, {hash: value.hash, relativePath: RuntimeLevelStore.relativePath}); return; }
         if (req.url === '/api/palette') { json(res, 200, palette); return; }
         const file = files.get(req.url); if (!file) { res.writeHead(404).end(); return; }
         res.setHeader('Content-Type', file.type); res.end(file.body); return;
       }
       if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+      if (req.url === '/api/level/save-project') {
+        const value = await body(req, ['draft', 'expectedHash']); assertExecutionFresh();
+        json(res, 200, runtimeStore.save(value.draft, value.expectedHash)); return;
+      }
       if (req.url === '/api/level/preview') {
         const value = await body(req, ['board', 'rules', 'level']);
         assertExecutionFresh();

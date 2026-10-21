@@ -14,6 +14,7 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
   const panel = document.createElement('section'); panel.className = 'panel groups-editor'; panel.id = 'groups-editor';
   panel.innerHTML = `<h2>底部待选区</h2><p class="hint">每块的数字是要搬走的食物数量。同列从上往下出发；点击方块，在右侧修改。每种颜色的数字合计要与上方食物格数相同。</p>
     <div class="toolbar"><label>待选区 <select data-control="queues"><option>3</option><option>4</option><option>5</option></select>列</label><button data-action="generate" class="primary">自动填充待选区</button><button data-action="add">＋添加方块</button><button data-action="clear">全部删除</button><button data-action="example">载入普通示例</button><button data-action="export">保存整份草稿</button><button data-action="import">打开草稿</button><input data-control="file" type="file" accept=".json" hidden></div>
+    <div class="toolbar"><label>目标主线关 <input data-control="level" type="number" min="1" max="60"></label><button data-action="save-project" class="primary">保存到工程</button></div><p data-control="save-status" role="status" aria-live="polite"></p>
     <p data-control="generation" class="hint" role="status"></p><div data-control="statistics" class="color-statistics" aria-label="棋盘与待选数量对照"></div>
     <h3 class="block-editing-title">方块编辑</h3>
     <p data-control="guide" class="editing-guide" role="status"></p>
@@ -21,8 +22,8 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
     <section class="link-panel" aria-label="一起出发分组"><h3>一起出发</h3><p class="hint">新建分组后，点方块加入或移出。同组按成员顺序以直线连接方块中心；线色与组号前的符号一致。每块只能属于一组；同列成员必须连续，出发时还要满足队首、钥匙和空槽规则。</p><div class="toolbar"><button data-action="new-link">＋新建组</button><button data-action="end-link">结束分组，编辑属性</button><button data-action="dissolve-link">解散当前组</button></div><div data-control="link-groups" class="link-group-tabs" role="group" aria-label="选择一起出发分组"></div><p data-control="link-status" role="status"></p><div data-control="link-members" class="link-members"></div></section>
     <div class="basic-validation"><p data-control="validity" role="status"></p><button data-action="check">检查关卡</button><button data-action="play" class="primary">试玩</button></div>
     <details class="advanced-settings"><summary>进阶操作：钥匙</summary><p class="hint">编号自动管理，无需输入。</p><div class="toolbar"><button data-action="key">放钥匙并关联方块</button><button data-action="cancel" hidden>取消当前操作</button></div></details>
-    <details class="advanced-settings"><summary>高级设置：目标关、手动顺序、内部编号与候选编译</summary>
-      <label>目标主线关 <input data-control="level" type="number" min="1" max="60"></label><p class="hint">基础试玩默认使用第7关的工作槽规则。目标关仅用于槽位规则和隔离候选，不会替换正式关卡。</p>
+    <details class="advanced-settings"><summary>高级设置：手动顺序、内部编号与候选编译</summary>
+      <p class="hint">试玩使用所选目标关的工作槽规则；隔离候选不写正式工程。</p>
       <label><input data-control="manual" type="checkbox">手动指定食物顺序</label><button data-action="order">按当前图案重建食物顺序</button><textarea data-control="order" rows="3" aria-label="高级食物坐标顺序"></textarea>
       <label>指定解法的方块内部编号，用 | 分隔；留空自动寻找</label><textarea data-control="witness" rows="2" aria-label="高级解法顺序"></textarea><button data-action="witness">使用当前方块排列顺序</button>
       <details><summary>查看内部编号与钥匙坐标</summary><pre data-control="references"></pre></details>
@@ -129,7 +130,7 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
     for (const control of panel.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea')) control.disabled = locked;
     for (const button of panel.querySelectorAll<HTMLButtonElement>('button')) button.disabled = locked;
     order.disabled = locked || !manualOrder;
-    action('play').disabled = action('preview').disabled = locked || problems.length > 0;
+    action('play').disabled = action('preview').disabled = action('save-project').disabled = locked || problems.length > 0;
     action('apply').disabled = locked || !candidate;
     action('end-link').disabled = action('dissolve-link').disabled = locked || !selectedLink;
     action('clear').disabled = locked || !draft.groups.length && !Object.keys(draft.cellKeys).length && !linkGroups.length;
@@ -153,6 +154,27 @@ export function mountGroupsEditor(options: Options): { render(): void; enterConf
   action('check').onclick = () => run(() => { const problems = draftProblems(effective()); options.message(problems.length ? problems.join('；') : '结构检查通过，尚未判断解法；请点“试玩”。', problems.length > 0); render(); });
   action('play').onclick = () => run(() => { cancelPlacement(); openDraftPlaytest(effective(), options.palette); render(); });
   action('export').onclick = () => run(() => { const draft = options.read(), value = draftDocument(draft), url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' })), link = document.createElement('a'); link.href = url; link.download = `level-${draft.targetLevel}-draft.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); options.markSaved(); options.message('已保存整份草稿，包含食物图案、方块、问号、连体和钥匙。'); });
+  action('save-project').onclick = async () => {
+    if (busy || options.locked()) return;
+    const draft = effective(), feedback = get<HTMLParagraphElement>('save-status');
+    if (!window.confirm(`保存第${draft.targetLevel}关到当前蚂蚁工程JSON？原文件会保留本地备份。`)) return;
+    busy = true; feedback.textContent = '正在保存到工程…'; render();
+    try {
+      const current = await fetch('/api/level/runtime-config', { cache: 'no-store' });
+      const state = await current.json() as { hash?: string; error?: string };
+      if (!current.ok || !state.hash) throw new Error(state.error ?? '无法读取工程关卡JSON');
+      if (JSON.stringify(effective()) !== JSON.stringify(draft)) throw new Error('草稿已变化，请重新保存');
+      const response = await fetch('/api/level/save-project', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft: draftDocument(draft), expectedHash: state.hash }) });
+      const result = await response.json() as { error?: string; level?: number; hash?: string };
+      if (!response.ok) throw new Error(result.error ?? '保存失败');
+      feedback.textContent = `第${result.level}关已保存到runtime-levels.json。等待Creator导入完成后，刷新游戏即可读取。`;
+      options.message(feedback.textContent);
+    } catch (error) {
+      feedback.textContent = `保存到工程失败：${error instanceof Error ? error.message : String(error)}`;
+      options.message(feedback.textContent, true);
+    } finally { busy = false; render(); }
+  };
   const file = get<HTMLInputElement>('file'); action('import').onclick = () => run(() => file.click());
   file.onchange = async () => { const chosen = file.files?.[0]; file.value = ''; if (!chosen || busy || options.locked()) return; busy = true; render(); try { if (chosen.size > 1024 * 1024) throw new Error('草稿不能超过1MB'); const draft = importDraft(JSON.parse(await chosen.text()) as unknown); if (!confirmReplacement()) return; cancelPlacement(); selectedId = null; commit(draft); options.markSaved(); options.message('已打开初始草稿。'); } catch (error) { fail(error); } finally { busy = false; render(); } };
   action('preview').onclick = async () => {
