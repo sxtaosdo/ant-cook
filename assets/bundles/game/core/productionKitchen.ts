@@ -62,7 +62,7 @@ export class ProductionKitchen {
       orders: this.customers.flatMap(customer => customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds),
         patienceRemaining: customer.patienceRemaining, patienceMax: customer.patienceMax, baseScore: this.recipeCoins(this.recipe(item.dishId)),
       }))),
-      production: { recipes: this.rules.recipes.map(recipe => ({ dishId: recipe.dishId, label: recipe.label, plateStationId: recipe.plateStationId, toppings: (recipe.toppings ?? []).map(topping => ({ ...topping })) })), slots: this.slots.map(slot => ({ ...slot, toppingIds: [...slot.toppingIds], stationLabel: this.rules.stations.find(station => station.id === slot.stationId)!.label, dishLabel: slot.dishId ? this.foodLabel(slot.dishId, slot.toppingIds) : null })), customers: this.customers.map(customer => ({ ...customer, items: customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds) })) })),
+      production: { recipes: this.rules.recipes.map(recipe => ({ dishId: recipe.dishId, label: recipe.label, plateStationId: recipe.plateStationId, toppings: (recipe.toppings ?? []).map(topping => ({ ...topping })) })), slots: this.slots.map(slot => ({ ...slot, canServe: this.canServeSlot(slot), toppingIds: [...slot.toppingIds], stationLabel: this.rules.stations.find(station => station.id === slot.stationId)!.label, dishLabel: slot.dishId ? this.foodLabel(slot.dishId, slot.toppingIds) : null })), customers: this.customers.map(customer => ({ ...customer, items: customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds) })) })),
         baseCoins: this.baseCoins, comboCoins: this.comboCoins, earnedCoins: this.baseCoins + this.comboCoins,
         burntCount: this.burnt, discardedCount: this.discarded, elapsedSeconds: this.elapsed, configSource: this.rules.source,
         goal: { mode: this.rules.goal.mode, metric: this.rules.goal.metric, target: this.target, current }, keepEarningsOnFailure: this.rules.goal.keepEarningsOnFailure },
@@ -95,6 +95,7 @@ export class ProductionKitchen {
     this.requireRunning();
     const slot = this.slots.find(candidate => candidate.id === slotId);
     if (!slot || slot.state !== 'Ready' || !slot.dishId) throw new Error('只有成熟成品可以上菜');
+    if (!this.canServeSlot(slot)) throw new Error('请先装盘，等待空闲盘位后再上菜');
     const customer = this.customers.find(candidate => candidate.state === 'Active'
       && (customerId === undefined || candidate.id === customerId)
       && candidate.items.some(item => item.state === 'Pending' && this.matches(item, slot)));
@@ -156,6 +157,11 @@ export class ProductionKitchen {
     return this.snapshot;
   }
 
+  private canServeSlot(slot: Slot): boolean {
+    if (slot.state !== 'Ready' || !slot.dishId) return false;
+    const plateStationId = this.recipe(slot.dishId).plateStationId;
+    return !plateStationId || slot.stationId === plateStationId;
+  }
   private recipeCoins(recipe: KitchenRecipeRule): number {
     const level = KitchenRulesReader.levelIndex(this.upgrades, this.rules.restaurantId, recipe.upgradeId, recipe.coinsByLevel.length);
     return recipe.coinsByLevel[level]!;

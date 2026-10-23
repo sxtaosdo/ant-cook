@@ -1,7 +1,7 @@
 export type FoodState = 'Idle' | 'Cooking' | 'Ready' | 'Burnt';
 export interface ProductionSlotReadModel {
   readonly id: string; readonly stationId: string; readonly dishId: string | null; readonly stationLabel?: string; readonly dishLabel?: string | null;
-  readonly toppingIds: readonly string[]; readonly state: FoodState; readonly remainingSeconds: number; readonly burnRemainingSeconds: number | null;
+  readonly toppingIds: readonly string[]; readonly canServe: boolean; readonly state: FoodState; readonly remainingSeconds: number; readonly burnRemainingSeconds: number | null;
 }
 export interface CustomerItemReadModel { readonly id: string; readonly dishId: string; readonly toppingIds: readonly string[]; readonly dishLabel: string; readonly state: 'Pending' | 'Served' | 'Expired'; }
 export interface CustomerReadModel {

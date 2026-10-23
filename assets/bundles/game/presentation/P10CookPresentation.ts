@@ -509,7 +509,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private useProductionSlot(slotId: string): void {
         if (!this.canUseProduction()) return;
         const slot = this.requireReadModel().kitchen!.production!.slots.find(candidate => candidate.id === slotId);
-        if (slot?.state === 'Ready') this.publish({ type: 'p10.serve-ready', payload: { slotId } });
+        if (slot?.state === 'Ready' && slot.canServe === true) this.publish({ type: 'p10.serve-ready', payload: { slotId } });
         else if (slot?.state === 'Burnt') this.publish({ type: 'p10.discard-food', payload: { slotId } });
     }
 
@@ -554,9 +554,9 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
             const stationNames: Readonly<Record<string, string>> = { grill: '煎炉', tray: '摆盘位', prep: '备餐位', drink: '豆浆位', soy: '豆浆位', egg: '蒸煮位' };
             const name = slot.dishId ? (slot.dishLabel ?? this.dishName(slot.dishId)) : `${slot.stationLabel ?? stationNames[slot.stationId] ?? slot.stationId} · 空位`;
             const state = slot.state === 'Idle' ? '待制作' : slot.state === 'Cooking' ? `制作中 ${Math.ceil(slot.remainingSeconds)}秒`
-                : slot.state === 'Ready' ? `可上菜${slot.burnRemainingSeconds === null ? '' : ` · ${Math.ceil(slot.burnRemainingSeconds)}秒后焦`}` : '烧焦 · 点击丢弃';
+                : slot.state === 'Ready' ? `${slot.canServe === true ? '可上菜' : slot.canServe === false ? '等待盘位' : '状态待确认'}${slot.burnRemainingSeconds === null ? '' : ` · ${Math.ceil(slot.burnRemainingSeconds)}秒后焦`}` : '烧焦 · 点击丢弃';
             view.label.string = `${name}\n${state}`;
-            view.node.getComponent(Sprite)!.color = slot.state === 'Burnt' ? C.danger : slot.state === 'Ready' ? C.jade : C.panel2;
+            view.node.getComponent(Sprite)!.color = slot.state === 'Burnt' ? C.danger : slot.state === 'Ready' ? (slot.canServe === true ? C.jade : C.gold) : C.panel2;
             view.discard.active = slot.state === 'Ready' || slot.state === 'Burnt';
             for (const topping of view.toppings) topping.node.active = this.canAddProductionTopping(slot.id, topping.id);
         }

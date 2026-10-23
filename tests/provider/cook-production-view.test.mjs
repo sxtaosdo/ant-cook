@@ -100,7 +100,7 @@ function productionModel() {
  {id:'c2',state:'Active',patienceRemaining:1,patienceMax:10,items:[{id:'i2',dishId:'soy_milk',state:'Pending'},{id:'i3',dishId:'tea_egg',state:'Served'}]},
  {id:'c3',state:'Waiting',patienceRemaining:10,patienceMax:10,items:[{id:'i4',dishId:'tea_egg',state:'Pending'}]}],
  baseCoins:7,comboCoins:2,earnedCoins:9,burntCount:1,discardedCount:0,elapsedSeconds:4,configSource:'mixed-historical-and-project-defaults',
- goal:{mode:'timed',metric:'coins',target:30,current:9}}; return value;
+ goal:{mode:'timed',metric:'coins',target:30,current:9}}; value.kitchen.production.slots.forEach(slot=>{slot.canServe=slot.state==='Ready';}); return value;
 }
 function productionFixture() { const f=fixture({fixed:false}); f.presentation.readModel=productionModel(); f.presentation.showKitchen();return f; }
 function nodes(root) { return [root,...root.children.flatMap(nodes)]; }
@@ -125,7 +125,7 @@ test('ingredients start production; only a current Ready slot serves and a burnt
 });
 test('production refresh reuses nodes while updating slots, customers, goals and error feedback',async()=>{
  const f=productionFixture();await f.presentation.artTask;const before=nodes(f.view.node),targets=f.presentation.tapTargets.length;
- const next=productionModel();next.kitchen.production.slots[0].state='Ready';next.kitchen.production.customers[0].patienceRemaining=3;
+ const next=productionModel();next.kitchen.production.slots[0].state='Ready';next.kitchen.production.slots[0].canServe=true;next.kitchen.production.customers[0].patienceRemaining=3;
  next.kitchen.production.goal.current=12;next.error={code:'INVALID_OPERATION',message:'没有可用制作位'};f.presentation.readModel=next;f.presentation.refreshKitchenHud();
  assert.deepEqual(nodes(f.view.node),before);assert.equal(f.presentation.tapTargets.length,targets);assert.match(texts(f).join('\n'),/30%/);
  assert.match(texts(f).join('\n'),/12\/30/);assert.match(texts(f).join('\n'),/没有可用制作位/);
@@ -262,4 +262,25 @@ test('topping visibility refreshes on existing slots only while Ready, available
  value.paused=true;refresh();assert.equal(add.active,false);value.paused=false;
  for(const state of ['saving','error']){value.saveStatus={state};refresh();assert.equal(add.active,false);}value.saveStatus={state:'ready'};refresh();assert.equal(add.active,true);
  value.kitchen.production.slots[1].dishId='soy_milk';refresh();assert.equal(add.active,false);
+});
+
+
+test('Ready food awaiting plate space is never offered as serveable and stale queries cannot dispatch a serve',async()=>{
+ const f=productionFixture();await f.presentation.artTask;const value=productionModel(),production=value.kitchen.production;
+ production.recipes[0].plateStationId='plate';production.slots[1].canServe=false;
+ production.slots.push({id:'plate-1',stationId:'plate',dishId:'jianbing',state:'Ready',canServe:true,toppingIds:[],remainingSeconds:0,burnRemainingSeconds:null});
+ production.slots[2].state='Ready';production.slots[2].canServe=true;
+ f.presentation.readModel=value;f.presentation.showKitchen();await f.presentation.artTask;
+ const hot=nodes(f.view.node).find(n=>n.name==='ProductionSlot_grill-1'),plate=nodes(f.view.node).find(n=>n.name==='ProductionSlot_plate-1');
+ const hotText=()=>nodes(hot).flatMap(n=>n.getComponent(Label)?.string??[]).join('\n');
+ assert.match(hotText(),/等待盘位/);assert.match(hotText(),/4秒.*焦/);assert.doesNotMatch(hotText(),/可上菜/);
+ assert.equal(f.presentation.productionSlotViews.get('grill-1').discard.active,true);f.tap(hot);assert.equal(f.intents.length,0);
+ f.tap(plate);assert.equal(f.intents.at(-1).payload.slotId,'plate-1');
+ const count=f.intents.length;production.slots.find(slot=>slot.id==='plate-1').canServe=false;
+ f.presentation.refreshKitchenHud();f.tap(plate);assert.equal(f.intents.length,count,'old node reads latest authoritative query');
+ production.slots[1].state='Idle';production.slots[1].dishId=null;production.slots[1].burnRemainingSeconds=null;
+ production.slots.find(slot=>slot.id==='plate-1').canServe=true;f.presentation.refreshKitchenHud();
+ f.tap(plate);assert.equal(f.intents.length,count+1);assert.match(nodes(plate).flatMap(n=>n.getComponent(Label)?.string??[]).join('\n'),/可上菜/);
+ const drink=nodes(f.view.node).find(n=>n.name==='ProductionSlot_drink-0');f.tap(drink);assert.equal(f.intents.at(-1).payload.slotId,'drink-0');
+ const delivered=f.intents.length;delete production.slots[2].canServe;f.presentation.refreshKitchenHud();assert.match(nodes(drink).flatMap(n=>n.getComponent(Label)?.string??[]).join('\n'),/状态待确认/);f.tap(drink);assert.equal(f.intents.length,delivered,'missing query is unavailable, not implicitly serveable');
 });
