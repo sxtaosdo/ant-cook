@@ -29,7 +29,7 @@ function fixture({ failInitial = false, values = new Map() } = {}) {
   class Adapter { constructor(ports) { this.ports = ports; } }
   class Lifecycle { constructor(_, adapter) { this.adapter = adapter; } onLoad() { state.events.push('wired'); } update(delta) { this.adapter.ports.update(delta); this.adapter.ports.presentation.render(); } onDestroy() {} }
   const base = fileURLToPath(new URL('../../assets/bundles/game/', import.meta.url));
-  const mocks = { cc: { Component, _decorator: { ccclass: () => Class => Class }, Director: { EVENT_AFTER_DRAW: 'draw' }, director: { once(_, cb) { state.events.push('draw'); queueMicrotask(cb); } } },
+  const mocks = { mk: { default: { asset: { async get() { return { json: JSON.parse(readFileSync(new URL('../../assets/bundles/game/resources/config/kitchen-rules.json', import.meta.url), 'utf8')) }; } } } }, cc: { Component, _decorator: { ccclass: () => Class => Class }, Director: { EVENT_AFTER_DRAW: 'draw' }, director: { once(_, cb) { state.events.push('draw'); queueMicrotask(cb); } } },
     'db://shidai3/index': { StateMachine, CocosAdapter: Adapter, CocosComponentLifecycleHost: Lifecycle },
     P10CookApplication: { P10CookApplication }, contracts: { ModuleEntryGate }, P10CookPresentation: { P10CookPresentation: Presentation } };
   const cache = new Map();

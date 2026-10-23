@@ -1,4 +1,5 @@
-import { _decorator, Component, director, Director } from 'cc';
+import mk from 'mk';
+import { _decorator, Component, director, Director, JsonAsset } from 'cc';
 import { CocosAdapter, CocosComponentLifecycleHost } from 'db://shidai3/index';
 import { CookLevelSession } from './application/cookLevelSession';
 import { P10CookApplication } from './application/P10CookApplication';
@@ -50,7 +51,14 @@ export class GameRoot extends Component implements GameplayModule {
             canReceiveInput: () => !this.entry?.isNavigationCovered?.(),
         });
         this.bootstrap.bind(this.application, this.session, () => this.renderNow(),
-            () => this.presentation!.initializeResources(), cause => this.entry?.saveBlocked(cause),
+            async () => {
+                const asset = await mk.asset.get('resources/config/kitchen-rules', JsonAsset, this.node, { bundleStr: 'game' });
+                if (!this.entry?.isCurrent() || this.closing) return;
+                if (!asset) throw new Error('Cook kitchen rules did not load');
+                const configured = this.application!.configureKitchenRules(asset.json);
+                if (!configured.ok) throw new Error(configured.error.message);
+                await this.presentation!.initializeResources();
+            }, cause => this.entry?.saveBlocked(cause),
             () => !!this.entry?.isCurrent() && !this.closing);
         const adapter = new CocosAdapter<P10Intent, P10ReadModel>({ input: this.inputPort,
             presentation: { render: () => this.renderNow() }, dispatchIntent: intent => { void this.routeIntent(intent); },
@@ -177,6 +185,9 @@ export class GameRoot extends Component implements GameplayModule {
                 case 'p10.set-level-page': app.setLevelPage(intent.payload.page); break;
                 case 'p10.set-story-page': app.setStoryPage(intent.payload.page); break;
                 case 'p10.serve-dish': app.serve(intent.payload.dishId); break;
+                case 'p10.start-cooking': app.startCooking(intent.payload.dishId); break;
+                case 'p10.serve-ready': app.serveReady(intent.payload.slotId, intent.payload.customerId); break;
+                case 'p10.discard-food': app.discardFood(intent.payload.slotId); break;
                 case 'p10.pause': app.pauseRun(); break;
                 case 'p10.resume': app.resumeRun(); break;
                 case 'p10.restart': session.retry(); break;

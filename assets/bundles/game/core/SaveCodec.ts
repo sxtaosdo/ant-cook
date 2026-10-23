@@ -120,7 +120,7 @@ export class SaveCodec {
         save.levels['r01-l01'].unlocked = true;
 
         for (const [key, level] of Object.entries(raw.upgrades ?? {})) {
-            save.upgrades[key] = Math.floor(clampNumber(level, 1, 3, 1));
+            save.upgrades[key] = Math.floor(clampNumber(level, 1, Number.MAX_SAFE_INTEGER, 1));
         }
         save.settlements = { ...(raw.settlements ?? {}) };
         save.upgradeTransactions = { ...(raw.upgradeTransactions ?? {}) };

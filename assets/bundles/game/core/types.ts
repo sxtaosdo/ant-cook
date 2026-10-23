@@ -5,7 +5,7 @@ export const RunStatus = {
 } as const;
 
 export type RunStatus = typeof RunStatus[keyof typeof RunStatus];
-export type FailureReason = 'TARGET_NOT_MET' | 'TOO_MANY_LOST';
+export type FailureReason = 'TARGET_NOT_MET' | 'TOO_MANY_LOST' | 'BURNT_LIMIT' | 'DISCARD_LIMIT';
 export type OrderState = 'Pending' | 'Served' | 'Expired';
 
 export interface RestaurantConfig {
@@ -46,6 +46,7 @@ export interface OrderReadModel {
 }
 
 export interface KitchenRunReadModel {
+    readonly production?: import('./productionTypes').KitchenProductionReadModel;
     readonly levelId: string;
     readonly attemptId: string;
     readonly status: RunStatus;
@@ -88,6 +89,7 @@ export interface KitchenCheckpoint {
 }
 
 export interface SettlementReceipt {
+    attemptId?: string;
     settlementId: string;
     levelId: string;
     success: boolean;
@@ -100,6 +102,10 @@ export interface SettlementReceipt {
 }
 
 export interface UpgradeQuote {
+    label?: string;
+    kind?: 'equipment' | 'ingredient';
+    currentEffect?: { capacity?: number; timeMultiplier?: number; coins?: number };
+    nextEffect?: { capacity?: number; timeMultiplier?: number; coins?: number } | null;
     restaurantId: string;
     stationId: string;
     currentLevel: number;

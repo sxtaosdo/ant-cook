@@ -1,3 +1,5 @@
+import { ProductionKitchen } from './productionKitchen';
+import type { KitchenRules } from './kitchenRules';
 import type { KitchenRunReadModel, LevelConfig, OrderReadModel } from './types';
 import { RunStatus } from './types';
 
@@ -11,6 +13,7 @@ interface MutableOrder {
 }
 
 export class KitchenRun {
+    private readonly production: ProductionKitchen | null;
     private readonly config: LevelConfig;
     private readonly attemptIdValue: string;
     private readonly orders: MutableOrder[];
@@ -24,10 +27,11 @@ export class KitchenRun {
     private starsValue = 0;
     private failureReasonValue: KitchenRunReadModel['failureReason'];
 
-    public constructor(config: LevelConfig, attemptId: string) {
+    public constructor(config: LevelConfig, attemptId: string, options?: { rules: KitchenRules; upgrades: Readonly<Record<string, number>> }) {
         if (!attemptId.trim()) {
             throw new Error('attemptId is required');
         }
+        this.production = options ? new ProductionKitchen(config, attemptId, options.rules, options.upgrades) : null;
         this.config = config;
         this.attemptIdValue = attemptId;
         this.remainingSecondsValue = config.durationSeconds;
@@ -42,6 +46,7 @@ export class KitchenRun {
     }
 
     public get snapshot(): KitchenRunReadModel {
+        if (this.production) return this.production.snapshot;
         return {
             levelId: this.config.id,
             attemptId: this.attemptIdValue,
@@ -58,7 +63,13 @@ export class KitchenRun {
         };
     }
 
+    public startCooking(dishId: string): KitchenRunReadModel { return this.requireProduction().startCooking(dishId); }
+    public serveReady(slotId: string, customerId?: string): KitchenRunReadModel { return this.requireProduction().serveReady(slotId, customerId); }
+    public discardFood(slotId: string): KitchenRunReadModel { return this.requireProduction().discardFood(slotId); }
+    private requireProduction(): ProductionKitchen { if (!this.production) throw new Error('Production rules are not configured'); return this.production; }
+
     public serveOrder(orderId: string): KitchenRunReadModel {
+        if (this.production) throw new Error('请先制作，再点击成熟成品上菜');
         this.requireRunning();
         const order = this.orders.find((candidate) => candidate.id === orderId);
         if (!order || order.state !== 'Pending') {
@@ -78,6 +89,7 @@ export class KitchenRun {
     }
 
     public tick(seconds: number): KitchenRunReadModel {
+        if (this.production) return this.production.tick(seconds);
         this.requireRunning();
         if (!Number.isFinite(seconds) || seconds < 0) {
             throw new Error('tick seconds must be a non-negative finite number');

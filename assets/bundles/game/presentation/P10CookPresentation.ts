@@ -77,6 +77,10 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private hudPatience: Label | null = null;
     private hudOrder: Label | null = null;
     private hudProgress: Label | null = null;
+    private productionStructure = '';
+    private productionFeedback: Label | null = null;
+    private readonly productionSlotViews = new Map<string, { node: Node; label: Label; discard: Node }>();
+    private readonly productionCustomerViews = new Map<string, { label: Label; bar: Node; width: number }>();
     private tapTargets: Array<{ node: Node; action: () => void }> = [];
     private viewport!: ViewportLayout;
     private backgroundRoot: Node | null = null;
@@ -179,7 +183,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
                 this.pageType = type;
                 page.node.layer = this.moduleRoot.layer;
             }
-            if (readModel.screen === 'kitchen' && this.hudTime) { this.refreshKitchenHud(); this.renderedFingerprint = fingerprint; continue; }
+            if (readModel.screen === 'kitchen' && this.hudTime) { this.refreshKitchenHud(); await this.artTask; this.renderedFingerprint = fingerprint; continue; }
             switch (readModel.screen) {
                 case 'map': this.showMap(); break;
                 case 'level': this.showLevel(); break;
@@ -216,7 +220,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     }
 
     private dishName(id: string): string {
-        return DISH_NAMES[id] ?? id;
+        return this.readModel?.kitchen?.production?.recipes.find(recipe => recipe.dishId === id)?.label ?? DISH_NAMES[id] ?? id;
     }
 
     private clear(screen: P10Screen): void {
@@ -236,6 +240,8 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.backgroundRoot = this.contentRoot = this.safeAreaRoot = this.modalRoot = null;
         this.transition = null;
         this.hudTime = this.hudPatience = this.hudOrder = this.hudProgress = null;
+        this.productionSlotViews.clear(); this.productionCustomerViews.clear();
+        this.productionStructure = ''; this.productionFeedback = null;
         if (screen === 'settings' || screen === 'recovery' || (screen === 'map' && map?.hasFixedMap)
             || (screen === 'level' && map?.hasFixedLevel) || (screen === 'pause' && kitchen?.hasFixedPause)) {
             this.activePageRoot = null;
@@ -392,6 +398,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         const restaurant = model.catalog.restaurants[restaurantIndex] ?? model.catalog.restaurants[0];
         this.frame(`${restaurant.name} · ${levelIndex + 1}`, '高峰营业中');
         this.button('Ⅱ', this.safeAreaRoot!, 292, this.viewport.topY - 94, 72, 62, C.panel2, () => this.publish({ type: 'p10.pause', payload: {} }));
+        if (model.kitchen?.production) { this.showProductionKitchen(); return; }
         this.box('Hud', this.node, 0, 430, 650, 150, C.panel);
         this.hudTime = this.text('', this.node, -220, 452, 30, 190, 50, C.gold, HorizontalTextAlignment.CENTER, true);
         this.hudPatience = this.text('', this.node, 0, 452, 28, 220, 50, C.cyan, HorizontalTextAlignment.CENTER, true);
@@ -424,6 +431,8 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private refreshKitchenHud(): void {
         const snapshot = this.requireReadModel().kitchen;
         if (!this.hudTime || !snapshot) return;
+        if (snapshot.production) { this.refreshProductionKitchen(); return; }
+        if (this.productionStructure) { this.showKitchen(); return; }
         const pending = snapshot.orders.find((order) => order.state === 'Pending');
         const patience = pending ? Math.round(pending.patienceRemaining / pending.patienceMax * 100) : 0;
         this.hudTime.string = `时间 ${Math.ceil(snapshot.remainingSeconds)}s`;
@@ -431,6 +440,104 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.hudProgress!.string = `${snapshot.servedOrders}/${snapshot.orders.length}  连击×${snapshot.combo}`;
         this.hudOrder!.string = pending ? `请上：${this.dishName(pending.dishId)}` : '订单已处理完毕';
         this.hudPatience!.color = patience < 30 ? C.danger : C.cyan;
+    }
+
+    private productionKey(): string {
+        const model = this.requireReadModel(), production = model.kitchen?.production;
+        return production ? JSON.stringify([production.slots.map(slot => [slot.id, slot.stationId]),
+            production.customers.filter(customer => customer.state === 'Active').map(customer => customer.id), production.recipes]) : '';
+    }
+
+    private showProductionKitchen(): void {
+        const model = this.requireReadModel(), production = model.kitchen!.production!;
+        const top = this.viewport.topY, bottom = this.viewport.bottomY;
+        this.productionStructure = this.productionKey();
+        this.box('ProductionHud', this.node, 0, top - 190, 670, 120, C.panel);
+        this.hudTime = this.text('', this.node, -220, top - 164, 24, 200, 42, C.gold);
+        this.hudProgress = this.text('', this.node, 95, top - 164, 23, 440, 42, C.cream);
+        this.hudPatience = this.text('', this.node, 0, top - 210, 22, 640, 40, C.gold);
+        const customers = production.customers.filter(customer => customer.state === 'Active');
+        const customerCols = Math.min(4, Math.max(1, customers.length)), customerRows = Math.ceil(customers.length / customerCols);
+        const customerWidth = 650 / customerCols - 10;
+        const customerHeight = Math.min(146, 210 / Math.max(1, customerRows));
+        customers.forEach((customer, index) => {
+            const x = (index % customerCols - (customerCols - 1) / 2) * (650 / customerCols);
+            const y = top - 340 - Math.floor(index / customerCols) * customerHeight;
+            const node = this.box(`Customer_${customer.id}`, this.node, x, y, customerWidth, customerHeight - 8, C.panel2);
+            const label = this.text('', node, 0, 7, 21, customerWidth - 12, customerHeight - 36, C.cream);
+            const bar = this.box('Patience', node, 0, -customerHeight / 2 + 20, customerWidth - 18, 8, C.jade);
+            this.productionCustomerViews.set(customer.id, { label, bar, width: customerWidth - 18 });
+        });
+        const slots = production.slots, cols = Math.min(4, Math.max(1, slots.length)), rows = Math.ceil(slots.length / cols);
+        const slotWidth = 650 / cols - 10;
+        const available = Math.max(180, top - bottom - 780), rowHeight = Math.min(132, available / Math.max(1, rows));
+        slots.forEach((slot, index) => {
+            const x = (index % cols - (cols - 1) / 2) * (650 / cols);
+            const y = top - 560 - Math.floor(index / cols) * rowHeight;
+            const node = this.box(`ProductionSlot_${slot.id}`, this.node, x, y, slotWidth, rowHeight - 8, C.panel2);
+            const label = this.text('', node, 0, 20, 21, slotWidth - 12, rowHeight - 60, C.cream);
+            this.tap(node, () => this.useProductionSlot(slot.id));
+            const discard = this.button('丢弃', node, 0, -rowHeight / 2 + 27, Math.min(100, slotWidth - 18), 42, C.danger,
+                () => this.discardProductionSlot(slot.id));
+            this.productionSlotViews.set(slot.id, { node, label, discard });
+        });
+        this.text('点击食材制作 · 点击成熟成品上菜', this.node, 0, bottom + 235, 21, 650, 36, C.cream);
+        const dishes = production.recipes.map(recipe => recipe.dishId);
+        const width = 650 / Math.max(1, dishes.length);
+        dishes.forEach((dishId, index) => this.button(`制作${this.dishName(dishId)}`, this.node,
+            (index - (dishes.length - 1) / 2) * width, bottom + 174, width - 12, 72, index % 2 ? C.jade : C.red,
+            () => { if (this.canUseProduction()) this.publish({ type: 'p10.start-cooking', payload: { dishId } }); }));
+        this.productionFeedback = this.text('', this.node, 0, bottom + 101, 21, 650, 64, C.gold);
+        this.text('历史参考/项目默认，待现版校准', this.node, 0, bottom + 40, 18, 650, 30, C.muted);
+        this.refreshProductionKitchen();
+    }
+
+    private canUseProduction(): boolean {
+        const model = this.requireReadModel();
+        return model.screen === 'kitchen' && !model.paused && !!model.kitchen?.production && model.kitchen.status === 'Running' && model.saveStatus?.state !== 'error'
+            && model.saveStatus?.state !== 'saving';
+    }
+
+    private useProductionSlot(slotId: string): void {
+        if (!this.canUseProduction()) return;
+        const slot = this.requireReadModel().kitchen!.production!.slots.find(candidate => candidate.id === slotId);
+        if (slot?.state === 'Ready') this.publish({ type: 'p10.serve-ready', payload: { slotId } });
+        else if (slot?.state === 'Burnt') this.publish({ type: 'p10.discard-food', payload: { slotId } });
+    }
+
+    private discardProductionSlot(slotId: string): void {
+        if (!this.canUseProduction()) return;
+        const slot = this.requireReadModel().kitchen!.production!.slots.find(candidate => candidate.id === slotId);
+        if (slot?.state === 'Ready' || slot?.state === 'Burnt') this.publish({ type: 'p10.discard-food', payload: { slotId } });
+    }
+
+    private refreshProductionKitchen(): void {
+        if (this.productionKey() !== this.productionStructure) { this.showKitchen(); return; }
+        const model = this.requireReadModel(), snapshot = model.kitchen!, production = snapshot.production!;
+        const handled = production.customers.filter(customer => customer.state === 'Served' || customer.state === 'Lost').length;
+        this.hudTime!.string = production.goal.mode === 'customers' ? `限客 ${handled}/${production.customers.length}` : `时间 ${Math.ceil(snapshot.remainingSeconds)}秒`;
+        const goalNames: Readonly<Record<string, string>> = { coins: '金币', customers: '顾客', dishes: '出餐', score: '得分' };
+        this.hudProgress!.string = `${goalNames[production.goal.metric] ?? production.goal.metric} ${production.goal.current}/${production.goal.target} · 连击×${snapshot.combo}`;
+        this.hudPatience!.string = `基础 ${production.baseCoins} + 连击 ${production.comboCoins} = 本局 ${production.earnedCoins}`;
+        for (const customer of production.customers) {
+            const view = this.productionCustomerViews.get(customer.id); if (!view) continue;
+            const percent = Math.max(0, Math.min(100, Math.round(customer.patienceRemaining / Math.max(1, customer.patienceMax) * 100)));
+            const items = customer.items.map(item => `${item.state === 'Served' ? '✓' : item.state === 'Expired' ? '×' : ''}${this.dishName(item.dishId)}`).join('\n');
+            view.label.string = `${items}\n耐心 ${percent}%`;
+            view.bar.getComponent(UITransform)!.setContentSize(view.width * percent / 100, 8);
+            view.bar.getComponent(Sprite)!.color = percent < 30 ? C.danger : C.jade;
+        }
+        for (const slot of production.slots) {
+            const view = this.productionSlotViews.get(slot.id); if (!view) continue;
+            const stationNames: Readonly<Record<string, string>> = { grill: '煎炉', tray: '摆盘位', prep: '备餐位', drink: '豆浆位', soy: '豆浆位', egg: '蒸煮位' };
+            const name = slot.dishId ? (slot.dishLabel ?? this.dishName(slot.dishId)) : `${slot.stationLabel ?? stationNames[slot.stationId] ?? slot.stationId} · 空位`;
+            const state = slot.state === 'Idle' ? '待制作' : slot.state === 'Cooking' ? `制作中 ${Math.ceil(slot.remainingSeconds)}秒`
+                : slot.state === 'Ready' ? `可上菜${slot.burnRemainingSeconds === null ? '' : ` · ${Math.ceil(slot.burnRemainingSeconds)}秒后焦`}` : '烧焦 · 点击丢弃';
+            view.label.string = `${name}\n${state}`;
+            view.node.getComponent(Sprite)!.color = slot.state === 'Burnt' ? C.danger : slot.state === 'Ready' ? C.jade : C.panel2;
+            view.discard.active = slot.state === 'Ready' || slot.state === 'Burnt';
+        }
+        this.productionFeedback!.string = model.error?.message ?? `待客 ${production.customers.filter(customer => customer.state === 'Waiting').length} · 烧焦 ${production.burntCount} · 丢弃 ${production.discardedCount}`;
     }
 
     private showPause(): void {
@@ -472,7 +579,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         const score = model.result?.score ?? 0;
         this.box('ScoreCard', this.node, 0, 18, 560, 128, C.panel);
         this.text(`得分 ${score}   星级 ${stars}`, this.node, 0, 32, 24, 520, 48, C.cream, HorizontalTextAlignment.CENTER, true);
-        this.text(lastSuccess ? '奖励已保存至安全档' : '本局不扣除资源', this.node, 0, -25, 19, 500, 34, C.cyan, HorizontalTextAlignment.CENTER);
+        this.text(`结算入账 ${model.result?.coinsGranted ?? 0} 金币 · 已保存`, this.node, 0, -25, 19, 500, 34, C.cyan, HorizontalTextAlignment.CENTER);
         const restaurant = model.catalog.restaurants[model.selection.restaurantIndex] ?? model.catalog.restaurants[0];
         const chapterComplete = lastSuccess && model.selection.levelIndex >= restaurant.levelIds.length - 1;
         const allContentComplete = chapterComplete && model.selection.restaurantIndex === model.catalog.restaurants.length - 1;
@@ -489,24 +596,32 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.frame('工位升级', '更快加工 · 更稳出餐', true);
         const restaurantIndex = model.selection.restaurantIndex;
         const restaurant = model.catalog.restaurants[restaurantIndex] ?? model.catalog.restaurants[0];
-        const stationIds = ['prep', 'grill', 'tray'];
-        const names = ['精工切配台', '聚能霓虹灶', '恒温装盘台'];
-        names.forEach((name, index) => {
-            const y = 330 - index * 220;
-            const quote = model.upgradeQuotes[stationIds[index]];
-            const level = quote?.currentLevel ?? 1;
-            const cost = quote?.price ?? null;
-            const affordable = quote?.affordable ?? false;
-            this.box(`Upgrade${index}`, this.node, 0, y, 640, 176, C.panel);
-            this.text(['刀', '火', '盘'][index], this.node, -245, y + 6, 54, 90, 80, index === 1 ? C.red : C.cyan, HorizontalTextAlignment.CENTER, true);
-            this.text(`${name}  Lv.${level}`, this.node, -25, y + 38, 28, 370, 44, C.cream, HorizontalTextAlignment.LEFT, true);
-            this.text(`效率 +${level * 8}% · 下级 +8%`, this.node, -25, y - 12, 20, 370, 34, C.cyan, HorizontalTextAlignment.LEFT);
-            this.button(cost === null ? '已满级' : `${cost} 金币`, this.node, 210, y - 8, 180, 64, affordable ? C.jade : C.danger, () => {
-                if (!affordable) return;
-                this.publish({ type: 'p10.purchase-upgrade', payload: { restaurantId: restaurant.id, stationId: stationIds[index] } });
-            });
+        const quotes = Object.values(model.upgradeQuotes).filter(quote => quote.restaurantId === restaurant.id);
+        const rowHeight = Math.min(200, (this.viewport.topY - this.viewport.bottomY - 310) / Math.max(1, quotes.length));
+        quotes.forEach((quote, index) => {
+            const y = this.viewport.topY - 210 - index * rowHeight;
+            const height = rowHeight - 12;
+            this.box(`Upgrade_${quote.stationId}`, this.node, 0, y, 650, height, C.panel);
+            const name = quote.label ?? quote.stationId;
+            this.text(`${quote.kind === 'ingredient' ? '食材' : '厨具'} · ${name}  Lv.${quote.currentLevel}`, this.node,
+                -68, y + height * 0.23, 24, 470, height * 0.4, C.cream, HorizontalTextAlignment.LEFT, true);
+            const effect = (value: typeof quote.currentEffect): string => {
+                if (!value) return '效果见餐厅规则';
+                return [value.capacity === undefined ? '' : `容量 ${value.capacity}`,
+                    value.timeMultiplier === undefined ? '' : `用时×${value.timeMultiplier}`,
+                    value.coins === undefined ? '' : `每份 ${value.coins}金币`].filter(Boolean).join(' · ');
+            };
+            this.text(`${effect(quote.currentEffect)}${quote.nextEffect ? ` → ${effect(quote.nextEffect)}` : ''}`, this.node,
+                -68, y - height * 0.23, 19, 470, height * 0.44, C.cyan, HorizontalTextAlignment.LEFT);
+            this.button(quote.price === null ? '已满级' : `${quote.price} 金币`, this.node, 240, y, 142,
+                Math.min(68, height - 16), quote.affordable ? C.jade : C.danger, () => {
+                    const latest = this.requireReadModel();
+                    const current = latest.upgradeQuotes[quote.stationId];
+                    if (latest.screen !== 'upgrade' || !current?.affordable || current.price === null) return;
+                    this.publish({ type: 'p10.purchase-upgrade', payload: { restaurantId: restaurant.id, stationId: quote.stationId } });
+                });
         });
-        this.text('升级永久生效，资源不足时按钮显示赤色', this.node, 0, -385, 20, 620, 38, C.muted, HorizontalTextAlignment.CENTER);
+        this.text('历史参考/项目默认，升级效果以当前规则为准', this.node, 0, this.viewport.bottomY + 100, 19, 650, 38, C.muted);
     }
 
     private showDecor(): void {

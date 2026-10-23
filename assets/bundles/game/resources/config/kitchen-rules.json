@@ -1,0 +1,24 @@
+{
+  "schema": "cook-kitchen-rules-v1",
+  "source": "mixed-historical-2021-2024-and-project-defaults-not-current-reference",
+  "restaurantId": "r01",
+  "evidence": [
+    { "url": "https://www.taptap.cn/app/194106/all-info", "scope": "official-description-1.170.0", "facts": ["tap-ingredients-to-cook-then-tap-ready-food", "equipment-speed-and-quantity", "ingredient-coins", "consecutive-service-extra-coins"] },
+    { "url": "https://www.9game.cn/news/5169019.html", "date": "2021-05-27", "scope": "historical-android-1.6-not-current", "facts": { "earlyGriddles": 2, "earlyPlates": 2, "earlySoySlots": 1, "firstLevelCoinTarget": 30, "firstLevelCustomers": 6, "firstPotUpgrade": 50 } },
+    { "url": "https://www.easck.net/handbook/2024/09-26/534591.shtml", "scope": "historical-republication-not-current", "facts": { "soyCurrentSeconds": 4, "soyCapacityBefore": 1, "soyCapacityAfter": 2, "soyUpgradePrice": 120 }, "unknown": ["soySecondsAfterUpgrade-obscured"] }
+  ],
+  "projectDefaultFields": ["all-unlisted-upgrade-prices", "griddle-cook-and-burn-seconds", "capacity-levels-above-historical-evidence", "speed-multipliers", "recipe-coins", "active-customer-capacity", "items-per-customer", "patience-and-recovery", "combo-window-and-bonuses", "failure-limits", "star-ratios", "earnings-on-failure", "auto-plating-policy"],
+  "stations": [
+    { "id": "griddle", "label": "煎锅", "upgradeId": "grill", "capacityByLevel": [2,3,4], "timeMultipliers": [1,0.85,0.7], "upgradePrices": [50,150] },
+    { "id": "soy-machine", "label": "豆浆机", "upgradeId": "prep", "capacityByLevel": [1,2,3], "timeMultipliers": [1,1,1], "upgradePrices": [120,240] },
+    { "id": "plate", "label": "摆盘位", "upgradeId": "tray", "capacityByLevel": [2,3,4], "timeMultipliers": [1,1,1], "upgradePrices": [70,180] }
+  ],
+  "recipes": [
+    { "dishId": "jianbing", "label": "煎饼", "stationId": "griddle", "plateStationId": "plate", "cookSeconds": 3, "burnAfterSeconds": 6, "coinsByLevel": [5,7,10], "upgradeId": "ingredient-jianbing", "upgradePrices": [100,200] },
+    { "dishId": "soy_milk", "label": "豆浆", "stationId": "soy-machine", "cookSeconds": 4, "burnAfterSeconds": null, "coinsByLevel": [2,3,5], "upgradeId": "ingredient-soy_milk", "upgradePrices": [80,160] }
+  ],
+  "customers": { "count": 6, "activeCapacity": 2, "itemsPerCustomer": 2, "patienceSeconds": 30, "partialServeRecoverySeconds": 3 },
+  "combo": { "windowSeconds": 4, "bonusCoins": [0,1,2,3,4] },
+  "limits": { "maxBurnt": null, "maxDiscarded": null, "maxLost": 0 },
+  "goal": { "mode": "customers", "metric": "coins", "target": 30, "starRatios": [1,1.25,1.5], "keepEarningsOnFailure": false }
+}

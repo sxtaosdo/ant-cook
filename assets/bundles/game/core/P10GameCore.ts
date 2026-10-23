@@ -1,3 +1,4 @@
+import { KitchenRulesReader, type KitchenRules } from './kitchenRules';
 import {
     LEVELS,
     RESTAURANTS,
@@ -26,6 +27,18 @@ function cloneJson<T>(value: T): T {
 
 export class P10GameCore {
     private readonly save: GameSaveV2;
+    private kitchenRules: KitchenRules | null = null;
+    public configureKitchenRules(rules: KitchenRules | null): void { this.kitchenRules = rules; }
+    public listUpgradeIds(restaurantId: string): readonly string[] {
+        return this.kitchenRules?.restaurantId === restaurantId
+            ? [...this.kitchenRules.stations.map(station => station.upgradeId), ...this.kitchenRules.recipes.map(recipe => recipe.upgradeId)]
+            : [...STATION_IDS];
+    }
+    private createRun(levelId: string, attemptId: string): KitchenRun {
+        const config = getLevelConfig(levelId);
+        return new KitchenRun(config, attemptId, this.kitchenRules?.restaurantId === config.restaurantId
+            ? { rules: this.kitchenRules, upgrades: { ...this.save.upgrades } } : undefined);
+    }
 
     private constructor(save: GameSaveV2) {
         this.save = save;
@@ -65,14 +78,14 @@ export class P10GameCore {
         if (!progress?.unlocked) {
             throw new Error(`Level is locked: ${levelId}`);
         }
-        const run = new KitchenRun(getLevelConfig(levelId), attemptId);
+        const run = this.createRun(levelId, attemptId);
         this.save.checkpoint = { levelId, attemptId };
         return run;
     }
 
     public resumeCheckpoint(): KitchenRun | null {
         const checkpoint = this.save.checkpoint;
-        return checkpoint ? new KitchenRun(getLevelConfig(checkpoint.levelId), checkpoint.attemptId) : null;
+        return checkpoint ? this.createRun(checkpoint.levelId, checkpoint.attemptId) : null;
     }
 
     public abandonCheckpoint(): void {
@@ -89,6 +102,8 @@ export class P10GameCore {
         }
 
         const result = run.snapshot;
+        const previousAttempt = Object.values(this.save.settlements).find(receipt => receipt.attemptId === result.attemptId && receipt.levelId === result.levelId);
+        if (previousAttempt) return cloneJson(previousAttempt);
         if (result.status === RunStatus.Running) {
             throw new Error('Cannot settle a running level');
         }
@@ -104,7 +119,7 @@ export class P10GameCore {
             const previousStars = levelProgress.bestStars;
             const firstClear = previousStars === 0;
             reputationGranted = Math.max(0, result.stars - previousStars);
-            coinsGranted = config.baseReward + result.stars * 25 + (firstClear ? config.firstClearBonus : 0);
+            coinsGranted = result.production?.earnedCoins ?? (config.baseReward + result.stars * 25 + (firstClear ? config.firstClearBonus : 0));
             this.save.coins += coinsGranted;
             this.save.reputation += reputationGranted;
             levelProgress.bestStars = Math.max(previousStars, result.stars);
@@ -115,10 +130,12 @@ export class P10GameCore {
             restaurantUnlocked = progressChanges.restaurantUnlocked;
         } else {
             levelProgress.failures += 1;
+            if (result.production?.keepEarningsOnFailure) { coinsGranted = result.production.earnedCoins; this.save.coins += coinsGranted; }
         }
 
         const receipt: SettlementReceipt = {
             settlementId,
+            attemptId: result.attemptId,
             levelId: result.levelId,
             success: result.status === RunStatus.Completed,
             score: result.score,
@@ -135,6 +152,20 @@ export class P10GameCore {
 
     public getUpgradeQuote(restaurantId: string, stationId: string): UpgradeQuote {
         getRestaurantConfig(restaurantId);
+        const rules = this.kitchenRules?.restaurantId === restaurantId ? this.kitchenRules : null;
+        const station = rules?.stations.find(candidate => candidate.upgradeId === stationId);
+        const recipe = rules?.recipes.find(candidate => candidate.upgradeId === stationId);
+        if (rules && !station && !recipe) throw new Error(`Unknown upgrade: ${stationId}`);
+        if (rules && (station || recipe)) {
+            const prices = (station ?? recipe)!.upgradePrices;
+            const index = KitchenRulesReader.levelIndex(this.save.upgrades, restaurantId, stationId, prices.length + 1);
+            const effect = (level: number) => station ? { capacity: station.capacityByLevel[level]!, timeMultiplier: station.timeMultipliers[level]! }
+                : { coins: recipe!.coinsByLevel[level]! };
+            const price = index < prices.length ? prices[index]! : null;
+            return { restaurantId, stationId, currentLevel: index + 1, nextLevel: price === null ? null : index + 2,
+                price, affordable: price !== null && this.save.coins >= price, label: (station ?? recipe)!.label,
+                kind: station ? 'equipment' : 'ingredient', currentEffect: effect(index), nextEffect: price === null ? null : effect(index + 1) };
+        }
         this.requireStation(stationId);
         const key = `${restaurantId}:${stationId}`;
         const currentLevel = this.save.upgrades[key] ?? 1;

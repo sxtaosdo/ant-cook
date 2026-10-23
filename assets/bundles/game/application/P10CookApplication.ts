@@ -1,3 +1,4 @@
+import { KitchenRulesReader, type KitchenRules } from '../core/kitchenRules';
 import {
     loadConfig,
     MessageRuntime,
@@ -105,6 +106,9 @@ class P10CookFeature implements Feature {
             registerCommand('p10.select-level', (intent) => this.deps.applyCommand(intent)),
             registerCommand('p10.start-level', (intent) => this.deps.applyCommand(intent)),
             registerCommand('p10.serve-dish', (intent) => this.deps.applyCommand(intent)),
+            registerCommand('p10.start-cooking', (intent) => this.deps.applyCommand(intent)),
+            registerCommand('p10.serve-ready', (intent) => this.deps.applyCommand(intent)),
+            registerCommand('p10.discard-food', (intent) => this.deps.applyCommand(intent)),
             registerCommand('p10.pause', (intent) => this.deps.applyCommand(intent)),
             registerCommand('p10.resume', (intent) => this.deps.applyCommand(intent)),
             registerCommand('p10.restart', (intent) => this.deps.applyCommand(intent)),
@@ -157,6 +161,8 @@ export class P10CookApplication {
     private readonly restaurantCatalog: P10RestaurantCatalog;
 
     private core: P10GameCore = P10GameCore.createNew();
+    private kitchenRules: KitchenRules | null = null;
+    private kitchenRulesInvalid = false;
     private state: P10RuntimeState;
     private started = false;
     private initializationAttempted = false;
@@ -193,6 +199,23 @@ export class P10CookApplication {
         this.featureRuntime.add(this.feature);
     }
 
+    /** Loading injects validated bundle data. A paused checkpoint is deliberately restarted, not silently resumed mid-cook. */
+    public configureKitchenRules(raw: unknown): Result<void, P10ApplicationError> {
+        if (this.disposed || (this.state.kitchen && !this.state.isPaused)) return failure({ code: 'INVALID_OPERATION', message: 'Cannot replace rules during an active kitchen' });
+        try {
+            const rules = KitchenRulesReader.parse(raw);
+            if (!this.restaurantCatalog.restaurants.some(restaurant => restaurant.id === rules.restaurantId)) throw new Error('Unknown rules restaurant');
+            this.kitchenRules = rules; this.kitchenRulesInvalid = false; this.core.configureKitchenRules(rules);
+            if (this.state.kitchen && this.state.isPaused && this.core.progress.hasCheckpoint) this.state.kitchen = this.core.resumeCheckpoint();
+            this.refreshUpgradeQuotes();
+            if (this.state.error?.code === 'BAD_CONFIG') this.state.error = null;
+            return success(undefined);
+        } catch (cause) {
+            this.kitchenRulesInvalid = true;
+            this.state.error = { code: 'BAD_CONFIG', message: `厨房规则无效：${String(cause)}` };
+            return failure(this.state.error);
+        }
+    }
     public start(configInput: unknown = this.config): Result<void, P10ApplicationError> {
         if (this.disposed) return failure({ code: 'RUNTIME', message: 'Cook is disposed' });
         if (!this.initializationAttempted) {
@@ -233,6 +256,7 @@ export class P10CookApplication {
             () => this.core,
             (core) => {
                 this.core = core;
+                this.core.configureKitchenRules(this.kitchenRules);
             },
         );
         if (!attached.ok) {
@@ -260,6 +284,7 @@ export class P10CookApplication {
             return;
         }
 
+        this.core.configureKitchenRules(this.kitchenRules);
         this.started = true;
         this.state.selection = this.resolveSelectionFromProgress(this.state.selection);
         this.syncFromCoreProgress();
@@ -314,6 +339,21 @@ export class P10CookApplication {
     public setLevelPage(page: number) { return this.commitBusiness(() => this.applyIntent({ type: 'p10.set-level-page', payload: { page } })); }
     public setStoryPage(page: number) { return this.commitBusiness(() => this.applyIntent({ type: 'p10.set-story-page', payload: { page } })); }
     public serve(dishId: string) { return this.commitBusiness(() => this.serveDish(dishId)); }
+    public startCooking(dishId: string) { return this.commitBusiness(() => this.productionOperation(run => run.startCooking(dishId))); }
+    public serveReady(slotId: string, customerId?: string) { return this.commitBusiness(() => this.productionOperation(run => run.serveReady(slotId, customerId))); }
+    public discardFood(slotId: string) { return this.commitBusiness(() => this.productionOperation(run => run.discardFood(slotId))); }
+    private productionOperation(operation: (run: KitchenRun) => KitchenRunReadModel): Result<P10BusinessReadModel, P10ApplicationError> {
+        if (!this.state.kitchen || this.state.isPaused) { this.state.error = { code: 'INVALID_OPERATION', message: '厨房尚未运行或已暂停' }; return failure(this.state.error); }
+        try {
+            const snapshot = operation(this.state.kitchen);
+            if (snapshot.status !== RunStatus.Running) {
+                this.state.result = this.core.settle(this.state.kitchen, `settlement-${snapshot.levelId}-${snapshot.attemptId}`);
+                this.state.lastSuccess = this.state.result.success;
+                this.state.kitchen = null; this.state.isPaused = true;
+            }
+            return success(this.read());
+        } catch (cause) { this.state.error = { code: 'INVALID_OPERATION', message: String(cause) }; return failure(this.state.error); }
+    }
     public pauseRun() { return this.commitBusiness(() => { this.state.isPaused = true; return success(this.read()); }); }
     public resumeRun() { return this.commitBusiness(() => { this.state.isPaused = false; return success(this.read()); }); }
     public retryRun(reason: string) { return this.commitBusiness(() => this.restart(reason)); }
@@ -325,6 +365,7 @@ export class P10CookApplication {
     public resetProgress() { return this.commitBusiness(() => this.resetSave()); }
 
     private commitBusiness(operation: () => Result<P10BusinessReadModel, P10ApplicationError>): Result<P10BusinessReadModel, P10ApplicationError> {
+        if (this.kitchenRulesInvalid) return failure(this.state.error ?? { code: 'BAD_CONFIG', message: 'Invalid kitchen rules' });
         if (this.savePending || this.disposed || !this.started) return failure({ code: 'SAVE', message: 'Save pending or Cook not ready' });
         const handled = operation();
         if (!handled.ok) return handled;
@@ -429,7 +470,8 @@ export class P10CookApplication {
         if (!this.savePending) return this.flush();
         const saved = this.persist();
         if (saved.ok && !this.started) {
-            this.started = true;
+            this.core.configureKitchenRules(this.kitchenRules);
+        this.started = true;
             this.state.selection = this.resolveSelectionFromProgress(this.state.selection);
             this.syncFromCoreProgress();
         }
@@ -483,6 +525,9 @@ export class P10CookApplication {
             case 'p10.start-level':
                 return this.beginLevelAt(this.state.selection.restaurantIndex, intent.payload.levelIndex ?? this.state.selection.levelIndex,
                     intent.payload.attemptId ?? this.idGenerator(`${this.config.idPrefix}-attempt-${this.clock()}`));
+            case 'p10.start-cooking': return this.productionOperation(run => run.startCooking(intent.payload.dishId));
+            case 'p10.serve-ready': return this.productionOperation(run => run.serveReady(intent.payload.slotId, intent.payload.customerId));
+            case 'p10.discard-food': return this.productionOperation(run => run.discardFood(intent.payload.slotId));
             case 'p10.serve-dish':
                 return this.serveDish(intent.payload.dishId);
             case 'p10.pause':
@@ -597,6 +642,7 @@ export class P10CookApplication {
         }
 
         const snapshot = this.state.kitchen.snapshot;
+        if (snapshot.production) return failure({ code: 'INVALID_OPERATION', message: '请先制作，再点击成熟成品上菜' });
         const pendingOrders = snapshot.orders.filter((candidate) => candidate.state === 'Pending');
         if (pendingOrders.length === 0) {
             return failure({ code: 'INVALID_OPERATION', message: 'no pending order' });
@@ -698,8 +744,10 @@ export class P10CookApplication {
     }
 
     private purchaseUpgrade(restaurantId: string, stationId: string): Result<P10BusinessReadModel, P10ApplicationError> {
-        const transactionId = this.idGenerator(`${this.config.idPrefix}-${restaurantId}-${stationId}`);
         try {
+            const quote = this.core.getUpgradeQuote(restaurantId, stationId);
+            if (!quote.affordable || quote.nextLevel === null) return failure({ code: 'INVALID_OPERATION', message: '金币不足或已满级' });
+            const transactionId = this.idGenerator(`${this.config.idPrefix}-${restaurantId}-${stationId}-level-${quote.currentLevel}`);
             const receipt = this.core.purchaseUpgrade(restaurantId, stationId, transactionId);
             this.refreshUpgradeQuotes();
             this.publishEvent({ type: 'p10.upgrade-applied', payload: { receipt: clone(receipt) } });
@@ -723,6 +771,7 @@ export class P10CookApplication {
     private resetSave(): Result<P10BusinessReadModel, P10ApplicationError> {
         this.saveCoordinator.clearSectionError();
         this.core = P10GameCore.createNew();
+        this.core.configureKitchenRules(this.kitchenRules);
         this.state = this.createDefaultState();
         this.state.selection = this.resolveSelectionFromProgress(this.state.selection);
         this.refreshUpgradeQuotes();
@@ -872,7 +921,7 @@ export class P10CookApplication {
 
 function buildUpgradeQuotes(core: P10GameCore, restaurant: RestaurantConfig): Record<string, UpgradeQuote> {
     const quote: Record<string, UpgradeQuote> = {};
-    for (const stationId of ['grill', 'prep', 'tray']) {
+    for (const stationId of core.listUpgradeIds(restaurant.id)) {
         quote[stationId] = core.getUpgradeQuote(restaurant.id, stationId);
     }
     return quote;

@@ -118,6 +118,9 @@ export type P10Intent =
     | { type: 'p10.select-level'; payload: { readonly levelIndex: number } }
     | { type: 'p10.start-level'; payload: { readonly attemptId?: string; readonly levelIndex?: number } }
     | { type: 'p10.serve-dish'; payload: { readonly dishId: string } }
+    | { type: 'p10.start-cooking'; payload: { readonly dishId: string } }
+    | { type: 'p10.serve-ready'; payload: { readonly slotId: string; readonly customerId?: string } }
+    | { type: 'p10.discard-food'; payload: { readonly slotId: string } }
     | { type: 'p10.pause'; payload: Record<string, never> }
     | { type: 'p10.resume'; payload: Record<string, never> }
     | { type: 'p10.restart'; payload: { readonly reason: string } }
