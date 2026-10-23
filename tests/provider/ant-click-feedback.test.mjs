@@ -32,12 +32,16 @@ function playFixture() {
   const popups = [], shakes = [], used = [], selections = [];
   const { PlayState } = load('presentation/pageStates/playState', {
     '../hardLevelNotice': { HardLevelNotice: class {} },
+    '../gameplayFeedback': load('presentation/gameplayFeedback', {}),
     '../progressPresentation': { ProgressPresentation: { open: async (_context, page) => popups.push(page) } },
   });
   const state = new PlayState();
   const snapshot = { slots: [{ stackId: 'a' }], stacks: [], level: 1, result: 'PLAYING' };
   state.context = { destroyed: false, inputLocked: false, generation: 1, app: { error: null },
     play: { snapshot: () => snapshot, usedToolList: () => used, lastEventList: () => [],
+      feedback: () => ({ totalSlots: snapshot.slots.length, emptySlots: snapshot.slots.filter(slot => slot === null).length,
+        transportColors: [], pendingDeliveries: 0, failureReason: null,
+        selection: { reason: snapshot.slots.includes(null) ? null : 'slots', requiredSlots: 1 } }),
       lastDispatchRoundList: () => [], suggestedStack: () => null,
       selectStack: id => { selections.push(id); throw Error('stop after command boundary'); },
       useExtraSlot: () => { if (used.includes('slot')) throw Error('used'); used.push('slot'); } },

@@ -23,6 +23,7 @@ import { prepareThemePresentation, refreshThemeCollection } from '../themePresen
 import { HomeState } from './homeState';
 import { layoutPlay, mountPage, unmountPlay } from '../pageNodes';
 import { HardLevelNotice } from '../hardLevelNotice';
+import { GameplayFeedbackText } from '../gameplayFeedback';
 
 export type ColonyTransportEvidence = Readonly<import('../transportPresentation').TransportEvidence>;
 const EMPTY_TRANSPORT_EVIDENCE: ColonyTransportEvidence = { movementScale: 1, boostMultiplier: 1, movingWorkers: 0,
@@ -189,7 +190,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     if (this.board !== board || session.destroyed) return;
     const hard = session.round?.mode === 'main' && session.difficultyKinds.get(read.currentLevel) === 'H';
     hudView.setDifficulty(hard);
-    if (read.snapshot.slots.length === 6 && !read.usedTools.includes('slot')) hudView.setFeedback('补给关：开局已有6槽，扩槽无需再使用');
+    hudView.setFeedback(GameplayFeedbackText.status(session.play!.feedback()));
     if (hard) {
       session.inputLocked = true;
       await this.hardNotice.show(session.node, session.popupRoot!, () => this.board === board && !session.destroyed);
@@ -225,22 +226,28 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     const board = this.board;
     const play = session.play;
     if (!board || !play || session.destroyed || session.inputLocked) return;
-    const beforeSelection = PlayState.read(session);
-    if (!beforeSelection.snapshot.slots.some(slot => slot === null)) {
+    const beforeSelection = play.feedback(stackId);
+    const rejection = GameplayFeedbackText.selection(beforeSelection);
+    if (rejection) {
       board.shakeStack(stackId);
+      session.hudView?.setFeedback(rejection);
+      session.toast.show(rejection, 'stack-locked', stackId);
       return;
     }
     try {
       play.selectStack(stackId);
     } catch {
-      session.toast.show('方块未解锁，或空槽不足以容纳整组', 'stack-locked', stackId);
+      session.hudView?.setFeedback('数字组状态已变化，请重试');
+      session.toast.show('数字组状态已变化，请重试', 'stack-locked', stackId);
       return;
     }
     const generation = session.generation;
     const read = PlayState.read(session);
     const events = read.lastEvents;
+    session.hudView?.setFeedback(GameplayFeedbackText.status(play.feedback()));
     const slots = events.filter(event => event.phase === 'SLOT' && event.stackId !== undefined && event.slotIndex !== undefined);
     for (const slot of slots) { board.markMoving(slot.stackId!, true); this.waitingStacks.add(slot.stackId!); }
+    session.toast.show(`本次占 ${slots.length} 槽`, 'stack-selected', stackId);
     this.pendingSelections += 1;
     try {
     void this.playSound('click');
@@ -351,6 +358,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     void this.playSound('click');
     if (tool === 'slot') {
       board.addExtraSlot(read);
+      session.hudView?.setFeedback(GameplayFeedbackText.status(play.feedback()));
       return;
     }
     if (tool === 'compass') {
@@ -364,6 +372,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     if (generation !== session.generation || session.destroyed) return;
     const afterClear = PlayState.read(session);
     board.applyCounts(toolEvents, afterClear); this.checkFreeFinish();
+    session.hudView?.setFeedback(GameplayFeedbackText.status(play.feedback()));
     if (afterClear.result !== 'PLAYING') await this.showResult(afterClear.result === 'SUCCESS');
   }
 
@@ -380,6 +389,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
       if (event?.cellId) await this.board.clearCell(event.cellId);
       if (generation !== session.generation || session.destroyed || PlayState.current(session) !== this) return;
       this.board.applyCounts(read.lastEvents, PlayState.read(session));
+      session.hudView?.setFeedback(GameplayFeedbackText.status(session.play.feedback()));
       this.checkFreeFinish();
       if (read.result !== 'PLAYING') await this.showResult(read.result === 'SUCCESS');
     }
@@ -407,7 +417,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     refreshThemeCollection(session, read, collectedTarget);
     if (success && !preview) await this.collectionFlight?.drain();
     if (generation !== session.generation || session.destroyed) return;
-    session.hudView!.setFeedback(success ? '补给完成' : '暂存槽已满');
+    session.hudView!.setFeedback(success ? '补给完成' : preview ? '失败结算预览' : GameplayFeedbackText.status(session.play!.feedback()));
     void this.playSound(success ? 'success' : 'fail');
     if (generation !== session.generation || session.destroyed) return;
     if (session.progressPopup) await session.progressPopup.forceClose();
@@ -415,6 +425,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     if (generation !== session.generation || session.destroyed) return;
     const seed = {
       level: read.currentLevel,
+      failureMessage: preview ? '失败结算预览，不结算本局。' : GameplayFeedbackText.status(session.play!.feedback()),
       transported: read.snapshot.transported,
       hasNextLevel: session.round?.mode !== 'daily' && read.currentLevel < read.maxLevel,
       rewardText: preview ? 'GM预览 · 不结算' : reward?.firstClear ? `${collectedTarget && !collection ? `${collectedTarget.item.name}${read.currentLevel === 1 ? '已收集，开摊后摆上' : '已放入摊位'} · ` : ''}金币 +${reward.coins}` : '免费重玩 · 首次奖励不重复发放',
@@ -510,6 +521,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
         }
         play.dispatchReady(undefined, this.waitingStacks);
         const read = PlayState.read(session);
+        session.hudView?.setFeedback(GameplayFeedbackText.status(play.feedback()));
         const round = read.lastDispatchRound;
         if (round.length === 0) {
           if (this.transportTasks.size === 0) break;
@@ -530,7 +542,7 @@ export class PlayState implements IState<ColonySceneBootstrap> {
       const settled = PlayState.read(session);
       if (settled.result === 'SUCCESS') await this.showResult(true);
       else if (settled.result === 'FAIL') await this.showResult(false);
-      else session.hudView!.setFeedback('');
+      else session.hudView!.setFeedback(GameplayFeedbackText.status(play.feedback()));
     })().finally(() => {
       if (generation === session.generation) {
         session.inputLocked = Boolean(session.progressPopup) || PlayState.read(session).result !== 'PLAYING';

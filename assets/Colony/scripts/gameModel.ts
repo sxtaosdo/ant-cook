@@ -27,6 +27,19 @@ export type GameSnapshot = {
   acquiredKeys?: string[];
 };
 
+export type SelectionFeedback = Readonly<{
+  reason: 'finished' | 'missing' | 'selected' | 'locked' | 'covered' | 'slots' | null;
+  requiredSlots?: number;
+}>;
+/** Detached facts for feedback; never exposes queue contents or a suggested choice. */
+export type GameplayFeedback = Readonly<{
+  totalSlots: number;
+  emptySlots: number;
+  transportColors: readonly GameColor[];
+  pendingDeliveries: number;
+  failureReason: 'slots' | 'blocked' | null;
+  selection?: SelectionFeedback;
+}>;
 export const EMPTY_GAME_SNAPSHOT: GameSnapshot = {
   level: 0,
   shape: 'PROVISIONAL_ORANGE_POP',
@@ -179,6 +192,34 @@ export class ColonyFlowModel {
       queueColumns: this.queueColumns,
       acquiredKeys: [...this.acquiredKeys],
     };
+  }
+
+  /** Read existing rules without selecting, reserving, revealing or consuming anything. */
+  public feedback(stackId?: string): GameplayFeedback {
+    const emptySlots = this.slots.filter(slot => slot === null).length;
+    const transportColors = [...new Set(this.slots.flatMap((slot, index) =>
+      slot && this.findDispatchForSlot(index) ? [slot.color] : []))];
+    const hasFront = this.result === 'FAIL' && this.stacks.some(stack => this.frontAvailable(this.members(stack)));
+    return {
+      totalSlots: this.slots.length, emptySlots, transportColors,
+      pendingDeliveries: this.reservations.size,
+      failureReason: this.result === 'FAIL' ? (hasFront ? 'slots' : 'blocked') : null,
+      ...(stackId === undefined ? {} : { selection: this.selectionFeedback(stackId, emptySlots) }),
+    };
+  }
+
+  private selectionFeedback(stackId: string, emptySlots: number): SelectionFeedback {
+    if (this.result !== 'PLAYING') return { reason: 'finished' };
+    const stack = this.stacks.find(candidate => candidate.id === stackId);
+    if (!stack) return { reason: 'missing' };
+    if (stack.selected || stack.count === 0) return { reason: 'selected' };
+    if (stack.locked) return { reason: 'locked' };
+    const members = this.members(stack);
+    if (!this.frontAvailable(members)) return { reason: 'covered' };
+    // Linked groups can include a still-hidden member; do not disclose its size.
+    const visible = members.every(member => !member.locked && (!member.mystery || member.revealed));
+    return { reason: emptySlots < members.length ? 'slots' : null,
+      ...(visible ? { requiredSlots: members.length } : {}) };
   }
 
   /** 本关已使用的道具列表。 */

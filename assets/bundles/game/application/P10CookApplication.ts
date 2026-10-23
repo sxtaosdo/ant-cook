@@ -602,9 +602,10 @@ export class P10CookApplication {
             return failure({ code: 'INVALID_OPERATION', message: 'no pending order' });
         }
 
-        const order = pendingOrders.find((candidate) => candidate.dishId === dishId);
+        // The kitchen HUD displays the first pending order; future orders are not deliverable yet.
+        const order = pendingOrders[0]!;
         try {
-            if (order === undefined) {
+            if (order.dishId !== dishId) {
                 this.state.kitchen.tick(3);
             } else {
                 this.state.kitchen.serveOrder(order.id);

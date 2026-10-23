@@ -39,7 +39,7 @@ export class ColonyResultFailView extends mk.MVCViewBase<ResultFailModel> {
       throw new Error('Result Prefab is missing required editor bindings');
     }
     this.titleLabel.string = '补给路线受阻';
-    this.detailLabel.string = '所有暂存槽都已占用，\n当前没有可移动的颜色。';
+    this.detailLabel.string = this._model.failureMessage;
     this.primaryLabel.string = '免费重试';
     this.homeButton.node.getChildByName('HomeButtonText')!.getComponent(Label)!.string = '回夜市';
     this.bind(this.primaryButton.node, 'primary');

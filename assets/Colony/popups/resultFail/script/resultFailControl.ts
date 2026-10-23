@@ -12,12 +12,12 @@ import { ColonyResultFailView } from './resultFailView';
 
 /** 失败结算 Control：打开弹窗并解释 primary/home 导航。 */
 export class ResultFailControl extends mk.MVCControlBase<ResultFailModel, ColonyResultFailView> {
-  private _seed!: ResultPopupSeed;
+  private _seed!: ResultPopupSeed & { readonly failureMessage?: string };
   private _parent!: Node;
   private _nav!: ResultPopupNav;
   private finishing = false;
 
-  public constructor(seed: ResultPopupSeed, parent: Node, nav: ResultPopupNav) {
+  public constructor(seed: ResultPopupSeed & { readonly failureMessage?: string }, parent: Node, nav: ResultPopupNav) {
     super();
     this._seed = seed;
     this._parent = parent;
@@ -27,6 +27,7 @@ export class ResultFailControl extends mk.MVCControlBase<ResultFailModel, Colony
   /** 创建 Model、打开 View 并订阅按钮事件。 */
   protected async open(): Promise<void> {
     this._model = await ResultFailModel.new();
+    this._model.failureMessage = this._seed.failureMessage ?? this._model.failureMessage;
     this._model.level = this._seed.level;
     this._model.transported = this._seed.transported;
     this._model.hasNextLevel = this._seed.hasNextLevel;
