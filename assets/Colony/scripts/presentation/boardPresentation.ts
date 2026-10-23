@@ -442,11 +442,10 @@ export class BoardPresentation {
       );
       this.factory.token(node, colonyColor(stack.color), this.stackTile ?? this.stackFrame);
       this.factory.bindButton(node, this, () => {
-        if (Date.now() < this.suppressQueueClickUntil) return;
+        if (Date.now() < this.suppressQueueClickUntil || this.moving.has(stack.id)) return;
         const current = this.latestReadModel?.snapshot.stacks.find(value => value.id === stack.id);
-        if (!current?.accessible) {
-          this.shakeStack(stack.id); return;
-        }
+        if (!current || current.selected) return;
+        // The command boundary explains locked, covered and capacity refusals.
         this.selectStack(stack.id);
       });
       const label = node.getChildByName('StackCountLabel')?.getComponent(Label)
