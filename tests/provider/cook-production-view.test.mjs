@@ -155,7 +155,7 @@ test('legacy kitchens keep their first-pending dish intent when production is ab
 function hostFixture({missingAsset=false,rejected=false}={}) {
  const state={events:[],current:true,commands:[]};
  class App { hasPendingSave=false; configureKitchenRules(raw){state.events.push(['configure',raw]);return rejected?{ok:false,error:{message:'BAD_CONFIG fixture'}}:{ok:true};}
-  startCooking(...args){state.commands.push(['start',...args]);}serveReady(...args){state.commands.push(['serve',...args]);}discardFood(...args){state.commands.push(['discard',...args]);} }
+  startCooking(...args){state.commands.push(['start',...args]);}serveReady(...args){state.commands.push(['serve',...args]);}discardFood(...args){state.commands.push(['discard',...args]);}addTopping(...args){state.commands.push(['topping',...args]);} }
  class Bootstrap {StateMachine={is:()=>true};bind(...args){this.resources=args[3];}async boot(){} }
  class Presentation {async initializeResources(){state.events.push(['presentation']);} }
  const entry={storage:{},isCurrent:()=>state.current,attach(){},ready(){assert.fail('Loading is not ready');}};
@@ -176,11 +176,11 @@ test('Loading resource callback loads and validates centralized rules before pre
 });
 test('real GameRoot production routes dispatch once through application and retain existing save/navigation locks',async()=>{
  const f=hostFixture();await f.root.boot();f.root.inputLocked=false;f.root.advanceCommittedGameplay=async()=>{};f.root.renderNow=()=>{};
- const intents=[{type:'p10.start-cooking',payload:{dishId:'jianbing'}},{type:'p10.serve-ready',payload:{slotId:'grill-1',customerId:'c2'}},{type:'p10.discard-food',payload:{slotId:'grill-0'}}];
+ const intents=[{type:'p10.add-topping',payload:{slotId:'plate-1',toppingId:'lettuce'}},{type:'p10.start-cooking',payload:{dishId:'jianbing'}},{type:'p10.serve-ready',payload:{slotId:'grill-1',customerId:'c2'}},{type:'p10.discard-food',payload:{slotId:'grill-0'}}];
  for(const intent of intents)await f.root.routeIntent(intent);
- assert.deepEqual(JSON.parse(JSON.stringify(f.state.commands)),[['start','jianbing'],['serve','grill-1','c2'],['discard','grill-0']]);
+ assert.deepEqual(JSON.parse(JSON.stringify(f.state.commands)),[['topping','plate-1','lettuce'],['start','jianbing'],['serve','grill-1','c2'],['discard','grill-0']]);
  for(const flag of ['inputLocked','routing','closing']){f.root[flag]=true;await f.root.routeIntent(intents[0]);f.root[flag]=false;}
- f.root.application.hasPendingSave=true;await f.root.routeIntent(intents[0]);assert.equal(f.state.commands.length,3);
+ f.root.application.hasPendingSave=true;await f.root.routeIntent(intents[0]);assert.equal(f.state.commands.length,4);
 });
 
 test('upgrades render all equipment and ingredient quotes with real effects and publish the quoted ID',async()=>{
@@ -223,4 +223,43 @@ test('production pause projects customer limit, coin goal and active pending ite
   const label=fixed?f.view.pauseSummaryLabel.string:texts(f).join('\n');assert.ok(label.includes('限客 0/6'));assert.ok(label.includes('金币 0/30'));
   assert.match(label,/当前待上 2份/);assert.match(label,/冻结/);assert.ok(!label.includes('已完成 0/12')&&!label.includes('47秒'));assert.equal(JSON.stringify(value),before);
  }
+});
+
+
+test('plate topping controls project configured names and publish only current valid ready assembly intents',async t=>{
+ const original=Transform.prototype.getBoundingBoxToWorld; t.after(()=>Transform.prototype.getBoundingBoxToWorld=original);
+ Transform.prototype.getBoundingBoxToWorld=function(){return {contains:point=>{for(let node=point.target;node;node=node.parent)if(node===this.node)return true;return false;}};};
+ const f=productionFixture();await f.presentation.artTask;const value=productionModel();
+ value.kitchen.production.recipes[0].plateStationId='grill';
+ value.kitchen.production.recipes[0].toppings=[{id:'sausage',label:'香肠'},{id:'lettuce',label:'生菜'}];
+ value.kitchen.production.slots[1].toppingIds=[];
+ value.kitchen.production.slots[1].dishLabel='煎饼（香肠）';
+ value.kitchen.production.customers[0].items[0].dishLabel='煎饼（生菜）';
+ f.presentation.readModel=value;f.presentation.showKitchen();await f.presentation.artTask;
+ const slot=nodes(f.view.node).find(n=>n.name==='ProductionSlot_grill-1');const add=nodes(slot).find(n=>n.name==='Button_香肠');
+ assert.ok(add);assert.match(texts(f).join('\n'),/煎饼（生菜）/);assert.match(texts(f).join('\n'),/煎饼（香肠）/);
+ f.tap(add);assert.equal(f.intents.at(-1).type,'p10.add-topping');assert.deepEqual(JSON.parse(JSON.stringify(f.intents.at(-1).payload)),{slotId:'grill-1',toppingId:'sausage'});
+ value.kitchen.production.slots[1].toppingIds=['sausage'];f.tap(add);
+ value.kitchen.production.slots[1].toppingIds=[];value.kitchen.production.slots[1].state='Burnt';f.tap(add);
+ value.kitchen.production.slots[1].state='Ready';value.paused=true;f.tap(add);value.paused=false;
+ for(const state of ['saving','error']){value.saveStatus={state};f.tap(add);}value.saveStatus={state:'ready'};
+ value.kitchen.production.slots[1].dishId='soy_milk';f.tap(add);assert.equal(f.intents.length,1);
+});
+
+
+test('topping visibility refreshes on existing slots only while Ready, available and business input is allowed',async()=>{
+ const f=productionFixture();await f.presentation.artTask;const value=productionModel();
+ value.kitchen.production.recipes[0].plateStationId='grill';value.kitchen.production.recipes[0].toppings=[{id:'sausage',label:'香肠'},{id:'lettuce',label:'生菜'}];
+ value.kitchen.production.slots[1].toppingIds=[];f.presentation.readModel=value;f.presentation.showKitchen();await f.presentation.artTask;
+ const ready=nodes(f.view.node).find(n=>n.name==='ProductionSlot_grill-1'),empty=nodes(f.view.node).find(n=>n.name==='ProductionSlot_grill-0');
+ const add=nodes(ready).find(n=>n.name==='Button_香肠'),other=nodes(ready).find(n=>n.name==='Button_生菜');
+ const beforeNode=ready;assert.equal(add.active,true);assert.equal(nodes(empty).find(n=>n.name==='Button_香肠').active,false);
+ const refresh=()=>{f.presentation.refreshKitchenHud();assert.equal(nodes(f.view.node).find(n=>n.name==='ProductionSlot_grill-1'),beforeNode);};
+ value.kitchen.production.slots[1].toppingIds=['sausage'];refresh();assert.equal(add.active,false);assert.equal(other.active,true);
+ value.kitchen.production.slots[1].toppingIds=[];
+ for(const state of ['Idle','Cooking','Burnt']){value.kitchen.production.slots[1].state=state;refresh();assert.equal(add.active,false);}
+ value.kitchen.production.slots[1].state='Ready';refresh();assert.equal(add.active,true);
+ value.paused=true;refresh();assert.equal(add.active,false);value.paused=false;
+ for(const state of ['saving','error']){value.saveStatus={state};refresh();assert.equal(add.active,false);}value.saveStatus={state:'ready'};refresh();assert.equal(add.active,true);
+ value.kitchen.production.slots[1].dishId='soy_milk';refresh();assert.equal(add.active,false);
 });

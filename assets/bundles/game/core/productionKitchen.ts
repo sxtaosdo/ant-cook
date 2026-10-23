@@ -3,9 +3,9 @@ import { RunStatus } from './types';
 import { KitchenRulesReader, type KitchenRules, type KitchenRecipeRule } from './kitchenRules';
 import type { FoodState, CustomerItemReadModel } from './productionTypes';
 
-type Slot = { id: string; stationId: string; dishId: string | null; state: FoodState; remainingSeconds: number; burnRemainingSeconds: number | null };
+type Slot = { id: string; stationId: string; dishId: string | null; toppingIds: string[]; state: FoodState; remainingSeconds: number; burnRemainingSeconds: number | null };
 type Customer = { id: string; state: 'Waiting' | 'Active' | 'Served' | 'Lost'; patienceRemaining: number; patienceMax: number;
-  items: Array<{ id: string; dishId: string; state: CustomerItemReadModel['state'] }> };
+  items: Array<{ id: string; dishId: string; toppingIds: string[]; state: CustomerItemReadModel['state'] }> };
 
 /** First-restaurant runtime owner. Engine nodes and persisted wallet never enter this class. */
 export class ProductionKitchen {
@@ -30,17 +30,20 @@ export class ProductionKitchen {
     for (const station of rules.stations) {
       const level = KitchenRulesReader.levelIndex(upgrades, rules.restaurantId, station.upgradeId, station.capacityByLevel.length);
       for (let index = 0; index < station.capacityByLevel[level]!; index++) this.slots.push({
-        id: `${station.id}-slot-${index + 1}`, stationId: station.id, dishId: null, state: 'Idle', remainingSeconds: 0, burnRemainingSeconds: null,
+        id: `${station.id}-slot-${index + 1}`, stationId: station.id, dishId: null, toppingIds: [], state: 'Idle', remainingSeconds: 0, burnRemainingSeconds: null,
       });
     }
     const count = rules.customers.count ?? config.orderCount;
     for (let index = 0; index < count; index++) this.customers.push({
       id: `${attemptId}-customer-${index + 1}`, state: 'Waiting', patienceRemaining: rules.customers.patienceSeconds,
       patienceMax: rules.customers.patienceSeconds,
-      items: Array.from({ length: rules.customers.itemsPerCustomer }, (_, item) => ({
-        id: `${attemptId}-item-${index + 1}-${item + 1}`,
-        dishId: rules.recipes[(index * rules.customers.itemsPerCustomer + item) % rules.recipes.length]!.dishId, state: 'Pending' as const,
-      })),
+      items: Array.from({ length: rules.customers.itemsPerCustomer }, (_, item) => {
+        const recipe = rules.recipes[(index * rules.customers.itemsPerCustomer + item) % rules.recipes.length]!;
+        return {
+          id: `${attemptId}-item-${index + 1}-${item + 1}`,
+          dishId: recipe.dishId, toppingIds: [...(recipe.orderToppingSets?.[index % recipe.orderToppingSets.length] ?? [])], state: 'Pending' as const,
+        };
+      }),
     });
     this.target = rules.goal.target !== 'all' ? rules.goal.target : rules.goal.metric === 'customers' ? count
       : rules.goal.metric === 'dishes' ? count * rules.customers.itemsPerCustomer
@@ -56,10 +59,10 @@ export class ProductionKitchen {
       combo: this.combo, maxCombo: this.maxCombo, servedOrders: this.served, lostCustomers: this.lost,
       stars: this.status === RunStatus.Completed ? this.rules.goal.starRatios.filter(ratio => current >= this.target * ratio).length : 0,
       failureReason: this.failureReason,
-      orders: this.customers.flatMap(customer => customer.items.map(item => ({ ...item,
-        patienceRemaining: customer.patienceRemaining, patienceMax: customer.patienceMax, baseScore: this.recipe(item.dishId).coinsByLevel[0]!,
+      orders: this.customers.flatMap(customer => customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds),
+        patienceRemaining: customer.patienceRemaining, patienceMax: customer.patienceMax, baseScore: this.recipeCoins(this.recipe(item.dishId)),
       }))),
-      production: { recipes: this.rules.recipes.map(recipe => ({ dishId: recipe.dishId, label: recipe.label })), slots: this.slots.map(slot => ({ ...slot, stationLabel: this.rules.stations.find(station => station.id === slot.stationId)!.label, dishLabel: slot.dishId ? this.recipe(slot.dishId).label : null })), customers: this.customers.map(customer => ({ ...customer, items: customer.items.map(item => ({ ...item })) })),
+      production: { recipes: this.rules.recipes.map(recipe => ({ dishId: recipe.dishId, label: recipe.label, plateStationId: recipe.plateStationId, toppings: (recipe.toppings ?? []).map(topping => ({ ...topping })) })), slots: this.slots.map(slot => ({ ...slot, toppingIds: [...slot.toppingIds], stationLabel: this.rules.stations.find(station => station.id === slot.stationId)!.label, dishLabel: slot.dishId ? this.foodLabel(slot.dishId, slot.toppingIds) : null })), customers: this.customers.map(customer => ({ ...customer, items: customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds) })) })),
         baseCoins: this.baseCoins, comboCoins: this.comboCoins, earnedCoins: this.baseCoins + this.comboCoins,
         burntCount: this.burnt, discardedCount: this.discarded, elapsedSeconds: this.elapsed, configSource: this.rules.source,
         goal: { mode: this.rules.goal.mode, metric: this.rules.goal.metric, target: this.target, current }, keepEarningsOnFailure: this.rules.goal.keepEarningsOnFailure },
@@ -73,7 +76,18 @@ export class ProductionKitchen {
     const slot = this.slots.find(candidate => candidate.stationId === station.id && candidate.state === 'Idle');
     if (!slot) throw new Error('制作位已满，请先上菜或处理成品');
     const level = KitchenRulesReader.levelIndex(this.upgrades, this.rules.restaurantId, station.upgradeId, station.timeMultipliers.length);
-    Object.assign(slot, { dishId, state: 'Cooking', remainingSeconds: recipe.cookSeconds * station.timeMultipliers[level]!, burnRemainingSeconds: null });
+    Object.assign(slot, { dishId, toppingIds: [], state: 'Cooking', remainingSeconds: recipe.cookSeconds * station.timeMultipliers[level]!, burnRemainingSeconds: null });
+    return this.snapshot;
+  }
+
+  public addTopping(slotId: string, toppingId: string): KitchenRunReadModel {
+    this.requireRunning();
+    const slot = this.slots.find(candidate => candidate.id === slotId);
+    if (!slot || slot.state !== 'Ready' || !slot.dishId) throw new Error('只有装盘成品可以加料');
+    const recipe = this.recipe(slot.dishId);
+    if (slot.stationId !== recipe.plateStationId || !recipe.toppings?.some(topping => topping.id === toppingId)) throw new Error('当前成品不能添加该配料');
+    if (slot.toppingIds.includes(toppingId)) throw new Error('该配料已经添加');
+    slot.toppingIds.push(toppingId);
     return this.snapshot;
   }
 
@@ -83,13 +97,12 @@ export class ProductionKitchen {
     if (!slot || slot.state !== 'Ready' || !slot.dishId) throw new Error('只有成熟成品可以上菜');
     const customer = this.customers.find(candidate => candidate.state === 'Active'
       && (customerId === undefined || candidate.id === customerId)
-      && candidate.items.some(item => item.state === 'Pending' && item.dishId === slot.dishId));
+      && candidate.items.some(item => item.state === 'Pending' && this.matches(item, slot)));
     if (!customer) throw new Error('当前顾客没有匹配订单，成品已保留');
-    const item = customer.items.find(candidate => candidate.state === 'Pending' && candidate.dishId === slot.dishId)!;
+    const item = customer.items.find(candidate => candidate.state === 'Pending' && this.matches(candidate, slot))!;
     const recipe = this.recipe(slot.dishId);
-    const level = KitchenRulesReader.levelIndex(this.upgrades, this.rules.restaurantId, recipe.upgradeId, recipe.coinsByLevel.length);
     if (this.lastServeAt === null || this.elapsed - this.lastServeAt > this.rules.combo.windowSeconds) this.combo = 0;
-    this.baseCoins += recipe.coinsByLevel[level]!;
+    this.baseCoins += this.recipeCoins(recipe);
     this.comboCoins += this.rules.combo.bonusCoins[Math.min(this.combo, this.rules.combo.bonusCoins.length - 1)]!;
     this.combo++; this.maxCombo = Math.max(this.maxCombo, this.combo); this.lastServeAt = this.elapsed;
     item.state = 'Served'; this.served++;
@@ -143,6 +156,18 @@ export class ProductionKitchen {
     return this.snapshot;
   }
 
+  private recipeCoins(recipe: KitchenRecipeRule): number {
+    const level = KitchenRulesReader.levelIndex(this.upgrades, this.rules.restaurantId, recipe.upgradeId, recipe.coinsByLevel.length);
+    return recipe.coinsByLevel[level]!;
+  }
+  private matches(item: { dishId: string; toppingIds: readonly string[] }, slot: Slot): boolean {
+    return item.dishId === slot.dishId && item.toppingIds.length === slot.toppingIds.length && item.toppingIds.every(id => slot.toppingIds.includes(id));
+  }
+  private foodLabel(dishId: string, ids: readonly string[]): string {
+    const recipe = this.recipe(dishId);
+    const labels = (recipe.toppings ?? []).filter(topping => ids.includes(topping.id)).map(topping => topping.label);
+    return labels.length ? `${recipe.label}（${labels.join('+')}）` : recipe.label;
+  }
   private recipe(dishId: string): KitchenRecipeRule {
     const recipe = this.rules.recipes.find(candidate => candidate.dishId === dishId);
     if (!recipe) throw new Error(`Unknown recipe: ${dishId}`);
@@ -155,11 +180,11 @@ export class ProductionKitchen {
       if (!plateStationId || food.stationId === plateStationId) continue;
       const plate = this.slots.find(slot => slot.stationId === plateStationId && slot.state === 'Idle');
       if (!plate) continue;
-      Object.assign(plate, { state: 'Ready', dishId: food.dishId, remainingSeconds: 0, burnRemainingSeconds: null });
+      Object.assign(plate, { state: 'Ready', dishId: food.dishId, toppingIds: [...food.toppingIds], remainingSeconds: 0, burnRemainingSeconds: null });
       this.emptySlot(food);
     }
   }
-  private emptySlot(slot: Slot): void { Object.assign(slot, { dishId: null, state: 'Idle', remainingSeconds: 0, burnRemainingSeconds: null }); }
+  private emptySlot(slot: Slot): void { Object.assign(slot, { dishId: null, toppingIds: [], state: 'Idle', remainingSeconds: 0, burnRemainingSeconds: null }); }
   private admitCustomers(): void {
     let places = this.rules.customers.activeCapacity - this.customers.filter(customer => customer.state === 'Active').length;
     for (const customer of this.customers) if (places > 0 && customer.state === 'Waiting') { customer.state = 'Active'; places--; }

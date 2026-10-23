@@ -186,6 +186,7 @@ export class GameRoot extends Component implements GameplayModule {
                 case 'p10.set-story-page': app.setStoryPage(intent.payload.page); break;
                 case 'p10.serve-dish': app.serve(intent.payload.dishId); break;
                 case 'p10.start-cooking': app.startCooking(intent.payload.dishId); break;
+                case 'p10.add-topping': app.addTopping(intent.payload.slotId, intent.payload.toppingId); break;
                 case 'p10.serve-ready': app.serveReady(intent.payload.slotId, intent.payload.customerId); break;
                 case 'p10.discard-food': app.discardFood(intent.payload.slotId); break;
                 case 'p10.pause': app.pauseRun(); break;

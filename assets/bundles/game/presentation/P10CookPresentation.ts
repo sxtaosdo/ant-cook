@@ -79,7 +79,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
     private hudProgress: Label | null = null;
     private productionStructure = '';
     private productionFeedback: Label | null = null;
-    private readonly productionSlotViews = new Map<string, { node: Node; label: Label; discard: Node }>();
+    private readonly productionSlotViews = new Map<string, { node: Node; label: Label; discard: Node; toppings: Array<{ id: string; node: Node }> }>();
     private readonly productionCustomerViews = new Map<string, { label: Label; bar: Node; width: number }>();
     private tapTargets: Array<{ node: Node; action: () => void }> = [];
     private viewport!: ViewportLayout;
@@ -468,18 +468,26 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
             const bar = this.box('Patience', node, 0, -customerHeight / 2 + 20, customerWidth - 18, 8, C.jade);
             this.productionCustomerViews.set(customer.id, { label, bar, width: customerWidth - 18 });
         });
-        const slots = production.slots, cols = Math.min(4, Math.max(1, slots.length)), rows = Math.ceil(slots.length / cols);
+        const slots = production.slots, cols = Math.min(3, Math.max(1, slots.length)), rows = Math.ceil(slots.length / cols);
         const slotWidth = 650 / cols - 10;
         const available = Math.max(180, top - bottom - 780), rowHeight = Math.min(132, available / Math.max(1, rows));
         slots.forEach((slot, index) => {
             const x = (index % cols - (cols - 1) / 2) * (650 / cols);
             const y = top - 560 - Math.floor(index / cols) * rowHeight;
             const node = this.box(`ProductionSlot_${slot.id}`, this.node, x, y, slotWidth, rowHeight - 8, C.panel2);
-            const label = this.text('', node, 0, 20, 21, slotWidth - 12, rowHeight - 60, C.cream);
+            const toppings = production.recipes.filter(recipe => recipe.plateStationId === slot.stationId).flatMap(recipe => recipe.toppings ?? []);
+            const label = this.text('', node, 0, toppings.length ? 33 : 20, 21, slotWidth - 12, rowHeight - (toppings.length ? 88 : 60), C.cream);
             this.tap(node, () => this.useProductionSlot(slot.id));
+            const toppingViews = toppings.map((topping, toppingIndex) => {
+                const button = this.button(topping.label, node,
+                (toppingIndex - (toppings.length - 1) / 2) * ((slotWidth - 8) / toppings.length), 0,
+                (slotWidth - 8) / toppings.length - 3, 30, C.red, () => this.addProductionTopping(slot.id, topping.id), 15);
+                button.active = false;
+                return { id: topping.id, node: button };
+            });
             const discard = this.button('丢弃', node, 0, -rowHeight / 2 + 27, Math.min(100, slotWidth - 18), 42, C.danger,
                 () => this.discardProductionSlot(slot.id));
-            this.productionSlotViews.set(slot.id, { node, label, discard });
+            this.productionSlotViews.set(slot.id, { node, label, discard, toppings: toppingViews });
         });
         this.text('点击食材制作 · 点击成熟成品上菜', this.node, 0, bottom + 235, 21, 650, 36, C.cream);
         const dishes = production.recipes.map(recipe => recipe.dishId);
@@ -505,6 +513,20 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         else if (slot?.state === 'Burnt') this.publish({ type: 'p10.discard-food', payload: { slotId } });
     }
 
+    private canAddProductionTopping(slotId: string, toppingId: string): boolean {
+        if (!this.canUseProduction()) return false;
+        const production = this.requireReadModel().kitchen!.production!;
+        const slot = production.slots.find(candidate => candidate.id === slotId);
+        const recipe = production.recipes.find(candidate => candidate.dishId === slot?.dishId);
+        return slot?.state === 'Ready' && slot.stationId === recipe?.plateStationId
+            && !!recipe?.toppings?.some(topping => topping.id === toppingId) && !slot.toppingIds?.includes(toppingId);
+    }
+
+    private addProductionTopping(slotId: string, toppingId: string): void {
+        if (this.canAddProductionTopping(slotId, toppingId))
+            this.publish({ type: 'p10.add-topping', payload: { slotId, toppingId } });
+    }
+
     private discardProductionSlot(slotId: string): void {
         if (!this.canUseProduction()) return;
         const slot = this.requireReadModel().kitchen!.production!.slots.find(candidate => candidate.id === slotId);
@@ -522,7 +544,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         for (const customer of production.customers) {
             const view = this.productionCustomerViews.get(customer.id); if (!view) continue;
             const percent = Math.max(0, Math.min(100, Math.round(customer.patienceRemaining / Math.max(1, customer.patienceMax) * 100)));
-            const items = customer.items.map(item => `${item.state === 'Served' ? '✓' : item.state === 'Expired' ? '×' : ''}${this.dishName(item.dishId)}`).join('\n');
+            const items = customer.items.map(item => `${item.state === 'Served' ? '✓' : item.state === 'Expired' ? '×' : ''}${item.dishLabel ?? this.dishName(item.dishId)}`).join('\n');
             view.label.string = `${items}\n耐心 ${percent}%`;
             view.bar.getComponent(UITransform)!.setContentSize(view.width * percent / 100, 8);
             view.bar.getComponent(Sprite)!.color = percent < 30 ? C.danger : C.jade;
@@ -536,6 +558,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
             view.label.string = `${name}\n${state}`;
             view.node.getComponent(Sprite)!.color = slot.state === 'Burnt' ? C.danger : slot.state === 'Ready' ? C.jade : C.panel2;
             view.discard.active = slot.state === 'Ready' || slot.state === 'Burnt';
+            for (const topping of view.toppings) topping.node.active = this.canAddProductionTopping(slot.id, topping.id);
         }
         this.productionFeedback!.string = model.error?.message ?? `待客 ${production.customers.filter(customer => customer.state === 'Waiting').length} · 烧焦 ${production.burntCount} · 丢弃 ${production.discardedCount}`;
     }
@@ -876,9 +899,9 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         return label;
     }
 
-    private button(label: string, parent: Node, x: number, y: number, width: number, height: number, color: Color, action: () => void): Node {
+    private button(label: string, parent: Node, x: number, y: number, width: number, height: number, color: Color, action: () => void, fontSize?: number): Node {
         const node = this.box(`Button_${label.replace(/\n/g, '_')}`, parent, x, y, width, height, color);
-        this.text(label, node, 0, 0, Math.min(25, Math.round(height * 0.28)), width - 18, height - 10, C.cream, HorizontalTextAlignment.CENTER, true);
+        this.text(label, node, 0, 0, fontSize ?? Math.min(25, Math.round(height * 0.28)), width - 18, height - 10, C.cream, HorizontalTextAlignment.CENTER, true);
         this.tap(node, action);
         return node;
     }

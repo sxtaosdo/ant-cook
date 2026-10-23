@@ -1,19 +1,29 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { P10CookApplication } from '../assets/bundles/game/application/P10CookApplication.ts';
-import type { P10Intent, StoragePort } from '../assets/bundles/game/application/contracts.ts';
-import { LEVELS, P10GameCore, RESTAURANTS } from '../assets/bundles/game/core/index.ts';
-import { MemoryStorageAdapter } from '../assets/bundles/game/infrastructure/save/MemoryStorageAdapter.ts';
+import { P10CookApplication } from '../../assets/bundles/game/application/P10CookApplication.ts';
+import type { P10Intent, StoragePort } from '../../assets/bundles/game/application/contracts.ts';
+import { LEVELS, P10GameCore, RESTAURANTS } from '../../assets/bundles/game/core/index.ts';
+import { createDefaultSave } from '../../assets/bundles/game/core/SaveCodec';
+import { FrameworkSaveCoordinatorAdapter } from '../../assets/bundles/game/infrastructure/save/SaveCoordinatorAdapter';
+import { MemoryStorageAdapter } from '../../assets/bundles/game/infrastructure/save/MemoryStorageAdapter.ts';
 
 function createApplication(storage: StoragePort = new MemoryStorageAdapter(), fixedId?: string) {
     let sequence = 0;
     const app = new P10CookApplication({
         storage,
+        saveScope: { frameworkVersion: '2.0.7', sectionId: 'cook.runtime.test', primaryKey: 'cook.runtime.test.progress' },
         clock: () => 100 + sequence,
         idGenerator: (seed) => fixedId ?? `${seed}-${sequence++}`,
     });
     app.start();
     return app;
+}
+
+function seedOwnSave(storage: StoragePort, value: ReturnType<typeof createDefaultSave>): void {
+    let core = P10GameCore.load(JSON.stringify(value));
+    const adapter = new FrameworkSaveCoordinatorAdapter(storage, { frameworkVersion: '2.0.7', sectionId: 'cook.runtime.test', primaryKey: 'cook.runtime.test.progress' });
+    assert.equal(adapter.attachCoreState(() => core, restored => { core = restored; }).ok, true);
+    assert.equal(adapter.save().ok, true);
 }
 
 function dispatch(app: P10CookApplication, intent: P10Intent): void {
@@ -29,7 +39,7 @@ function startFirstLevel(app: P10CookApplication): void {
 
 function completeCurrentLevel(app: P10CookApplication): void {
     let guard = 100;
-    while (app.read().screen === 'kitchen' && guard-- > 0) {
+    while (app.read().kitchen !== null && guard-- > 0) {
         const pending = app.read().kitchen?.orders.find((order) => order.state === 'Pending');
         assert.ok(pending, 'running kitchen must expose a pending order');
         dispatch(app, { type: 'p10.serve-dish', payload: { dishId: pending.dishId } });
@@ -62,17 +72,19 @@ test('success, pause, resume, failure and result continuation preserve the previ
     assert.ok((app.read().kitchen?.remainingSeconds ?? 0) < (beforePause ?? 0));
 
     completeCurrentLevel(app);
-    assert.equal(app.read().screen, 'result');
+    assert.equal(app.read().kitchen, null);
+    assert.ok(app.read().result);
     assert.equal(app.read().result?.success, true);
     dispatch(app, { type: 'p10.next-after-result', payload: {} });
-    assert.equal(app.read().screen, 'kitchen');
+    assert.ok(app.read().kitchen);
     assert.equal(app.read().selection.levelIndex, 1);
 
     app.update(10000);
-    assert.equal(app.read().screen, 'result');
+    assert.equal(app.read().kitchen, null);
+    assert.ok(app.read().result);
     assert.equal(app.read().result?.success, false);
     dispatch(app, { type: 'p10.next-after-result', payload: {} });
-    assert.equal(app.read().screen, 'kitchen');
+    assert.ok(app.read().kitchen);
     assert.equal(app.read().selection.levelIndex, 1);
     app.shutdown();
 });
@@ -111,7 +123,7 @@ test('settlement and upgrade transaction ids are idempotent', () => {
     assert.equal(core.progress.coins, coins);
 
     const storage = new MemoryStorageAdapter();
-    storage.setItem('p10_cook_game_save_v2', JSON.stringify({ version: 1, coins: 10000 }));
+    const seed = createDefaultSave(); seed.coins = 10000; seedOwnSave(storage, seed);
     const app = createApplication(storage, 'upgrade-fixed');
     const quote = app.read().upgradeQuotes.grill;
     assert.equal(quote.currentLevel, 1);
@@ -124,10 +136,13 @@ test('settlement and upgrade transaction ids are idempotent', () => {
     app.shutdown();
 });
 
-test('legacy progression restores renovations and unlocks the next restaurant', () => {
+test('own saved progression restores renovations and the unlocked next restaurant', () => {
     const storage = new MemoryStorageAdapter();
-    const starsByLevel = Object.fromEntries(RESTAURANTS[0].levelIds.map((levelId) => [levelId, 3]));
-    storage.setItem('p10_cook_game_save_v2', JSON.stringify({ version: 1, starsByLevel }));
+    const seed = createDefaultSave();
+    for (const levelId of RESTAURANTS[0].levelIds) { seed.levels[levelId].bestStars = 3; seed.levels[levelId].unlocked = true; }
+    seed.restaurants.r01 = { unlocked: true, highestUnlockedLevel: 40, renovations: [10,25,40], chapterComplete: true };
+    seed.restaurants.r02.unlocked = true; seed.restaurants.r02.highestUnlockedLevel = 1; seed.levels['r02-l01'].unlocked = true;
+    seedOwnSave(storage, seed);
     const app = createApplication(storage);
     const progress = app.read().progress;
     assert.deepEqual(progress.restaurants.r01.renovations, [10, 25, 40]);

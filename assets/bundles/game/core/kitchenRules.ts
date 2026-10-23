@@ -2,7 +2,10 @@ export interface KitchenStationRule {
   readonly id: string; readonly label: string; readonly upgradeId: string;
   readonly capacityByLevel: readonly number[]; readonly timeMultipliers: readonly number[]; readonly upgradePrices: readonly number[];
 }
+export interface KitchenToppingRule { readonly id: string; readonly label: string; }
 export interface KitchenRecipeRule {
+  readonly toppings?: readonly KitchenToppingRule[];
+  readonly orderToppingSets?: readonly (readonly string[])[];
   readonly dishId: string; readonly label: string; readonly stationId: string; readonly cookSeconds: number;
   readonly plateStationId?: string; readonly burnAfterSeconds: number | null; readonly coinsByLevel: readonly number[];
   readonly upgradeId: string; readonly upgradePrices: readonly number[];
@@ -42,7 +45,20 @@ export class KitchenRulesReader {
       if (!stations.some(station => station.id === stationId)) throw new Error(`Unknown recipe station: ${stationId}`);
       const plateStationId = recipe.plateStationId === undefined ? undefined : this.text(recipe.plateStationId, 'plateStationId');
       if (plateStationId && (!stations.some(station => station.id === plateStationId) || plateStationId === stationId)) throw new Error('Invalid plate station');
-      return { ...(plateStationId ? { plateStationId } : {}), dishId: this.text(recipe.dishId, 'recipe.dishId'), label: this.text(recipe.label, 'recipe.label'), stationId,
+      const toppings = recipe.toppings === undefined ? [] : this.array(recipe.toppings, 'toppings').map(value => {
+        const topping = this.record(value, 'topping');
+        return { id: this.text(topping.id, 'topping.id'), label: this.text(topping.label, 'topping.label') };
+      });
+      this.unique(toppings.map(topping => topping.id), 'topping IDs');
+      if (toppings.length && !plateStationId) throw new Error('Toppings require a plate station');
+      const orderToppingSets = recipe.orderToppingSets === undefined ? [[]] : this.array(recipe.orderToppingSets, 'orderToppingSets').map(value => {
+        if (!Array.isArray(value)) throw new Error('Topping set must be an array');
+        const ids = value.map(id => this.text(id, 'order topping ID'));
+        this.unique(ids, 'order toppings');
+        if (ids.some(id => !toppings.some(topping => topping.id === id))) throw new Error('Unknown order topping');
+        return ids;
+      });
+      return { toppings, orderToppingSets, ...(plateStationId ? { plateStationId } : {}), dishId: this.text(recipe.dishId, 'recipe.dishId'), label: this.text(recipe.label, 'recipe.label'), stationId,
         cookSeconds: this.number(recipe.cookSeconds, 'cookSeconds', false, true),
         burnAfterSeconds: recipe.burnAfterSeconds === null ? null : this.number(recipe.burnAfterSeconds, 'burnAfterSeconds', false, true),
         coinsByLevel, upgradeId: this.text(recipe.upgradeId, 'recipe.upgradeId'), upgradePrices };

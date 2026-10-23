@@ -79,7 +79,7 @@ function finish(app:P10CookApplication) {
     const customer = production.customers.find(c=>c.state==='Active')!;
     const item = customer.items.find(i=>i.state==='Pending')!;
     const ready = production.slots.find(s=>s.state==='Ready'&&s.dishId===item.dishId);
-    if(ready) { assert.equal(app.serveReady(ready.id,customer.id).ok,true); continue; }
+    if(ready) { for (const id of item.toppingIds) if (!ready.toppingIds.includes(id)) assert.equal(app.addTopping(ready.id,id).ok,true); assert.equal(app.serveReady(ready.id,customer.id).ok,true); continue; }
     const cooking = production.slots.find(s=>s.state==='Cooking'&&s.dishId===item.dishId);
     if(cooking) app.update(cooking.remainingSeconds);
     else assert.equal(app.startCooking(item.dishId).ok,true);
@@ -107,6 +107,7 @@ test('production income settles once, funds real equipment and ingredient upgrad
   t.after(()=>reloaded.dispose()); assert.equal(reloaded.start().ok,true); assert.equal(reloaded.configureKitchenRules(rules()).ok,true);
   assert.equal(reloaded.read().progress.upgrades['r01:grill'],2);
   assert.equal(reloaded.read().progress.upgrades['r01:ingredient-jianbing'],2);
+  assert.equal(reloaded.read().kitchen!.orders.find(order=>order.dishId==='jianbing')!.baseScore,20,'reloaded order quote follows saved ingredient grade');
   assert.equal(reloaded.read().paused,true); assert.equal(reloaded.read().kitchen!.production!.baseCoins,0,'checkpoint resumes by explicit full run restart');
   assert.equal(reloaded.read().progress.coins,earned-2);
 });
@@ -202,4 +203,15 @@ test('discarding a plate just before a hot-food burn deadline immediately plates
   assert.equal(app.read().kitchen!.production!.slots.find(slot=>slot.id===hot.id)!.state,'Idle');
   app.update(0.02); assert.equal(app.read().kitchen!.production!.burntCount,0);
   assert.equal(app.read().kitchen!.production!.slots.filter(slot=>slot.stationId==='plate'&&slot.state==='Ready').length,2);
+});
+
+
+test('upgraded production order base price agrees with actual delivery and saved-grade clamping', () => {
+  for (const [grade, expected] of [[1,10],[2,20],[99,20]]) {
+    const run = new KitchenRun(LEVELS[0]!, 'price-grade-'+grade, { rules: KitchenRulesReader.parse(rules()), upgrades: {'r01:ingredient-jianbing':grade} });
+    const order = run.snapshot.orders.find(item=>item.dishId==='jianbing')!;
+    assert.equal(order.baseScore, expected, 'project-test table price projected at saved grade '+grade);
+    run.startCooking('jianbing'); run.tick(2);run.serveReady(run.snapshot.production!.slots.find(slot=>slot.state==='Ready')!.id);
+    assert.equal(run.snapshot.production!.baseCoins, order.baseScore);
+  }
 });

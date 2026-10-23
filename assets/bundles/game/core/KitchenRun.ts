@@ -64,6 +64,7 @@ export class KitchenRun {
     }
 
     public startCooking(dishId: string): KitchenRunReadModel { return this.requireProduction().startCooking(dishId); }
+    public addTopping(slotId: string, toppingId: string): KitchenRunReadModel { return this.requireProduction().addTopping(slotId, toppingId); }
     public serveReady(slotId: string, customerId?: string): KitchenRunReadModel { return this.requireProduction().serveReady(slotId, customerId); }
     public discardFood(slotId: string): KitchenRunReadModel { return this.requireProduction().discardFood(slotId); }
     private requireProduction(): ProductionKitchen { if (!this.production) throw new Error('Production rules are not configured'); return this.production; }

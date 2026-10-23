@@ -340,6 +340,7 @@ export class P10CookApplication {
     public setStoryPage(page: number) { return this.commitBusiness(() => this.applyIntent({ type: 'p10.set-story-page', payload: { page } })); }
     public serve(dishId: string) { return this.commitBusiness(() => this.serveDish(dishId)); }
     public startCooking(dishId: string) { return this.commitBusiness(() => this.productionOperation(run => run.startCooking(dishId))); }
+    public addTopping(slotId: string, toppingId: string) { return this.commitBusiness(() => this.productionOperation(run => run.addTopping(slotId, toppingId))); }
     public serveReady(slotId: string, customerId?: string) { return this.commitBusiness(() => this.productionOperation(run => run.serveReady(slotId, customerId))); }
     public discardFood(slotId: string) { return this.commitBusiness(() => this.productionOperation(run => run.discardFood(slotId))); }
     private productionOperation(operation: (run: KitchenRun) => KitchenRunReadModel): Result<P10BusinessReadModel, P10ApplicationError> {
@@ -526,6 +527,7 @@ export class P10CookApplication {
                 return this.beginLevelAt(this.state.selection.restaurantIndex, intent.payload.levelIndex ?? this.state.selection.levelIndex,
                     intent.payload.attemptId ?? this.idGenerator(`${this.config.idPrefix}-attempt-${this.clock()}`));
             case 'p10.start-cooking': return this.productionOperation(run => run.startCooking(intent.payload.dishId));
+            case 'p10.add-topping': return this.productionOperation(run => run.addTopping(intent.payload.slotId, intent.payload.toppingId));
             case 'p10.serve-ready': return this.productionOperation(run => run.serveReady(intent.payload.slotId, intent.payload.customerId));
             case 'p10.discard-food': return this.productionOperation(run => run.discardFood(intent.payload.slotId));
             case 'p10.serve-dish':
