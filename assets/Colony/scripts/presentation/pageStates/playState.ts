@@ -271,7 +271,20 @@ export class PlayState implements IState<ColonySceneBootstrap> {
   public async tapTool(tool: ColonyTool): Promise<void> {
     const session = this.context;
     if (session.destroyed || session.inputLocked || !session.play) return;
-    if (!PlayState.read(session).usedTools.includes(tool)) await this.usePowerUp(tool);
+    if (!PlayState.read(session).usedTools.includes(tool)) {
+      const generation = session.generation, play = session.play, roundId = session.round?.id;
+      try {
+        await ProgressPresentation.open(session, `confirm-tool-${tool}`, undefined, () => !session.destroyed && !session.navigating
+          && session.generation === generation && session.play === play && session.round?.id === roundId
+          && PlayState.current(session) === this && !session.inputLocked && !session.progressPopup
+          && play.snapshot().result === 'PLAYING' && !play.usedToolList().includes(tool));
+      } catch (cause) {
+        if (!session.destroyed && session.generation === generation && session.play === play) {
+          session.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
+          session.hudView?.setFeedback('道具确认未打开，未使用道具，请重试');
+        }
+      }
+    }
     else if (tool !== 'slot' && session.round && (session.progress?.readToolSupply(session.round.id).inventory[tool] ?? 0) > 0
       && session.progress?.readToolSupply(session.round.id).extraAvailable) {
       try { this.commitStoredSupply(tool); }

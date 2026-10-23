@@ -22,6 +22,7 @@ export class KitchenState implements CookPageState {
         if (this.context.application.hasPendingSave) return;
         if (model.result) await this.context.StateMachine.changeState(ResultState);
         else if (model.paused) await this.context.StateMachine.changeState(PauseState);
+        else this.context.syncPresentation();
     }
 
     public retry(): boolean {

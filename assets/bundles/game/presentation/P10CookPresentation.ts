@@ -558,7 +558,7 @@ export class P10CookPresentation implements CocosPresentationPort<P10ReadModel> 
         this.frame('营业暂停', '计时与顾客耐心已冻结');
         const snapshot = model.kitchen;
         this.text('Ⅱ', this.node, 0, 260, 110, 180, 150, C.cyan, HorizontalTextAlignment.CENTER, true);
-        this.text(`已完成 ${snapshot?.servedOrders ?? 0}/${snapshot?.orders.length ?? 0} · 剩余 ${Math.ceil(snapshot?.remainingSeconds ?? 0)}秒`, this.node, 0, 120, 25, 600, 48, C.cream, HorizontalTextAlignment.CENTER);
+        this.text(KitchenFlowScreenGroup.pauseSummary(model), this.node, 0, 120, snapshot?.production ? 23 : 25, 620, snapshot?.production ? 100 : 48, C.cream, HorizontalTextAlignment.CENTER);
         this.button('继续营业', this.node, 0, -10, 420, 86, C.jade, () => this.publish({ type: 'p10.resume', payload: {} }));
         this.button('重新开始', this.node, 0, -125, 420, 78, C.panel2, () => this.publish({ type: 'p10.restart', payload: { reason: 'pause-menu' } }));
         this.button('退出关卡', this.node, 0, -230, 420, 78, C.danger, () => {

@@ -212,3 +212,15 @@ test('production ingredients come only from configured recipes and customer-limi
  const next=productionModel();next.kitchen.production.goal.mode='customers';next.kitchen.remainingSeconds=0;f.presentation.readModel=next;f.presentation.refreshKitchenHud();
  assert.equal(f.presentation.hudTime.string,'限客 0/3');assert.doesNotMatch(f.presentation.hudTime.string,/时间/);
 });
+
+test('production pause projects customer limit, coin goal and active pending items with frozen state in dynamic and fixed pages',async()=>{
+ for(const fixed of [false,true]){
+  const f=fixture({fixed});const value=productionModel();value.screen='pause';value.paused=true;
+  value.kitchen.orders=Array(12).fill({state:'Pending'});value.kitchen.servedOrders=0;value.kitchen.remainingSeconds=47;
+  const production=value.kitchen.production;production.goal={mode:'customers',metric:'coins',target:30,current:0};production.earnedCoins=0;
+  for(let i=4;i<=6;i++)production.customers.push({id:'c'+i,state:'Waiting',patienceMax:10,patienceRemaining:10,items:[{state:'Pending',dishId:'jianbing'}]});
+  f.presentation.readModel=freeze(value);const before=JSON.stringify(value);f.presentation.showPause();await f.presentation.artTask;
+  const label=fixed?f.view.pauseSummaryLabel.string:texts(f).join('\n');assert.ok(label.includes('限客 0/6'));assert.ok(label.includes('金币 0/30'));
+  assert.match(label,/当前待上 2份/);assert.match(label,/冻结/);assert.ok(!label.includes('已完成 0/12')&&!label.includes('47秒'));assert.equal(JSON.stringify(value),before);
+ }
+});

@@ -44,6 +44,17 @@ export class KitchenFlowScreenGroup extends mk.ViewBase {
         return { root, header, background, transition, currency, summary, resume, restart, exit };
     }
 
+    public static pauseSummary(model: P10ReadModel): string {
+        const snapshot = model.kitchen, production = snapshot?.production;
+        if (!production) return `已完成 ${snapshot?.servedOrders ?? 0}/${snapshot?.orders.length ?? 0} · 剩余 ${Math.ceil(snapshot?.remainingSeconds ?? 0)}秒`;
+        const handled = production.customers.filter(customer => customer.state === 'Served' || customer.state === 'Lost').length;
+        const mode = production.goal.mode === 'customers' ? `限客 ${handled}/${production.customers.length}` : `剩余 ${Math.ceil(snapshot.remainingSeconds)}秒`;
+        const names = { coins: '金币', dishes: '出餐', customers: '顾客' };
+        const pending = production.customers.filter(customer => customer.state === 'Active')
+            .reduce((count, customer) => count + customer.items.filter(item => item.state === 'Pending').length, 0);
+        return `${mode} · ${names[production.goal.metric]} ${production.goal.current}/${production.goal.target}\n当前待上 ${pending}份 · 制作与耐心已冻结`;
+    }
+
     public presentPause(model: P10ReadModel, viewport: ViewportLayout): void {
         const bindings = this.pauseBindings();
         this.requirePause(this.node.getComponent(UITransform), 'view.UITransform').setContentSize(viewport.width, viewport.height);
@@ -55,8 +66,7 @@ export class KitchenFlowScreenGroup extends mk.ViewBase {
         this.requirePause(bindings.background.node.getComponent(UITransform), 'pauseBackground.UITransform')
             .setContentSize(frame.originalSize.width * scale, frame.originalSize.height * scale);
         bindings.currency.string = `金币 ${model.progress.coins}  ★ ${model.progress.totalStars}`;
-        const snapshot = model.kitchen;
-        bindings.summary.string = `已完成 ${snapshot?.servedOrders ?? 0}/${snapshot?.orders.length ?? 0} · 剩余 ${Math.ceil(snapshot?.remainingSeconds ?? 0)}秒`;
+        bindings.summary.string = KitchenFlowScreenGroup.pauseSummary(model);
     }
 
     private requirePause<T>(value: T | null, name: string): T {
