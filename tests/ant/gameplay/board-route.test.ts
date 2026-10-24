@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { boardRoute } from '../../assets/Colony/scripts/application/boardRoute';
+import { boardRoute } from '../../../assets/Colony/scripts/application/boardRoute';
 
 test('all small obstacle boards choose minimum distance then minimum turns', () => {
   const bounds = { minRow: 0, maxRow: 2, minColumn: 0, maxColumn: 2 };
