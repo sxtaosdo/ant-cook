@@ -2,7 +2,10 @@ export interface KitchenStationRule {
   readonly id: string; readonly label: string; readonly upgradeId: string;
   readonly capacityByLevel: readonly number[]; readonly timeMultipliers: readonly number[]; readonly upgradePrices: readonly number[];
 }
-export interface KitchenToppingRule { readonly id: string; readonly label: string; }
+export interface KitchenIngredientUpgradeRule {
+  readonly upgradeId: string; readonly coinsByLevel: readonly number[]; readonly upgradePrices: readonly number[];
+}
+export interface KitchenToppingRule { readonly id: string; readonly label: string; readonly upgrade?: KitchenIngredientUpgradeRule; }
 export interface KitchenRecipeRule {
   readonly toppings?: readonly KitchenToppingRule[];
   readonly orderToppingSets?: readonly (readonly string[])[];
@@ -47,7 +50,8 @@ export class KitchenRulesReader {
       if (plateStationId && (!stations.some(station => station.id === plateStationId) || plateStationId === stationId)) throw new Error('Invalid plate station');
       const toppings = recipe.toppings === undefined ? [] : this.array(recipe.toppings, 'toppings').map(value => {
         const topping = this.record(value, 'topping');
-        return { id: this.text(topping.id, 'topping.id'), label: this.text(topping.label, 'topping.label') };
+        const upgrade = topping.upgrade === undefined ? undefined : this.toppingUpgrade(topping.upgrade);
+        return { id: this.text(topping.id, 'topping.id'), label: this.text(topping.label, 'topping.label'), ...(upgrade ? { upgrade } : {}) };
       });
       this.unique(toppings.map(topping => topping.id), 'topping IDs');
       if (toppings.length && !plateStationId) throw new Error('Toppings require a plate station');
@@ -65,7 +69,7 @@ export class KitchenRulesReader {
     });
     this.unique(stations.map(station => station.id), 'station IDs');
     this.unique(recipes.map(recipe => recipe.dishId), 'recipe IDs');
-    this.unique([...stations.map(station => station.upgradeId), ...recipes.map(recipe => recipe.upgradeId)], 'upgrade IDs');
+    this.unique([...stations.map(station => station.upgradeId), ...recipes.flatMap(recipe => [recipe.upgradeId, ...recipe.toppings.flatMap(topping => topping.upgrade ? [topping.upgrade.upgradeId] : [])])], 'upgrade IDs');
     const customers = this.record(root.customers, 'customers'), combo = this.record(root.combo, 'combo');
     const limits = this.record(root.limits, 'limits'), goal = this.record(root.goal, 'goal');
     if (goal.mode !== 'timed' && goal.mode !== 'customers') throw new Error('Invalid goal mode');
@@ -91,6 +95,13 @@ export class KitchenRulesReader {
   public static levelIndex(levels: Readonly<Record<string, number>>, restaurantId: string, upgradeId: string, length: number): number {
     const saved = levels[`${restaurantId}:${upgradeId}`] ?? 1;
     return Math.min(length - 1, Math.max(0, Math.floor(saved) - 1));
+  }
+  private static toppingUpgrade(value: unknown): KitchenIngredientUpgradeRule {
+    const upgrade = this.record(value, 'topping.upgrade');
+    const coinsByLevel = this.numbers(upgrade.coinsByLevel, 'topping.coinsByLevel', true, false);
+    const upgradePrices = this.numbers(upgrade.upgradePrices, 'topping.upgradePrices', true, false, true);
+    if (upgradePrices.length !== coinsByLevel.length - 1) throw new Error('Topping upgrade tables must describe the same levels');
+    return { upgradeId: this.text(upgrade.upgradeId, 'topping.upgradeId'), coinsByLevel, upgradePrices };
   }
   private static record(value: unknown, name: string): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${name} must be an object`);

@@ -47,7 +47,7 @@ export class ProductionKitchen {
     });
     this.target = rules.goal.target !== 'all' ? rules.goal.target : rules.goal.metric === 'customers' ? count
       : rules.goal.metric === 'dishes' ? count * rules.customers.itemsPerCustomer
-        : this.customers.reduce((total, customer) => total + customer.items.reduce((sum, item) => sum + this.recipe(item.dishId).coinsByLevel[0]!, 0), 0);
+        : this.customers.reduce((total, customer) => total + customer.items.reduce((sum, item) => sum + this.recipeInitialCoins(this.recipe(item.dishId), item.toppingIds), 0), 0);
     this.admitCustomers();
   }
 
@@ -60,9 +60,9 @@ export class ProductionKitchen {
       stars: this.status === RunStatus.Completed ? this.rules.goal.starRatios.filter(ratio => current >= this.target * ratio).length : 0,
       failureReason: this.failureReason,
       orders: this.customers.flatMap(customer => customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds),
-        patienceRemaining: customer.patienceRemaining, patienceMax: customer.patienceMax, baseScore: this.recipeCoins(this.recipe(item.dishId)),
+        patienceRemaining: customer.patienceRemaining, patienceMax: customer.patienceMax, baseScore: this.recipeCoins(this.recipe(item.dishId), item.toppingIds),
       }))),
-      production: { recipes: this.rules.recipes.map(recipe => ({ dishId: recipe.dishId, label: recipe.label, plateStationId: recipe.plateStationId, toppings: (recipe.toppings ?? []).map(topping => ({ ...topping })) })), slots: this.slots.map(slot => ({ ...slot, canServe: this.canServeSlot(slot), toppingIds: [...slot.toppingIds], stationLabel: this.rules.stations.find(station => station.id === slot.stationId)!.label, dishLabel: slot.dishId ? this.foodLabel(slot.dishId, slot.toppingIds) : null })), customers: this.customers.map(customer => ({ ...customer, items: customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds) })) })),
+      production: { recipes: this.rules.recipes.map(recipe => ({ dishId: recipe.dishId, label: recipe.label, plateStationId: recipe.plateStationId, toppings: (recipe.toppings ?? []).map(topping => ({ id: topping.id, label: topping.label })) })), slots: this.slots.map(slot => ({ ...slot, canServe: this.canServeSlot(slot), toppingIds: [...slot.toppingIds], stationLabel: this.rules.stations.find(station => station.id === slot.stationId)!.label, dishLabel: slot.dishId ? this.foodLabel(slot.dishId, slot.toppingIds) : null })), customers: this.customers.map(customer => ({ ...customer, items: customer.items.map(item => ({ ...item, toppingIds: [...item.toppingIds], dishLabel: this.foodLabel(item.dishId, item.toppingIds) })) })),
         baseCoins: this.baseCoins, comboCoins: this.comboCoins, earnedCoins: this.baseCoins + this.comboCoins,
         burntCount: this.burnt, discardedCount: this.discarded, elapsedSeconds: this.elapsed, configSource: this.rules.source,
         goal: { mode: this.rules.goal.mode, metric: this.rules.goal.metric, target: this.target, current }, keepEarningsOnFailure: this.rules.goal.keepEarningsOnFailure },
@@ -103,7 +103,7 @@ export class ProductionKitchen {
     const item = customer.items.find(candidate => candidate.state === 'Pending' && this.matches(candidate, slot))!;
     const recipe = this.recipe(slot.dishId);
     if (this.lastServeAt === null || this.elapsed - this.lastServeAt > this.rules.combo.windowSeconds) this.combo = 0;
-    this.baseCoins += this.recipeCoins(recipe);
+    this.baseCoins += this.recipeCoins(recipe, slot.toppingIds);
     this.comboCoins += this.rules.combo.bonusCoins[Math.min(this.combo, this.rules.combo.bonusCoins.length - 1)]!;
     this.combo++; this.maxCombo = Math.max(this.maxCombo, this.combo); this.lastServeAt = this.elapsed;
     item.state = 'Served'; this.served++;
@@ -162,9 +162,17 @@ export class ProductionKitchen {
     const plateStationId = this.recipe(slot.dishId).plateStationId;
     return !plateStationId || slot.stationId === plateStationId;
   }
-  private recipeCoins(recipe: KitchenRecipeRule): number {
+  private recipeCoins(recipe: KitchenRecipeRule, toppingIds: readonly string[]): number {
     const level = KitchenRulesReader.levelIndex(this.upgrades, this.rules.restaurantId, recipe.upgradeId, recipe.coinsByLevel.length);
-    return recipe.coinsByLevel[level]!;
+    return recipe.coinsByLevel[level]! + (recipe.toppings ?? []).reduce((sum, topping) => {
+      if (!topping.upgrade || !toppingIds.includes(topping.id)) return sum;
+      const index = KitchenRulesReader.levelIndex(this.upgrades, this.rules.restaurantId, topping.upgrade.upgradeId, topping.upgrade.coinsByLevel.length);
+      return sum + topping.upgrade.coinsByLevel[index]!;
+    }, 0);
+  }
+  private recipeInitialCoins(recipe: KitchenRecipeRule, toppingIds: readonly string[]): number {
+    return recipe.coinsByLevel[0]! + (recipe.toppings ?? []).reduce((sum, topping) =>
+      sum + (topping.upgrade && toppingIds.includes(topping.id) ? topping.upgrade.coinsByLevel[0]! : 0), 0);
   }
   private matches(item: { dishId: string; toppingIds: readonly string[] }, slot: Slot): boolean {
     return item.dishId === slot.dishId && item.toppingIds.length === slot.toppingIds.length && item.toppingIds.every(id => slot.toppingIds.includes(id));

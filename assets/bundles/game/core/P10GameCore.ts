@@ -31,7 +31,7 @@ export class P10GameCore {
     public configureKitchenRules(rules: KitchenRules | null): void { this.kitchenRules = rules; }
     public listUpgradeIds(restaurantId: string): readonly string[] {
         return this.kitchenRules?.restaurantId === restaurantId
-            ? [...this.kitchenRules.stations.map(station => station.upgradeId), ...this.kitchenRules.recipes.map(recipe => recipe.upgradeId)]
+            ? [...this.kitchenRules.stations.map(station => station.upgradeId), ...this.kitchenRules.recipes.flatMap(recipe => [recipe.upgradeId, ...(recipe.toppings ?? []).flatMap(topping => topping.upgrade ? [topping.upgrade.upgradeId] : [])])]
             : [...STATION_IDS];
     }
     private createRun(levelId: string, attemptId: string): KitchenRun {
@@ -155,15 +155,17 @@ export class P10GameCore {
         const rules = this.kitchenRules?.restaurantId === restaurantId ? this.kitchenRules : null;
         const station = rules?.stations.find(candidate => candidate.upgradeId === stationId);
         const recipe = rules?.recipes.find(candidate => candidate.upgradeId === stationId);
-        if (rules && !station && !recipe) throw new Error(`Unknown upgrade: ${stationId}`);
-        if (rules && (station || recipe)) {
-            const prices = (station ?? recipe)!.upgradePrices;
+        const topping = rules?.recipes.flatMap(candidate => candidate.toppings ?? []).find(candidate => candidate.upgrade?.upgradeId === stationId);
+        const ingredient = recipe ?? (topping?.upgrade ? { ...topping.upgrade, label: topping.label } : undefined);
+        if (rules && !station && !ingredient) throw new Error(`Unknown upgrade: ${stationId}`);
+        if (rules && (station || ingredient)) {
+            const prices = (station ?? ingredient)!.upgradePrices;
             const index = KitchenRulesReader.levelIndex(this.save.upgrades, restaurantId, stationId, prices.length + 1);
             const effect = (level: number) => station ? { capacity: station.capacityByLevel[level]!, timeMultiplier: station.timeMultipliers[level]! }
-                : { coins: recipe!.coinsByLevel[level]! };
+                : { coins: ingredient!.coinsByLevel[level]! };
             const price = index < prices.length ? prices[index]! : null;
             return { restaurantId, stationId, currentLevel: index + 1, nextLevel: price === null ? null : index + 2,
-                price, affordable: price !== null && this.save.coins >= price, label: (station ?? recipe)!.label,
+                price, affordable: price !== null && this.save.coins >= price, label: (station ?? ingredient)!.label,
                 kind: station ? 'equipment' : 'ingredient', currentEffect: effect(index), nextEffect: price === null ? null : effect(index + 1) };
         }
         this.requireStation(stationId);
