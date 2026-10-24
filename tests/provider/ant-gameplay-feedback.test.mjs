@@ -127,7 +127,7 @@ test('extra slot changes only normal command state; full slots get a precise rej
   assert.deepEqual(plain(m.usedToolList()), ['slot']);
 });
 
-test('actual successful linked tap reports occupied slots and transport color without extra commands', async () => {
+test('actual successful linked tap keeps transport feedback without a success toast or extra commands', async () => {
   const groups = [group('first', 0, { linkId: 'pair' }), group('second', 1, { linkId: 'pair' })];
   const m = model(groups, white(2)); const control = model(groups, white(2)); control.selectStack('first');
   const { PlayState } = load('assets/Colony/scripts/presentation/pageStates/playState.ts');
@@ -139,7 +139,7 @@ test('actual successful linked tap reports occupied slots and transport color wi
   page.board = { markMoving() {}, applySelection() {}, moveStackToSlot: async () => {}, pulseSlot: async () => {} };
   page.playSound = async () => {}; page.runTransportLoop = async () => {}; page.checkFreeFinish = () => {};
   await page.tapStack('first');
-  assert.match(messages[0], /本次占 2 槽/);
+  assert.deepEqual(messages, [], 'Successful selection must not enqueue a success toast');
   assert.match(hud.feedbackLabel.string, /槽位 2\/5.*可运 白/);
   assert.equal(JSON.stringify(m.snapshot()), JSON.stringify(control.snapshot()));
   assert.equal(m.suggestedStack(), null); assert.deepEqual(plain(m.usedToolList()), []);
@@ -228,4 +228,30 @@ test('old failure popup seed remains usable without falsely declaring every slot
   await control.open();
   assert.match(opened.detailLabel.string, /受阻/);
   assert.doesNotMatch(opened.detailLabel.string, /所有暂存槽都已占用/);
+});
+
+// User explicitly requested permanent removal of successful-selection slot-count toasts.
+test('ordinary successful selection never calls the toast queue and keeps its slot animation', async () => {
+  const m = model([group('ordinary', 0)], white(1));
+  const { PlayState } = load('assets/Colony/scripts/presentation/pageStates/playState.ts');
+  const page = new PlayState(); const messages = []; const animations = [];
+  page.context = { app: { error: null }, generation: 1, play: m, destroyed: false, inputLocked: false,
+    hudView: { setFeedback() {} }, toast: { show: (...args) => messages.push(args) } };
+  page.board = { markMoving() {}, applySelection() {}, moveStackToSlot: async (id, index) => animations.push([id, index]), pulseSlot: async () => {} };
+  page.playSound = async () => {}; page.runTransportLoop = async () => {}; page.checkFreeFinish = () => {};
+  await page.tapStack('ordinary');
+  assert.deepEqual(messages, []); assert.deepEqual(animations, [['ordinary', 0]]);
+  assert.equal(m.snapshot().slots[0].stackId, 'ordinary');
+});
+
+test('locked selection still gives its actual failure reason and changes no gameplay state', async () => {
+  const cells = white(2).map((cell, index) => index === 0 ? { ...cell, keyId: 'key' } : cell);
+  const m = model([group('free', 0), group('locked', 1, { lockId: 'key' })], cells);
+  const { PlayState } = load('assets/Colony/scripts/presentation/pageStates/playState.ts');
+  const page = new PlayState(); const messages = [];
+  page.context = { play: m, destroyed: false, inputLocked: false, hudView: { setFeedback() {} }, toast: { show: message => messages.push(message) } };
+  page.board = { shakeStack() {} }; const before = JSON.stringify(m.snapshot());
+  await page.tapStack('locked');
+  assert.deepEqual(messages, ['\u8fd9\u7ec4\u5c1a\u672a\u89e3\u9501']);
+  assert.equal(JSON.stringify(m.snapshot()), before);
 });

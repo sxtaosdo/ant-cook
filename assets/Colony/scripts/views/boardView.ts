@@ -1,4 +1,4 @@
-import { _decorator, Node, Sprite, SpriteFrame, UITransform, Vec3, view } from 'cc';
+import { _decorator, Node, Sprite, SpriteFrame, UITransform, Vec3, view, Widget } from 'cc';
 import mk from 'mk';
 
 const { ccclass, property } = _decorator;
@@ -10,12 +10,28 @@ export class ColonyBoardView extends mk.StaticViewBase {
   private contentRoot: Node | null = null;
   private defaultBackground: SpriteFrame | null = null;
   private backgroundPosition = new Vec3();
+  private contentPosition = new Vec3();
+  private contentVerticalCenter = 0;
+  private framePosition = new Vec3();
 
   protected onLoad(): void {
     if (!this.contentRoot) throw new Error('Board Prefab is missing the Content binding');
+    this.contentPosition = this.contentRoot.position.clone();
+    this.contentVerticalCenter = this.contentRoot.getComponent(Widget)?.verticalCenter ?? 0;
+    this.framePosition = this.node.getChildByName('BoardFrame')?.position.clone() ?? new Vec3();
     const background = this.node.getChildByName('BackgroundArt');
     this.defaultBackground = background?.getComponent(Sprite)?.spriteFrame ?? null;
     if (background) this.backgroundPosition = background.position.clone();
+  }
+
+  /** Move the board content and frame together without shifting fullscreen scenery. */
+  public setBoardVerticalOffset(offset: number): void {
+    const content = this.content;
+    const widget = content.getComponent(Widget);
+    if (widget?.isAlignVerticalCenter) widget.verticalCenter = this.contentVerticalCenter + offset;
+    content.setPosition(this.contentPosition.x, this.contentPosition.y + offset, this.contentPosition.z);
+    const frame = this.node.getChildByName('BoardFrame');
+    frame?.setPosition(this.framePosition.x, this.framePosition.y + offset, this.framePosition.z);
   }
 
   /** 棋盘内容挂载点。 */

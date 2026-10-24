@@ -62,6 +62,7 @@ export function layoutPlay(session: ColonySceneBootstrap): void {
   const compact = Math.min(40, Math.max(0, 1600 - view.getVisibleSize().height) * 0.47);
   const slotCompact = Math.min(70, Math.max(0, 1600 - view.getVisibleSize().height) * 0.82);
   move(session.boardView!.node, 146 + extra);
+  session.boardView!.setBoardVerticalOffset(30);
   move(session.slotView!.node, -15 - extra - slotCompact);
   move(session.stackRoot!, -160 - extra - compact);
   move(session.toolBarView!.node, -535 - extra);

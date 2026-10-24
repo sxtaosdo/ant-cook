@@ -247,7 +247,6 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     session.hudView?.setFeedback(GameplayFeedbackText.status(play.feedback()));
     const slots = events.filter(event => event.phase === 'SLOT' && event.stackId !== undefined && event.slotIndex !== undefined);
     for (const slot of slots) { board.markMoving(slot.stackId!, true); this.waitingStacks.add(slot.stackId!); }
-    session.toast.show(`本次占 ${slots.length} 槽`, 'stack-selected', stackId);
     this.pendingSelections += 1;
     try {
     void this.playSound('click');
