@@ -128,3 +128,87 @@ test('actual upgrade click rechecks current affordability and page before publis
     } finally { poor.app.shutdown(); }
   } finally { app.shutdown(); }
 });
+
+function finishProductionRun(app, levelIndex) {
+  assert.equal(app.startLevelAt(0, levelIndex, `income-${levelIndex}`).ok, true);
+  let deliveries = 0;
+  while (app.read().kitchen) {
+    assert.ok(deliveries++ < 30, 'production run must finish through real serving');
+    const snapshot = app.read().kitchen.production;
+    const customer = snapshot.customers.find(row => row.state === 'Active');
+    const item = customer.items.find(row => row.state === 'Pending');
+    assert.equal(app.startCooking(item.dishId).ok, true);
+    const recipe = rules(false).recipes.find(row => row.dishId === item.dishId);
+    app.update(recipe.cookSeconds);
+    const slot = app.read().kitchen.production.slots.find(row => row.canServe && row.dishId === item.dishId);
+    for (const topping of item.toppingIds) assert.equal(app.addTopping(slot.id, topping).ok, true);
+    assert.equal(app.serveReady(slot.id, customer.id).ok, true);
+  }
+  assert.equal(app.read().result.success, true);
+}
+
+test('settlement refresh: consecutive real production income crosses the shop price and the actual click buys once', () => {
+  const { app } = application(0);
+  try {
+    assert.equal(app.configureKitchenRules(rules(false)).ok, true);
+    const id = 'ingredient-jianbing';
+    assert.equal(app.read().upgradeQuotes[id].price, 100);
+    assert.equal(app.read().upgradeQuotes[id].affordable, false);
+    finishProductionRun(app, 0);
+    const firstBalance = app.read().progress.coins;
+    assert.ok(firstBalance > 0 && firstBalance < 100);
+    const insufficient = view(app), firstClick = insufficient.buttons.find(button => button.label.startsWith('100 '));
+    firstClick.callback(); assert.equal(insufficient.results.length, 0);
+    assert.equal(app.read().progress.coins, firstBalance);
+    finishProductionRun(app, 1);
+    const balance = app.read().progress.coins;
+    assert.ok(balance >= 100);
+    assert.equal(app.read().upgradeQuotes[id].affordable, true, 'fresh wallet and cached shop quote must agree after settlement');
+    const shop = view(app), click = shop.buttons.find(button => button.label.startsWith('100 '));
+    click.callback(); assert.equal(shop.results.length, 1); assert.equal(shop.results[0].ok, true);
+    assert.equal(app.read().progress.coins, balance - 100);
+    assert.equal(app.read().upgradeQuotes[id].currentLevel, 2);
+    click.callback(); assert.equal(shop.results.length, 1, 'stale click must recheck the now unaffordable next grade');
+    assert.equal(app.buyUpgrade('r01', id).ok, false, 'Application/Core gates still reject insufficient next-grade funds');
+    assert.equal(app.read().progress.coins, balance - 100);
+  } finally { app.shutdown(); }
+});
+
+test('settlement refresh: tick-driven completion refreshes affordability before the settlement event is observed', () => {
+  const { app } = application(99);
+  try {
+    const raw = rules(false); raw.source = 'synthetic-timed-settlement-not-original-game-parameters';
+    raw.customers = { ...raw.customers, count: 2, itemsPerCustomer: 1, patienceSeconds: 1000 };
+    raw.goal = { ...raw.goal, mode: 'timed', metric: 'coins', target: 1 };
+    assert.equal(app.configureKitchenRules(raw).ok, true);
+    assert.equal(app.startLevelAt(0, 0, 'tick-income').ok, true);
+    const observed = [];
+    app.subscribeToEvents(event => { if (event.type === 'p10.settlement-applied') observed.push(app.read().upgradeQuotes['ingredient-jianbing'].affordable); });
+    assert.equal(app.startCooking('jianbing').ok, true); app.update(3);
+    const slot = app.read().kitchen.production.slots.find(row => row.canServe);
+    assert.equal(app.serveReady(slot.id).ok, true);
+    assert.equal(app.read().progress.coins, 99, 'running earnings are not wallet income');
+    assert.equal(app.read().upgradeQuotes['ingredient-jianbing'].affordable, false);
+    app.update(1000);
+    assert.equal(app.read().result.success, true);
+    assert.equal(app.read().progress.coins, 104);
+    assert.equal(app.read().upgradeQuotes['ingredient-jianbing'].affordable, true);
+    assert.deepEqual(observed, [true]);
+  } finally { app.shutdown(); }
+});
+
+test('settlement refresh: legacy dish completion also projects the new wallet into its upgrade quote', () => {
+  const first = application(0), price = first.app.read().upgradeQuotes.grill.price;
+  first.app.shutdown();
+  const { app } = application(price - 1);
+  try {
+    assert.equal(app.read().upgradeQuotes.grill.affordable, false);
+    assert.equal(app.startLevelAt(0, 0, 'legacy-income').ok, true);
+    while (app.read().kitchen) {
+      const item = app.read().kitchen.orders.find(row => row.state === 'Pending');
+      assert.equal(app.serve(item.dishId).ok, true);
+    }
+    assert.ok(app.read().progress.coins >= price);
+    assert.equal(app.read().upgradeQuotes.grill.affordable, true);
+  } finally { app.shutdown(); }
+});

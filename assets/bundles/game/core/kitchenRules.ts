@@ -13,9 +13,13 @@ export interface KitchenRecipeRule {
   readonly plateStationId?: string; readonly burnAfterSeconds: number | null; readonly coinsByLevel: readonly number[];
   readonly upgradeId: string; readonly upgradePrices: readonly number[];
 }
+export interface KitchenLevelRulesOverride {
+  readonly levelId: string; readonly customers: KitchenRules['customers']; readonly goal: KitchenRules['goal'];
+}
 export interface KitchenRules {
   readonly schema: 'cook-kitchen-rules-v1'; readonly source: string; readonly restaurantId: string;
   readonly stations: readonly KitchenStationRule[]; readonly recipes: readonly KitchenRecipeRule[];
+  readonly levelOverrides?: readonly KitchenLevelRulesOverride[];
   readonly customers: { readonly count: number | null; readonly activeCapacity: number; readonly itemsPerCustomer: number;
     readonly patienceSeconds: number; readonly partialServeRecoverySeconds: number };
   readonly combo: { readonly windowSeconds: number; readonly bonusCoins: readonly number[] };
@@ -70,31 +74,57 @@ export class KitchenRulesReader {
     this.unique(stations.map(station => station.id), 'station IDs');
     this.unique(recipes.map(recipe => recipe.dishId), 'recipe IDs');
     this.unique([...stations.map(station => station.upgradeId), ...recipes.flatMap(recipe => [recipe.upgradeId, ...recipe.toppings.flatMap(topping => topping.upgrade ? [topping.upgrade.upgradeId] : [])])], 'upgrade IDs');
-    const customers = this.record(root.customers, 'customers'), combo = this.record(root.combo, 'combo');
-    const limits = this.record(root.limits, 'limits'), goal = this.record(root.goal, 'goal');
-    if (goal.mode !== 'timed' && goal.mode !== 'customers') throw new Error('Invalid goal mode');
-    if (goal.metric !== 'coins' && goal.metric !== 'dishes' && goal.metric !== 'customers') throw new Error('Invalid goal metric');
-    const ratios = this.numbers(goal.starRatios, 'starRatios', false, true);
-    if (ratios.length !== 3 || ratios[0]! > 1 || ratios.some((value, i) => i > 0 && value < ratios[i - 1]!)) throw new Error('Invalid starRatios');
-    if (typeof goal.keepEarningsOnFailure !== 'boolean') throw new Error('Missing keepEarningsOnFailure policy');
+    const customers = this.customers(root.customers), goal = this.goal(root.goal);
+    const combo = this.record(root.combo, 'combo'), limits = this.record(root.limits, 'limits');
     const parsed: KitchenRules = {
       schema: 'cook-kitchen-rules-v1', source: this.text(root.source, 'source'), restaurantId: this.text(root.restaurantId, 'restaurantId'), stations, recipes,
-      customers: { count: customers.count === null ? null : this.number(customers.count, 'customer count', true, true),
-        activeCapacity: this.number(customers.activeCapacity, 'activeCapacity', true, true),
-        itemsPerCustomer: this.number(customers.itemsPerCustomer, 'itemsPerCustomer', true, true),
-        patienceSeconds: this.number(customers.patienceSeconds, 'patienceSeconds', false, true),
-        partialServeRecoverySeconds: this.number(customers.partialServeRecoverySeconds, 'partialServeRecoverySeconds', false, false) },
+      customers,
       combo: { windowSeconds: this.number(combo.windowSeconds, 'combo.windowSeconds', false, true),
         bonusCoins: this.numbers(combo.bonusCoins, 'combo.bonusCoins', true, false) },
       limits: { maxBurnt: this.limit(limits.maxBurnt, 'maxBurnt'), maxDiscarded: this.limit(limits.maxDiscarded, 'maxDiscarded'), maxLost: this.limit(limits.maxLost, 'maxLost') },
-      goal: { mode: goal.mode, metric: goal.metric, target: goal.target === 'all' ? 'all' : this.number(goal.target, 'goal.target', true, true),
-        starRatios: [ratios[0]!, ratios[1]!, ratios[2]!], keepEarningsOnFailure: goal.keepEarningsOnFailure },
+      goal,
     };
-    return parsed;
+    if (root.levelOverrides === undefined) return parsed;
+    if (!Array.isArray(root.levelOverrides)) throw new Error('levelOverrides must be an array');
+    const levelOverrides = root.levelOverrides.map(value => {
+      const row = this.record(value, 'level override');
+      this.onlyKeys(row, ['levelId', 'customers', 'goal'], 'level override');
+      if (row.customers === undefined && row.goal === undefined) throw new Error('Level override must specify customers or goal');
+      const customerPatch = row.customers === undefined ? {} : this.patch(row.customers, ['count', 'activeCapacity', 'itemsPerCustomer', 'patienceSeconds', 'partialServeRecoverySeconds'], 'level customers');
+      const goalPatch = row.goal === undefined ? {} : this.patch(row.goal, ['mode', 'metric', 'target', 'starRatios', 'keepEarningsOnFailure'], 'level goal');
+      return { levelId: this.text(row.levelId, 'levelId'), customers: this.customers({ ...customers, ...customerPatch }), goal: this.goal({ ...goal, ...goalPatch }) };
+    });
+    this.unique(levelOverrides.map(row => row.levelId), 'level override IDs');
+    return { ...parsed, levelOverrides };
   }
   public static levelIndex(levels: Readonly<Record<string, number>>, restaurantId: string, upgradeId: string, length: number): number {
     const saved = levels[`${restaurantId}:${upgradeId}`] ?? 1;
     return Math.min(length - 1, Math.max(0, Math.floor(saved) - 1));
+  }
+  private static customers(value: unknown): KitchenRules['customers'] {
+    const row = this.record(value, 'customers');
+    return { count: row.count === null ? null : this.number(row.count, 'customer count', true, true),
+      activeCapacity: this.number(row.activeCapacity, 'activeCapacity', true, true), itemsPerCustomer: this.number(row.itemsPerCustomer, 'itemsPerCustomer', true, true),
+      patienceSeconds: this.number(row.patienceSeconds, 'patienceSeconds', false, true), partialServeRecoverySeconds: this.number(row.partialServeRecoverySeconds, 'partialServeRecoverySeconds', false, false) };
+  }
+  private static goal(value: unknown): KitchenRules['goal'] {
+    const row = this.record(value, 'goal');
+    if (row.mode !== 'timed' && row.mode !== 'customers') throw new Error('Invalid goal mode');
+    if (row.metric !== 'coins' && row.metric !== 'dishes' && row.metric !== 'customers') throw new Error('Invalid goal metric');
+    const ratios = this.numbers(row.starRatios, 'starRatios', false, true);
+    if (ratios.length !== 3 || ratios[0]! > 1 || ratios.some((value, i) => i > 0 && value < ratios[i - 1]!)) throw new Error('Invalid starRatios');
+    if (typeof row.keepEarningsOnFailure !== 'boolean') throw new Error('Missing keepEarningsOnFailure policy');
+    return { mode: row.mode, metric: row.metric, target: row.target === 'all' ? 'all' : this.number(row.target, 'goal.target', true, true),
+      starRatios: [ratios[0]!, ratios[1]!, ratios[2]!], keepEarningsOnFailure: row.keepEarningsOnFailure };
+  }
+  private static onlyKeys(row: Record<string, unknown>, keys: readonly string[], name: string): void {
+    if (Object.keys(row).some(key => !keys.includes(key))) throw new Error(`Unsupported ${name} field`);
+  }
+  private static patch(value: unknown, keys: readonly string[], name: string): Record<string, unknown> {
+    const row = this.record(value, name);
+    this.onlyKeys(row, keys, name);
+    if (!Object.keys(row).length) throw new Error(`${name} must not be empty`);
+    return row;
   }
   private static toppingUpgrade(value: unknown): KitchenIngredientUpgradeRule {
     const upgrade = this.record(value, 'topping.upgrade');

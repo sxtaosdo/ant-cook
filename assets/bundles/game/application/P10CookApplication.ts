@@ -205,7 +205,7 @@ export class P10CookApplication {
         try {
             const rules = KitchenRulesReader.parse(raw);
             if (!this.restaurantCatalog.restaurants.some(restaurant => restaurant.id === rules.restaurantId)) throw new Error('Unknown rules restaurant');
-            this.kitchenRules = rules; this.kitchenRulesInvalid = false; this.core.configureKitchenRules(rules);
+            this.core.configureKitchenRules(rules); this.kitchenRules = rules; this.kitchenRulesInvalid = false;
             if (this.state.kitchen && this.state.isPaused && this.core.progress.hasCheckpoint) this.state.kitchen = this.core.resumeCheckpoint();
             this.refreshUpgradeQuotes();
             if (this.state.error?.code === 'BAD_CONFIG') this.state.error = null;
@@ -349,6 +349,7 @@ export class P10CookApplication {
             const snapshot = operation(this.state.kitchen);
             if (snapshot.status !== RunStatus.Running) {
                 this.state.result = this.core.settle(this.state.kitchen, `settlement-${snapshot.levelId}-${snapshot.attemptId}`);
+                this.refreshUpgradeQuotes();
                 this.state.lastSuccess = this.state.result.success;
                 this.state.kitchen = null; this.state.isPaused = true;
             }
@@ -409,6 +410,7 @@ export class P10CookApplication {
             if (snapshot.status !== RunStatus.Running) {
                 const settlementId = this.idGenerator(`settlement-${snapshot.levelId}-${snapshot.attemptId}-${Math.floor(this.clock() * 1000)}`);
                 this.state.result = this.core.settle(this.state.kitchen, settlementId);
+                this.refreshUpgradeQuotes();
                 this.state.lastSuccess = this.state.result.success;
                 this.state.kitchen = null;
                 this.state.isPaused = true;
@@ -666,6 +668,7 @@ export class P10CookApplication {
         if (settledSnapshot.status !== RunStatus.Running) {
             const settlementId = this.idGenerator(`settlement-${settledSnapshot.levelId}-${settledSnapshot.attemptId}`);
             const receipt = this.core.settle(this.state.kitchen, settlementId);
+            this.refreshUpgradeQuotes();
             this.state.result = receipt;
             this.state.lastSuccess = receipt.success;
             this.state.kitchen = null;

@@ -28,7 +28,12 @@ function cloneJson<T>(value: T): T {
 export class P10GameCore {
     private readonly save: GameSaveV2;
     private kitchenRules: KitchenRules | null = null;
-    public configureKitchenRules(rules: KitchenRules | null): void { this.kitchenRules = rules; }
+    public configureKitchenRules(rules: KitchenRules | null): void {
+        for (const override of rules?.levelOverrides ?? []) {
+            if (getLevelConfig(override.levelId).restaurantId !== rules!.restaurantId) throw new Error(`Level override belongs to another restaurant: ${override.levelId}`);
+        }
+        this.kitchenRules = rules;
+    }
     public listUpgradeIds(restaurantId: string): readonly string[] {
         return this.kitchenRules?.restaurantId === restaurantId
             ? [...this.kitchenRules.stations.map(station => station.upgradeId), ...this.kitchenRules.recipes.flatMap(recipe => [recipe.upgradeId, ...(recipe.toppings ?? []).flatMap(topping => topping.upgrade ? [topping.upgrade.upgradeId] : [])])]
@@ -36,8 +41,10 @@ export class P10GameCore {
     }
     private createRun(levelId: string, attemptId: string): KitchenRun {
         const config = getLevelConfig(levelId);
-        return new KitchenRun(config, attemptId, this.kitchenRules?.restaurantId === config.restaurantId
-            ? { rules: this.kitchenRules, upgrades: { ...this.save.upgrades } } : undefined);
+        const rules = this.kitchenRules?.restaurantId === config.restaurantId ? this.kitchenRules : null;
+        const override = rules?.levelOverrides?.find(row => row.levelId === config.id);
+        return new KitchenRun(config, attemptId, rules
+            ? { rules: override ? { ...rules, customers: override.customers, goal: override.goal } : rules, upgrades: { ...this.save.upgrades } } : undefined);
     }
 
     private constructor(save: GameSaveV2) {

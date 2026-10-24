@@ -12,7 +12,7 @@ import { ModuleEntryGate } from '../../assets/shell/contracts.ts';
 import { ProductStorage } from '../../assets/shell/productStorage.ts';
 
 /** Executes actual Host/Bootstrap/States/Session/Model; only cc and rendering IO are doubles. */
-function fixture({ failInitial = false, values = new Map() } = {}) {
+function fixture({ failInitial = false, values = new Map(), rules = null } = {}) {
   const state = { events: [], ready: 0, blocked: 0, fail: failInitial, writes: [], values, current: true };
   let root;
   const store = { getItem: key => state.values.get(key) ?? null, setItem(key, value) { state.writes.push(value); if (state.fail) throw Error('quota'); state.values.set(key, value); }, removeItem: key => state.values.delete(key) };
@@ -29,7 +29,7 @@ function fixture({ failInitial = false, values = new Map() } = {}) {
   class Adapter { constructor(ports) { this.ports = ports; } }
   class Lifecycle { constructor(_, adapter) { this.adapter = adapter; } onLoad() { state.events.push('wired'); } update(delta) { this.adapter.ports.update(delta); this.adapter.ports.presentation.render(); } onDestroy() {} }
   const base = fileURLToPath(new URL('../../assets/bundles/game/', import.meta.url));
-  const mocks = { mk: { default: { asset: { async get() { return { json: JSON.parse(readFileSync(new URL('../../assets/bundles/game/resources/config/kitchen-rules.json', import.meta.url), 'utf8')) }; } } } }, cc: { Component, _decorator: { ccclass: () => Class => Class }, Director: { EVENT_AFTER_DRAW: 'draw' }, director: { once(_, cb) { state.events.push('draw'); queueMicrotask(cb); } } },
+  const mocks = { mk: { default: { asset: { async get() { return { json: rules ?? JSON.parse(readFileSync(new URL('../../assets/bundles/game/resources/config/kitchen-rules.json', import.meta.url), 'utf8')) }; } } } }, cc: { Component, _decorator: { ccclass: () => Class => Class }, Director: { EVENT_AFTER_DRAW: 'draw' }, director: { once(_, cb) { state.events.push('draw'); queueMicrotask(cb); } } },
     'db://shidai3/index': { StateMachine, CocosAdapter: Adapter, CocosComponentLifecycleHost: Lifecycle },
     P10CookApplication: { P10CookApplication }, contracts: { ModuleEntryGate }, P10CookPresentation: { P10CookPresentation: Presentation } };
   const cache = new Map();
@@ -170,4 +170,30 @@ test('recovery reset persists once and a rejected save retries identical bytes b
     assert.equal(reboot.root.bootstrap.StateMachine.current.constructor.name, 'MapState');
     await reboot.root.close('recovery');
   }
+});
+
+test('Host optional per-level rules travel from bundle loading to next selected kitchen without a new injection path', async () => {
+  const rules = JSON.parse(readFileSync(new URL('../../assets/bundles/game/resources/config/kitchen-rules.json', import.meta.url), 'utf8'));
+  rules.source = 'synthetic-host-level-rules-not-original-game-data';
+  rules.recipes = [rules.recipes[0]];
+  rules.levelOverrides = [
+    { levelId: 'r01-l01', customers: { count: 1, itemsPerCustomer: 1 }, goal: { metric: 'dishes', target: 1 } },
+    { levelId: 'r01-l02', customers: { count: 3, itemsPerCustomer: 1 }, goal: { metric: 'coins', target: 9 } },
+  ];
+  const f = fixture({ rules });
+  try {
+    await f.root.boot();
+    await f.root.routeIntent({ type: 'p10.start-level', payload: { levelIndex: 0 } });
+    assert.equal(f.root.application.read().kitchen.production.customers.length, 1);
+    assert.equal(f.root.application.read().kitchen.production.goal.target, 1);
+    await f.root.routeIntent({ type: 'p10.start-cooking', payload: { dishId: 'jianbing' } });
+    f.root.application.update(3);
+    const slot = f.root.application.read().kitchen.production.slots.find(row => row.canServe);
+    await f.root.routeIntent({ type: 'p10.serve-ready', payload: { slotId: slot.id } });
+    assert.equal(f.root.application.read().result.success, true);
+    await f.root.routeIntent({ type: 'p10.next-after-result', payload: {} });
+    const next = f.root.application.read().kitchen;
+    assert.equal(next.levelId, 'r01-l02'); assert.equal(next.production.customers.length, 3);
+    assert.equal(next.production.goal.metric, 'coins'); assert.equal(next.production.goal.target, 9);
+  } finally { await f.root.close('recovery'); }
 });
