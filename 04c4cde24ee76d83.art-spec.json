@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "project-art-spec-v1",
+  "projectId": "04c4cde24ee76d83",
+  "version": 1,
+  "project": {
+    "name": "ant-cook",
+    "content": "4060（ant-cook）是一款竖屏双玩法休闲游戏，包含蚂蚁棋盘关卡与餐厅烹饪经营，共用启动和玩法切换入口，各玩法进度分别保存。主题围绕兔子家族经营餐厅与蚁群运输食材的业务联系展开，主要资源服务于棋盘、食材与菜品、厨房、商店及清晰易读的操作界面。新资源采用Q版轻量Stylized 3D卡通表现：角色圆润萌趣、大头小身，画面明亮干净、材质简化、光照柔和，UI与场景分离并保持前景清晰；技术实现仍使用二维图片与UI，不代表已接入3D模型生产。项目设计画幅750×1334，运行入口采用固定宽度；编辑器适配高度的差异保留待核对，不改工程设置。单项素材尺寸按用途和规格确定，不统一臆定技能或物品图标尺寸。通用资源范围为已有assets根目录；具体任务按所属玩法沿用蚂蚁assets/Colony/art/toy-market及其ui子目录，或厨房assets/bundles/game/resources的实际子目录，不迁移历史资源。项目导出根沿用art/final。全局绘制风格遵循已选P0001固定版本，人物身份与共享IP不因此自动授权；参考图实际入模能力仍须独立接通和验收。",
+    "engine": "cocos-creator",
+    "visualMode": "3d",
+    "designResolution": {
+      "width": 750,
+      "height": 1334
+    }
+  },
+  "imageOutput": "transparent-png",
+  "inheritance": {
+    "mode": "style",
+    "sources": [
+      {
+        "path": "P0001/art/master-style-reference.md",
+        "revision": "d1bc46ef3696e8254377d7b655bd006ff3633c45"
+      }
+    ],
+    "usage": "project-art"
+  },
+  "overrides": {
+    "destination": "assets",
+    "exportDirectory": "art/final",
+    "transparent": true
+  },
+  "categories": {}
+}

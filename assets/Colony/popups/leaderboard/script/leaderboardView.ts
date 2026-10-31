@@ -39,7 +39,7 @@ export class ColonyLeaderboardView extends ColonyPopupView {
     if (!row) throw new Error('Leaderboard row component is missing');
     row.render(entry);
     for (const node of [row.avatar!.node, row.visitName!]) {
-      this.bind(node, !entry.isSelf && Boolean(this._model.page.leaderboard?.canVisit), () => this.event.emit('action', `partner:${entry.id}`));
+      this.bind(node, !entry.isSelf, () => this.event.emit('action', `partner:${entry.id}`));
     }
   }
 }

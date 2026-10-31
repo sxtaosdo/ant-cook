@@ -48,6 +48,10 @@ export class BoardPresentation {
   private readonly animationWaits = new Set<() => void>();
   private readonly originalSlotX: number[];
   private readonly puzzleCells = new Map<string, Readonly<{ row: number; column: number }>>();
+  private queueInputAllowed: () => boolean = () => true;
+  private cancelBottomEntrance: (() => void) | null = null;
+  public setQueueInputAllowed(allowed: () => boolean): void { this.queueInputAllowed = allowed; }
+
   private cancelEntrance: (() => void) | null = null;
 
   public constructor(
@@ -108,6 +112,72 @@ export class BoardPresentation {
     this.createStacks(readModel);
   }
 
+  /** Opening-only visual projection; never dispatches gameplay or transport commands. */
+  public playBottomBlockEntrance(levelNumber: number, antFrame: SpriteFrame | null = null): Promise<void> {
+    this.cancelBottomEntrance?.();
+    if (this.disposed) return Promise.resolve();
+    const nodes = [...this.stackNodes.values()].filter(node => node.isValid && node.active);
+    if (!nodes.length) return Promise.resolve();
+    const carry = levelNumber % 2 === 0 && antFrame !== null;
+    const columns = [...new Set(nodes.map(node => node.position.x))].sort((a, b) => a - b);
+    const step = Math.min(carry ? 0.05 : 0.04, (carry ? 0.24 : 0.25) / Math.max(1, columns.length - 1));
+    const entries = nodes.map(node => {
+      const opacity = node.getComponent(UIOpacity) ?? node.addComponent(UIOpacity);
+      return { node, position: node.position.clone(), scale: node.scale.clone(), opacity,
+        alpha: opacity.opacity, delay: columns.indexOf(node.position.x) * step };
+    });
+    const ants: Array<{ node: Node; opacity: UIOpacity; entry: typeof entries[number] }> = [];
+    if (carry) for (const entry of entries) {
+      const ant = new Node('BottomArrivalAnt');
+      ant.layer = this.stackRoot.layer; ant.parent = this.stackRoot;
+      ant.addComponent(UITransform).setContentSize(30, 38);
+      const sprite = ant.addComponent(Sprite);
+      sprite.sizeMode = Sprite.SizeMode.CUSTOM; sprite.spriteFrame = antFrame;
+      ants.push({ node: ant, opacity: ant.addComponent(UIOpacity), entry });
+    }
+    const clock = { time: 0 }, generation = this.visualGeneration;
+    const duration = (columns.length - 1) * step + (carry ? 0.46 : 0.20);
+    return new Promise(resolve => {
+      let finished = false;
+      const finish = (): void => {
+        if (finished) return;
+        finished = true; Tween.stopAllByTarget(clock);
+        for (const entry of entries) if (entry.node.isValid) {
+          entry.node.setPosition(entry.position); entry.node.setScale(entry.scale);
+          if (entry.opacity.isValid) entry.opacity.opacity = entry.alpha;
+        }
+        for (const ant of ants) if (ant.node.isValid) ant.node.destroy();
+        if (this.cancelBottomEntrance === finish) this.cancelBottomEntrance = null;
+        resolve();
+      };
+      this.cancelBottomEntrance = finish;
+      const update = (): void => {
+        if (this.disposed || generation !== this.visualGeneration) { finish(); return; }
+        for (const entry of entries) {
+          if (!entry.node.isValid) continue;
+          const age = Math.max(0, clock.time - entry.delay);
+          const travel = carry ? 0.28 : 0.14;
+          const progress = Math.min(1, age / travel);
+          const ease = 1 - Math.pow(1 - progress, 3);
+          const bounce = age > travel && age < travel + 0.06 ? 2 * Math.sin((age - travel) / 0.06 * Math.PI) : 0;
+          const lift = carry ? Math.sin(progress * Math.PI * 4) * 2 * Math.sin(progress * Math.PI) : 0;
+          entry.node.setPosition(entry.position.x, entry.position.y - (carry ? 70 : 30) * (1 - ease) + bounce + lift, entry.position.z);
+          const scale = carry ? 1 : 0.94 + 0.06 * ease;
+          entry.node.setScale(entry.scale.x * scale, entry.scale.y * scale, entry.scale.z);
+          entry.opacity.opacity = Math.round(entry.alpha * ((carry ? 0 : 180 / 255) + (carry ? 1 : 75 / 255) * ease));
+        }
+        for (const ant of ants) if (ant.node.isValid) {
+          const age = clock.time - ant.entry.delay;
+          const exit = Math.max(0, Math.min(1, (age - 0.34) / 0.12));
+          ant.node.setPosition(ant.entry.node.position.x + 32, ant.entry.node.position.y - 40 - exit * 20, 0);
+          ant.opacity.opacity = age < 0 ? 0 : Math.round(255 * Math.min(1, age / 0.05) * (1 - exit));
+        }
+      };
+      update();
+      tween(clock).to(duration, { time: duration }, { onUpdate: update }).call(finish).start();
+    });
+  }
+
   /** A single visual clock lifts the new board in a wave, then lands every cell exactly in place. */
   public animateEntrance(): Promise<void> {
     this.cancelEntrance?.();
@@ -121,7 +191,7 @@ export class BoardPresentation {
       delay: Math.min(1, Math.hypot(node.position.x - center.x, node.position.y - center.y) / radius) * 0.34,
       lift: Math.min(76, Math.max(38, geometry.cellSize * 2.4)),
     }));
-    const panels = [this.slotRoot, this.stackRoot].map(node => ({
+    const panels = [this.slotRoot].map(node => ({
       node, opacity: node.getComponent(UIOpacity) ?? node.addComponent(UIOpacity),
     }));
     const originals = [...cells, ...panels].map(entry => ({ opacity: entry.opacity, value: entry.opacity.opacity }));
@@ -192,6 +262,7 @@ export class BoardPresentation {
 
   /** 回收全部表现节点并重置瞬态。 */
   public recycle(): void {
+    this.cancelBottomEntrance?.();
     this.cancelEntrance?.();
     ++this.visualGeneration;
     for (const token of this.zeroExits.keys()) {
@@ -442,7 +513,7 @@ export class BoardPresentation {
       );
       this.factory.token(node, colonyColor(stack.color), this.stackTile ?? this.stackFrame);
       this.factory.bindButton(node, this, () => {
-        if (Date.now() < this.suppressQueueClickUntil || this.moving.has(stack.id)) return;
+        if (!this.queueInputAllowed() || this.cancelBottomEntrance || Date.now() < this.suppressQueueClickUntil || this.moving.has(stack.id)) return;
         const current = this.latestReadModel?.snapshot.stacks.find(value => value.id === stack.id);
         if (!current || current.selected) return;
         // The command boundary explains locked, covered and capacity refusals.
@@ -476,10 +547,12 @@ export class BoardPresentation {
     this.queueMaxOffset = Math.max(0, Math.max(0, ...stacks.map(stack => stack.depth)) * 104 - 100);
     this.stackRoot.targetOff(this);
     this.stackRoot.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+      if (!this.queueInputAllowed() || this.cancelBottomEntrance) return;
       this.queueTouchY = event.getUILocation().y;
       this.queueDragged = false;
     }, this);
     this.stackRoot.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => {
+      if (!this.queueInputAllowed() || this.cancelBottomEntrance) return;
       const y = event.getUILocation().y;
       const delta = y - this.queueTouchY;
       this.queueTouchY = y;

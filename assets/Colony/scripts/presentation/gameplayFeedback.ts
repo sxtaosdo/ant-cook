@@ -24,9 +24,6 @@ export class GameplayFeedbackText {
       case 'selected': return '这组已入槽';
       case 'locked': return '这组尚未解锁';
       case 'covered': return '先取走前方数字组；连体组需全部可取';
-      case 'slots': return selection.requiredSlots === undefined
-        ? '空槽不足，无法容纳整组'
-        : `整组需 ${selection.requiredSlots} 个空槽，当前仅 ${feedback.emptySlots} 个`;
       default: return '';
     }
   }

@@ -26,7 +26,7 @@ import { PlayState } from './pageStates/playState';
 import { ConstructionState } from './pageStates/constructionState';
 import { SocialPresentation } from './social/socialPresentation';
 
-export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'object-detail' | 'tracked-object' | 'daily' | 'orders' | 'newcomer' | 'stages' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}`;
+export type ProgressSection = 'market' | 'tasks' | 'task-achievements' | 'themes' | 'theme-detail' | 'theme-levels' | 'object-detail' | 'tracked-object' | 'daily' | 'orders' | 'newcomer' | 'stages' | 'collection' | 'achievements' | 'events' | 'weekend' | 'season' | 'return' | 'decorations' | 'levels' | 'shop' | 'settings' | 'leaderboard' | 'social' | 'speed' | 'gm' | 'confirm-gm' | 'confirm-home' | 'confirm-restart' | `tool-${SupplyTool | 'slot'}` | `confirm-tool-${SupplyTool | 'slot'}`;
 const row = <Action extends string>(title: string, detail: string, action: Action, button: string, enabled = true): ProgressRow & { readonly action: Action } => ({ title, detail, action, button, enabled });
 const date = (time: number): string => new Date(time + 8 * 3600000).toISOString().slice(0, 10);
 
@@ -40,6 +40,8 @@ export class ProgressPresentation {
   private pendingGm: { action: string; level: number } | null = null;
   private cancelled = false;
   private readonly accountGeneration: number;
+  private readonly toolOrigin: { page: unknown; play: ColonySceneBootstrap['play']; roundId: string | null };
+  private toolConfirmationCommitted = false;
   private readonly toolPurchaseIds = new Map<SupplyTool, string>();
   private purchaseId(tool: SupplyTool): string {
     let id = this.toolPurchaseIds.get(tool);
@@ -61,6 +63,7 @@ export class ProgressPresentation {
 
   constructor(private readonly context: ColonySceneBootstrap, private section: ProgressSection, private readonly onClosed?: () => void) {
     this.accountGeneration = context.generation;
+    this.toolOrigin = { page: context.StateMachine?.current, play: context.play, roundId: context.round?.id ?? null };
     if (this.section === 'tasks') this.section = 'daily';
     if (this.section === 'tracked-object') {
       this.objectId = context.progress?.snapshot().trackedObjectId ?? '';
@@ -147,6 +150,7 @@ export class ProgressPresentation {
         this.context.progressPopup = null;
         if (this.control === owner) this.control = null;
         if (this.context.destroyed) { this.context.inputLocked = true; return; }
+        if (this.section?.startsWith('confirm-tool-') && !this.toolOwner()) return;
         this.context.inputLocked = this.context.play?.snapshot().result !== 'PLAYING';
         void PlayState.current(this.context)?.finishStoredSupplyPresentation().catch(cause => {
           this.context.app.setError({ code: 'INVALID_OPERATION', message: String(cause) });
@@ -426,6 +430,20 @@ export class ProgressPresentation {
         summary = '';
         rows = [row('重新生成当前棋盘', '失败不扣资源；本局已使用的道具不会退还', 'confirm-restart', '确认重开'), row('继续本局', '关闭设置并继续搬运', 'section:settings', '取消')];
         break;
+      case 'confirm-tool-trowel':
+      case 'confirm-tool-compass':
+      case 'confirm-tool-slot': {
+        const tool = this.section.slice('confirm-tool-'.length) as SupplyTool | 'slot';
+        const names = { trowel: '小铲子', compass: '指南针', slot: '扩充槽位' };
+        const effects = { trowel: '清除一个当前暴露的货物格。', compass: '提示并选取一个当前可用、颜色匹配的数字块；不保证必胜。', slot: '本局增加1个槽位，最多6槽；离关后不保留。' };
+        const used = Boolean(this.context.play?.usedToolList().includes(tool));
+        const available = Boolean(!this.cancelled && !this.toolConfirmationCommitted && this.toolOwner() && !used && this.context.play?.canUseTool(tool));
+        const stock = tool === 'slot' ? `当前槽位 ${this.context.play?.snapshot().slots.length ?? 0}/6` : `永久库存 ${s.toolInventory[tool]} 个（本次不消耗）`;
+        title = `使用${names[tool]}？`; summary = '';
+        rows = [row(names[tool], `${effects[tool]}\n本局免费次数 ${used ? 0 : 1} · 本次0金币 · 余额 ${s.coins}金币\n${stock}${available ? '' : '\n当前不可用，不会消耗次数或资源'}`,
+          `confirm-free-tool:${tool}`, '确认使用', available), row('继续本局', '不消耗次数、库存或金币', 'cancel-tool', '取消')];
+        break;
+      }
       case 'tool-trowel':
       case 'tool-compass':
       case 'tool-slot': {
@@ -453,9 +471,18 @@ export class ProgressPresentation {
         break;
       }
     }
-    return { title, summary, rows, layout: this.section === 'confirm-home' || this.section === 'confirm-restart' || this.section === 'confirm-gm' ? 'confirm' : this.section === 'shop' ? 'shop' : this.section === 'themes' || this.section === 'theme-detail' ? 'collection' : undefined,
+    return { title, summary, rows, layout: this.section.startsWith('confirm-') ? 'confirm' : this.section === 'shop' ? 'shop' : this.section === 'themes' || this.section === 'theme-detail' ? 'collection' : undefined,
       showBack: !this.section.startsWith('tool-') && !(['market', 'themes', 'task-achievements', 'daily', 'settings', 'speed'] as ProgressSection[]).includes(this.section) && (this.section !== 'shop' || Boolean(this.returnSection)),
       activeTab: this.section === 'themes' || this.section === 'task-achievements' || this.section === 'daily' ? this.section : undefined };
+  }
+
+  private toolOwner(): PlayState | null {
+    const context = this.context;
+    if (context.destroyed || context.navigating || context.generation !== this.accountGeneration
+      || context.StateMachine?.current !== this.toolOrigin.page || context.play !== this.toolOrigin.play
+      || (context.round?.id ?? null) !== this.toolOrigin.roundId || !this.toolOrigin.roundId
+      || context.play?.snapshot().result !== 'PLAYING') return null;
+    return PlayState.current(context);
   }
 
   private readAccount(): ProductAccountProjection {
@@ -493,6 +520,20 @@ export class ProgressPresentation {
     if (this.context.ads?.hasPendingReward() && kind !== 'ad-supply' && kind !== 'ad-speed') {
       if (kind === 'profile-save') throw new Error('奖励待保存，请重试原广告领取，无需再看视频');
       return '奖励待保存，请重试原广告领取，无需再看视频';
+    }
+    if (kind === 'cancel-tool' && this.section.startsWith('confirm-tool-')) { await this.close(); return ''; }
+    if (kind === 'confirm-free-tool') {
+      if (this.cancelled || this.toolConfirmationCommitted || this.section !== `confirm-tool-${value}`
+        || !['slot', 'trowel', 'compass'].includes(value) || this.context.progressPopup !== this.control
+        || !this.toolOwner()) return '道具确认已过期，请重新打开';
+      const tool = value as SupplyTool | 'slot';
+      if (!this.context.play?.canUseTool(tool)) return '当前没有可生效的目标，未使用道具';
+      // Closing may await resources. Bind this confirmation once, then recheck the same round before applying.
+      this.toolConfirmationCommitted = true;
+      await this.close();
+      const owner = this.toolOwner();
+      if (owner && !this.context.progressPopup && !this.context.inputLocked) await owner.usePowerUp(tool);
+      return '';
     }
     if (kind === 'profile-save' && this.section === 'settings') {
       const edit: unknown = JSON.parse(decodeURIComponent(value));
@@ -639,8 +680,7 @@ export class ProgressPresentation {
     else if (kind === 'free-tool') {
       const tool = value as SupplyTool | 'slot';
       if (!this.context.play?.canUseTool(tool)) throw new Error('当前没有可生效的目标，未消耗道具');
-      await this.close();
-      await PlayState.current(this.context)?.usePowerUp(tool);
+      this.section = `confirm-tool-${tool}`;
       return '';
     } else if (kind === 'diamond-supply') {
       const tool = value as SupplyTool;
@@ -711,6 +751,6 @@ export class ProgressPresentation {
     if (this.context.progressPopup !== control) return;
     this.context.progressPopup = null;
     if (this.control === control) this.control = null;
-    this.context.inputLocked = false;
+    if (!this.section?.startsWith('confirm-tool-') || this.toolOwner()) this.context.inputLocked = false;
   }
 }

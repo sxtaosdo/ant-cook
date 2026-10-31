@@ -33,7 +33,7 @@ function playFixture() {
   const { PlayState } = load('presentation/pageStates/playState', {
     '../hardLevelNotice': { HardLevelNotice: class {} },
     '../gameplayFeedback': load('presentation/gameplayFeedback', {}),
-    '../progressPresentation': { ProgressPresentation: { open: async (_context, page) => popups.push(page) } },
+    '../progressPresentation': { ProgressPresentation: { open: async (context, page) => { popups.push(page); context.inputLocked = true; } } },
   });
   const state = new PlayState();
   const snapshot = { slots: [{ stackId: 'a' }], stacks: [], level: 1, result: 'PLAYING' };
@@ -61,11 +61,13 @@ test('full slots reject repeated clicks before selecting, moving or settling', a
   assert.deepEqual(f.selections, ['third']); assert.deepEqual(f.shakes, ['first', 'second', 'fourth']);
 });
 
-test('remaining round tool is used directly once, exhausted tool opens its popup, locked page ignores clicks', async () => {
+test('remaining round tool asks confirmation once, used tool retains acquisition popup, locked page ignores clicks', async () => {
   const f = playFixture();
   await Promise.all([f.state.tapTool('slot'), f.state.tapTool('slot')]);
-  assert.deepEqual(f.used, ['slot']); assert.deepEqual(f.popups, ['tool-slot']);
-  f.state.context.inputLocked = true; await f.state.tapTool('slot'); assert.equal(f.popups.length, 1);
+  assert.deepEqual(f.used, []); assert.deepEqual(f.popups, ['confirm-tool-slot']);
+  f.used.push('slot'); f.state.context.inputLocked = false; await f.state.tapTool('slot');
+  assert.deepEqual(f.popups, ['confirm-tool-slot', 'tool-slot']);
+  f.state.context.inputLocked = true; await f.state.tapTool('slot'); assert.equal(f.popups.length, 2);
   f.state.context.inputLocked = false; f.state.context.destroyed = true;
   await f.state.tapTool('trowel'); assert.deepEqual(f.used, ['slot']);
 });

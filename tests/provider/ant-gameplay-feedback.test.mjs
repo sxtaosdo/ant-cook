@@ -107,7 +107,7 @@ test('hidden linked member stays private even when its whole group is selectable
   assert.doesNotMatch(JSON.stringify(m.feedback('front')), /requiredSlots|count|stackId/);
 });
 
-test('extra slot changes only normal command state; full slots get a precise rejection', async () => {
+test('extra slot changes only normal command state; full slots reject silently', async () => {
   const groups = [0, 1, 2, 3, 4].map(i => group(`g-${i}`, i));
   groups.push(group('last', 0, { depth: 1 }));
   const m = model(groups, white(6));
@@ -115,11 +115,14 @@ test('extra slot changes only normal command state; full slots get a precise rej
   assert.deepEqual(plain(m.feedback('last').selection), { reason: 'slots', requiredSlots: 1 });
   const { PlayState } = load('assets/Colony/scripts/presentation/pageStates/playState.ts');
   const { ColonyHudView } = load('assets/Colony/scripts/views/hudView.ts');
-  const page = new PlayState(); const hud = Object.create(ColonyHudView.prototype); hud.feedbackLabel = { string: '' };
-  page.context = { play: m, destroyed: false, inputLocked: false, hudView: hud, toast: { show() {} } };
-  page.board = { shakeStack() {} };
+  const page = new PlayState(); const hud = Object.create(ColonyHudView.prototype); hud.feedbackLabel = { string: 'existing status' };
+  const toasts = []; let shakes = 0, selections = 0;
+  const select = m.selectStack.bind(m); m.selectStack = (...args) => { selections++; return select(...args); };
+  page.context = { play: m, destroyed: false, inputLocked: false, hudView: hud, toast: { show(message) { toasts.push(message); } } };
+  page.board = { shakeStack() { shakes++; } };
   const before = JSON.stringify(m.snapshot()); await page.tapStack('last');
-  assert.match(hud.feedbackLabel.string, /需 1 个空槽.*仅 0 个/);
+  assert.equal(hud.feedbackLabel.string, 'existing status'); assert.deepEqual(toasts, []);
+  assert.equal(shakes, 1); assert.equal(selections, 0);
   assert.equal(JSON.stringify(m.snapshot()), before);
   m.useExtraSlot();
   assert.equal(m.feedback().totalSlots, 6); assert.equal(m.feedback().emptySlots, 1);
@@ -254,4 +257,11 @@ test('locked selection still gives its actual failure reason and changes no game
   await page.tapStack('locked');
   assert.deepEqual(messages, ['\u8fd9\u7ec4\u5c1a\u672a\u89e3\u9501']);
   assert.equal(JSON.stringify(m.snapshot()), before);
+});
+
+test('slot rejection text is absent for both known and hidden group sizes', () => {
+  const { GameplayFeedbackText } = load('assets/Colony/scripts/presentation/gameplayFeedback.ts');
+  const feedback = { totalSlots: 5, emptySlots: 0, transportColors: [], pendingDeliveries: 0, failureReason: null };
+  assert.equal(GameplayFeedbackText.selection({ ...feedback, selection: { reason: 'slots', requiredSlots: 1 } }), '');
+  assert.equal(GameplayFeedbackText.selection({ ...feedback, selection: { reason: 'slots' } }), '');
 });

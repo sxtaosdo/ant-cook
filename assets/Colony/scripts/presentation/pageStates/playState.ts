@@ -228,10 +228,12 @@ export class PlayState implements IState<ColonySceneBootstrap> {
     if (!board || !play || session.destroyed || session.inputLocked) return;
     const beforeSelection = play.feedback(stackId);
     const rejection = GameplayFeedbackText.selection(beforeSelection);
-    if (rejection) {
+    if (beforeSelection.selection?.reason) {
       board.shakeStack(stackId);
-      session.hudView?.setFeedback(rejection);
-      session.toast.show(rejection, 'stack-locked', stackId);
+      if (rejection) {
+        session.hudView?.setFeedback(rejection);
+        session.toast.show(rejection, 'stack-locked', stackId);
+      }
       return;
     }
     try {

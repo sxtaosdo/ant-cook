@@ -97,6 +97,8 @@ export async function prepareThemePresentation(
     && session.playRoot === playRoot && session.stackRoot === stackRoot && session.transportRoot === transportRoot
     && [playRoot, stackRoot, transportRoot].every(node => node.isValid);
   if (!isCurrent()) return;
+  session.inputLocked = true;
+  board.setQueueInputAllowed(() => isCurrent() && !session.inputLocked);
   await showThemeHud(session, read, target, isCurrent);
   if (!isCurrent()) return;
   await showThemeLevel(session, board, transport, isCurrent, read.currentLevel);
@@ -104,7 +106,7 @@ export async function prepareThemePresentation(
   board.reset(read);
   const geometry = board.geometry;
   if (geometry) transport.setBoardGeometry(geometry);
-  await board.animateEntrance();
+  await Promise.all([board.animateEntrance(), board.playBottomBlockEntrance(read.currentLevel, session.antCourierFrame)]);
   if (!isCurrent()) return;
   session.inputLocked = false;
 }

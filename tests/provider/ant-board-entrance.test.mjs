@@ -36,7 +36,8 @@ function fixture(count = 9) {
   class UIOpacity { isValid = true; opacity = 255; }
   class UITransform { setContentSize() {} }
   class Graphics { ellipses = 0; ellipse() { this.ellipses++; } fill() {} circle() {} stroke() {} }
-  const cc = { Node, Vec3, UIOpacity, UITransform, Graphics, Color: class {},
+  class Sprite { static SizeMode = { CUSTOM: 0 }; }
+  const cc = { Sprite, Node, Vec3, UIOpacity, UITransform, Graphics, Color: class {},
     Tween: { stopAllByTarget(target) { for (const animation of animations) if (animation.target === target) animation.stopped = true; } },
     tween: target => {
       const animation = { target, to(duration, properties, options) { Object.assign(this, { duration, properties, options }); return this; },
@@ -69,7 +70,7 @@ function assertRestored(f) {
     assert.equal(node.angle, f.originals[index][2]); assert.equal(node.getComponent(f.UIOpacity).opacity, 255);
   }
   assert.equal(f.slots.getComponent(f.UIOpacity).opacity, 255);
-  assert.equal(f.stacks.getComponent(f.UIOpacity).opacity, 255);
+  assert.equal(f.stacks.getComponent(f.UIOpacity)?.opacity ?? 255, 255);
   assert.equal(f.nodes.filter(node => node.name.startsWith('BoardArrival') && node.isValid).length, 0);
 }
 
@@ -126,6 +127,7 @@ function themeFixture() {
   let releaseEntrance, owns = true;
   const node = { isValid: true }, component = () => ({ isValid: true, node });
   const board = { geometry: {}, reset() {}, setSquareTile() {}, setStackTile() {}, setStackChain() {},
+    setQueueInputAllowed() {}, playBottomBlockEntrance: async () => {},
     animateEntrance: () => new Promise(resolve => { releaseEntrance = resolve; }) };
   const hud = { ...component(), clearTheme() {}, async showLevelRail() {}, setFirstLevelSkin() {}, setResources() {}, setFeedback() {}, setThemeCollected() {} };
   const session = { generation: 1, destroyed: false, isValid: true, node, round: { mode: 'main' }, inputLocked: true,
@@ -152,4 +154,37 @@ test('a cancelled old level never unlocks the replacement page after its entranc
   const pending = f.prepareThemePresentation(f.session, f.board, f.transport, f.read, null, f.owns);
   await f.waitUntilAnimating(); f.replace(); f.release(); await pending;
   assert.equal(f.session.inputLocked, true);
+});
+
+for (const [level, frame, expected] of [[1, {}, 0.24], [2, {}, 0.51], [2, null, 0.24]]) {
+  test(`bottom entrance level ${level}, ant ${Boolean(frame)} restores visible nodes only`, async () => {
+    const f = fixture();
+    const visible = f.cells.slice(0, 3);
+    visible.forEach((node, index) => {
+      node.active = index < 2; node.setPosition(index * 100, 0, 2);
+      f.board.stackNodes.set(node.name, node);
+    });
+    const pending = f.board.playBottomBlockEntrance(level, frame);
+    assert.ok(Math.abs(f.animations[0].duration - expected) < 1e-9);
+    assert.equal(visible[2].position.y, 0, 'hidden queue is untouched');
+    assert.equal(visible[0].position.y, level === 2 && frame ? -70 : -30);
+    f.animations[0].advance(0.10);
+    assert.ok(visible[0].position.y > visible[1].position.y, 'left column leads');
+    f.animations[0].complete(); await pending;
+    for (const node of visible.slice(0, 2)) {
+      assert.equal(node.position.y, 0); assert.equal(node.position.z, 2);
+      assert.equal(node.getComponent(f.UIOpacity).opacity, 255);
+    }
+    assert.equal(f.nodes.filter(node => node.name === 'BottomArrivalAnt' && node.isValid).length, 0);
+  });
+}
+test('bottom cancellation restores before reuse and stale clock cannot move nodes', async () => {
+  const f = fixture(); const node = f.cells[0]; node.active = true;
+  f.board.stackNodes.set('first', node);
+  const pending = f.board.playBottomBlockEntrance(2, {});
+  f.animations[0].advance(0.12); f.board.cancelBottomEntrance(); await pending;
+  assert.equal(node.position.y, 0);
+  node.setPosition(300, 400); f.animations[0].advance(0.25);
+  assert.equal(node.position.y, 400);
+  assert.equal(f.nodes.filter(node => node.name === 'BottomArrivalAnt' && node.isValid).length, 0);
 });

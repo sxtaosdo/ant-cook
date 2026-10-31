@@ -2,20 +2,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { createOperationalCatalog } from '../../assets/Colony/scripts/application/operationalLevels.js';
-import { ColonyFlowModel } from '../../assets/Colony/scripts/gameModel.js';
-import type { DevelopmentLevelGroup, GameColor } from '../../assets/Colony/scripts/application/levelCatalog.js';
+import { createOperationalCatalog } from '../../../assets/Colony/scripts/application/operationalLevels.js';
+import { ColonyFlowModel } from '../../../assets/Colony/scripts/gameModel.js';
+import type { DevelopmentLevelGroup, GameColor } from '../../../assets/Colony/scripts/application/levelCatalog.js';
 
 const require = createRequire(import.meta.url);
-const { createSolver, certifyBlockingPrefixes, proveNormalizedMinimum } = require('../../scripts/levelDifficultySolver.mjs');
-const { difficultyTarget } = require('../../scripts/generateLevelDifficulty.mjs');
-const { ASYNC_PROFILES, checkAsyncReference, checkAsyncFailureReference } = require('../../scripts/asyncDifficultyReplay.mjs');
+const { createSolver, certifyBlockingPrefixes, proveNormalizedMinimum } = require('../../../scripts/levelDifficultySolver.mjs');
+const { difficultyTarget } = require('../../../scripts/generateLevelDifficulty.mjs');
+const { ASYNC_PROFILES, checkAsyncReference, checkAsyncFailureReference } = require('../../../scripts/asyncDifficultyReplay.mjs');
 interface MainEvidence {
   level: number; groups: DevelopmentLevelGroup[]; minimumSlots: number; upperTrace: number[]; badTrace?: number[]; asyncBadTrace?: number[]; asyncBadProfile?: string;
   spec: { kind: 'E' | 'S' | 'H'; maximumDepth?: number }; proof: unknown;
   certificate: { blockingColors: GameColor[]; lowerBound: number } | null;
 }
-const evidence: MainEvidence[] = JSON.parse(readFileSync(new URL('../../scripts/levelDifficultyEvidence.json', import.meta.url), 'utf8'));
+const evidence: MainEvidence[] = JSON.parse(readFileSync(new URL('../../../scripts/levelDifficultyEvidence.json', import.meta.url), 'utf8'));
 const catalog = createOperationalCatalog();
 
 test('the untouched first main level wins using one simultaneous slot', () => {
@@ -82,7 +82,7 @@ for (const entry of evidence) {
   ] as Array<[string, number[], string]>) {
     test(`main ${entry.level} ${label} trace matches real dispatch and arrival rules`, () => {
       const model = new ColonyFlowModel({ levels: [{ ...level, level: 1 }] });
-      const simulation = createSolver(level, 5);
+      const simulation = createSolver(level, level.initialSlots ?? 5);
       let state = simulation.initial;
       for (const index of trace) {
         const group = level.groups[index]!;

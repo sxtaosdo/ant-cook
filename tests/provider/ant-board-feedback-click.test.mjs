@@ -117,5 +117,5 @@ test('actual accessible button still selects exactly once after the feedback rou
   f.page.playSound = async () => {}; f.page.runTransportLoop = async () => {}; f.page.checkFreeFinish = () => {};
   await f.click('head');
   assert.deepEqual(f.commands, ['head']); assert.equal(f.model.snapshot().stacks.find(s => s.id === 'head').selected, true);
-  assert.match(f.toasts[0], /本次占 1 槽/); assert.match(f.hud.feedbackLabel.string, /槽位 1\/5/);
+  assert.deepEqual(f.toasts, []); assert.match(f.hud.feedbackLabel.string, /槽位 1\/5/);
 });

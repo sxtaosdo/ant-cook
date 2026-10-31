@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "art-workbench-v1",
+  "resourceDomainId": "ant",
+  "projectSettingsHash": "81afbeab71fd61e91ff609d7ef08c83e5d61fbe6875d68f04d805a47aa265729",
+  "projectId": "04c4cde24ee76d83",
+  "projectPath": "D:\\code\\shidai3\\P4000\\ant-cook",
+  "version": 5,
+  "norm": {
+    "hash": "37b9423109d64b793a89b4d3bb0da7f1ea88d771c2f32c12f2747957e228aa06",
+    "version": 1
+  },
+  "projectReferences": [],
+  "specs": [
+    {
+      "id": "ant-bottom-tools-160-v01",
+      "name": "蚂蚁底部道具160",
+      "category": "icon",
+      "version": 1,
+      "sizePolicy": "fixed",
+      "width": 160,
+      "height": 160,
+      "destination": "assets/Colony/art/toy-market/ui/companion-ant-toolbar-v01",
+      "exportDirectory": "art/final/ant-toolbar",
+      "imageOutput": "transparent-png",
+      "style": "",
+      "references": []
+    }
+  ],
+  "needs": [
+    {
+      "id": "ant-bottom-trowel-v01",
+      "name": "小铲子",
+      "version": 3,
+      "content": "小铲子。清除一个当前暴露的货物格；无有效目标不消耗。斜置短柄小铲，保留奶油白/浅金属铲面与青绿握柄，以及原图易辨认的铲子轮廓。以随任务封存的对应原图作为真实图片条件，保持原道具的可辨认形状和既有渲染关系；固定P0001风格源决定渲染语言，不更换世界观或身份。只生成一个独立、居中、轮廓清楚的图标，完整主体不裁切，透明PNG成品160×160。不要图标名称、次数、广告标识、文字标签、界面底板，不拼三图、不复制其他两个道具，不改变原图用途；扩充槽位的既有加号保留。",
+      "specId": "ant-bottom-tools-160-v01",
+      "specVersion": 1,
+      "spec": {
+        "id": "ant-bottom-tools-160-v01",
+        "name": "蚂蚁底部道具160",
+        "category": "icon",
+        "version": 1,
+        "sizePolicy": "fixed",
+        "width": 160,
+        "height": 160,
+        "destination": "assets/Colony/art/toy-market/ui/companion-ant-toolbar-v01",
+        "exportDirectory": "art/final/ant-toolbar",
+        "imageOutput": "transparent-png",
+        "style": "",
+        "references": []
+      },
+      "references": [
+        {
+          "relativePath": "assets/Colony/art/toy-market/ui/r03/toolbar-trowel.png",
+          "sha256": "db81ca38a557b93469112c701a4966a14a355dc38333fd965601110a5097f89c",
+          "name": "toolbar-trowel.png"
+        }
+      ],
+      "jobId": "STUDIO-RUN-workbench-aedd87e5e2b243ef8bf590d4c0db66cb-afa4e761"
+    },
+    {
+      "id": "ant-bottom-slot-v01",
+      "name": "扩充槽位",
+      "version": 3,
+      "content": "扩充槽位。本局槽位从5增至6，上限6；离开本局不保留。保留奶油白圆角方形托盘/槽位与明确的加号功能符号，不把它画成背包、箱子或新道具。以随任务封存的对应原图作为真实图片条件，保持原道具的可辨认形状和既有渲染关系；固定P0001风格源决定渲染语言，不更换世界观或身份。只生成一个独立、居中、轮廓清楚的图标，完整主体不裁切，透明PNG成品160×160。不要图标名称、次数、广告标识、文字标签、界面底板，不拼三图、不复制其他两个道具，不改变原图用途；扩充槽位的既有加号保留。",
+      "specId": "ant-bottom-tools-160-v01",
+      "specVersion": 1,
+      "spec": {
+        "id": "ant-bottom-tools-160-v01",
+        "name": "蚂蚁底部道具160",
+        "category": "icon",
+        "version": 1,
+        "sizePolicy": "fixed",
+        "width": 160,
+        "height": 160,
+        "destination": "assets/Colony/art/toy-market/ui/companion-ant-toolbar-v01",
+        "exportDirectory": "art/final/ant-toolbar",
+        "imageOutput": "transparent-png",
+        "style": "",
+        "references": []
+      },
+      "references": [
+        {
+          "relativePath": "assets/Colony/art/toy-market/ui/r03/toolbar-slot.png",
+          "sha256": "12dcb830bdf70f4739205ad4bacae25d9a5b47e32e3c02602b61ba1092a59961",
+          "name": "toolbar-slot.png"
+        }
+      ],
+      "jobId": "STUDIO-RUN-workbench-7b5e2d7905c34e79b571f7634fc7907f-551e33b2"
+    },
+    {
+      "id": "ant-bottom-compass-v01",
+      "name": "指南针",
+      "version": 2,
+      "content": "指南针。提示并选取当前可用、与暴露格颜色匹配且槽位可容纳的数字块；不保证必胜。保留圆形金色罗盘与青绿/奶油白针盘轮廓，不把它画成地图或更改功能。以随任务封存的对应原图作为真实图片条件，保持原道具的可辨认形状和既有渲染关系；固定P0001风格源决定渲染语言，不更换世界观或身份。只生成一个独立、居中、轮廓清楚的图标，完整主体不裁切，透明PNG成品160×160。不要图标名称、次数、广告标识、文字标签、界面底板，不拼三图、不复制其他两个道具，不改变原图用途；扩充槽位的既有加号保留。",
+      "specId": "ant-bottom-tools-160-v01",
+      "specVersion": 1,
+      "spec": {
+        "id": "ant-bottom-tools-160-v01",
+        "name": "蚂蚁底部道具160",
+        "category": "icon",
+        "version": 1,
+        "sizePolicy": "fixed",
+        "width": 160,
+        "height": 160,
+        "destination": "assets/Colony/art/toy-market/ui/companion-ant-toolbar-v01",
+        "exportDirectory": "art/final/ant-toolbar",
+        "imageOutput": "transparent-png",
+        "style": "",
+        "references": []
+      },
+      "references": [
+        {
+          "relativePath": "assets/Colony/art/toy-market/ui/r03/toolbar-compass.png",
+          "sha256": "fbb42ede4c85093f05b6e36966a6d63c0e1845453869525e15906a3f42715b79",
+          "name": "toolbar-compass.png"
+        }
+      ]
+    }
+  ]
+}
