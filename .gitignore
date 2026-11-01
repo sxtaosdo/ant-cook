@@ -5,3 +5,5 @@ local/
 profiles/
 build/
 extensions/creator-ai-bridge/
+.creator/
+scripts/__pycache__/
