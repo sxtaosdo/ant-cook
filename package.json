@@ -8,7 +8,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22 <23"
+    "node": ">=26.13.0 <27"
   },
   "scripts": {
     "editor:board": "node --import tsx scripts/board-editor/serve.mjs",
@@ -16,7 +16,7 @@
     "editor:test": "node --import tsx --test tests/editor/*.test.ts tests/editor/runtime-level-loading.test.mjs",
     "editor:levels": "node --import tsx scripts/board-editor/compile-level.ts",
     "editor:csv": "node --import tsx scripts/compileThemeCsv.mjs --check",
-    "verify:editor": "pnpm run editor:typecheck && pnpm run editor:test && pnpm run editor:csv",
+    "verify:editor": "npm run editor:typecheck && npm run editor:test && npm run editor:csv",
     "typecheck": "tsc -p tests/tsconfig.creator.json",
     "test:cook-session": "tsc -p tests/cook/tsconfig.session.json && node --loader ./tests/ts-loader.mjs --test tests/cook/cook-level-session.test.ts",
     "test": "node --loader ./tests/ts-loader.mjs --test tests/unit/*.test.ts tests/provider/*.test.mjs tests/ant/application/rewarded-ads.test.ts tests/cook/cook-level-session.test.ts"

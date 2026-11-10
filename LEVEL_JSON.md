@@ -8,11 +8,10 @@
 
 固定输出：`assets/Colony/config/runtime-levels.json`。游戏Loading直接用现有资源接口加载这个JSON，不再用CSV生成TS作为主线玩法来源；用户无需手动编译配置。Creator自动导入完成后整页刷新游戏，新会话加载新配置。新文件首次进入工程也需要Creator识别其资源索引。
 
-在已有Node22环境下沿用`pnpm run editor:board`。本机明确Node22命令为：
+使用本机 Node.js 26.13.0，在蚂蚁工程目录运行：
 
-```powershell
-cd D:/code/shidai3/P4000/ant-cook
-& D:/code/shidai3/P8000/dual-game-build/node_modules/node/bin/node.exe --import tsx scripts/board-editor/serve.mjs
+```bash
+npm run editor:board
 ```
 
 默认7469；已有实例不要重复启动或杀进程。旧编辑器实例在启动时缓存页面/编译模块，只有下次按原方式启动才加载新入口；本轮未替换现有7469/7470/7471服务，不宣称用户当前编辑器已更新。

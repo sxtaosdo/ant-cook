@@ -1,6 +1,6 @@
 # 4060（Ant Cook）联合产品
 
-**当前版本：`v0.3.0.131`**
+**当前版本：`v0.3.0.132`**
 
 状态: Draft
 
@@ -42,7 +42,7 @@ Settings 账号行资产仍未纳入提交。HEAD 的 270 对象、Owner 原基�
 
 唯一 MK 能力提供者来自 v1.1.5；本副本局部修正场景取消、main 初始化等待、UI 注册身份、注销与失败清理、池迟到资源释放及 strict 类型，不能称为未修改的原版 MK。没有引入第二套 UI、资源、音频或池运行时。
 
-验证使用 Node 22：`npm run typecheck` 与 `npm test`。执行集合为 `tests/unit`、`tests/provider` 及 `tests/ant/application/rewarded-ads.test.ts`；Provider 测试运行实际 MKUIManage、MKBundle、MKObjectPool、MKStatusTask 源码，但 cc、IO、Release/View/Event 辅助能力使用替身，不是 Cocos Runtime 验收。其余 `tests/ant` 和 `tests/cook` 是迁移时保留的来源测试材料，其中旧迁移断言不属于新产品兼容合同。Provider 的严格类型差异检查见 `P8000/dual-game-build/provider-typecheck.mjs`；仅证明相对字节核实的来源 baseline 无新增诊断，不表示 Provider 零诊断。
+验证使用本机 Node.js 26.13.0：`npm run typecheck` 与 `npm test`。执行集合为 `tests/unit`、`tests/provider` 及 `tests/ant/application/rewarded-ads.test.ts`；Provider 测试运行实际 MKUIManage、MKBundle、MKObjectPool、MKStatusTask 源码，但 cc、IO、Release/View/Event 辅助能力使用替身，不是 Cocos Runtime 验收。其余 `tests/ant` 和 `tests/cook` 是迁移时保留的来源测试材料，其中旧迁移断言不属于新产品兼容合同。Provider 的严格类型差异检查见 `P8000/dual-game-build/provider-typecheck.mjs`；仅证明相对字节核实的来源 baseline 无新增诊断，不表示 Provider 零诊断。
 
 2026-10-16 广告适配器回归检查点 v0.3.0.95 `eb5d041102f5298fe7c072f33e402dcba2a5e0a8`：修正迁移测试的相对导入（原路径误指向不存在的 `tests/assets`），把原有12项测试纳入标准入口，未改断言或业务代码。修前实际报 `ERR_MODULE_NOT_FOUND`；修后 Node 22.23.3 定向12/12、零跳过，适配器及测试 strict 通过。覆盖完整观看、取消、失败、重复／迟到回调、并发、换局、销毁及原奖励保存失败重试；平台和存储回调为替身。本轮未重跑完整 `npm test` 或已收束的 Speed 验收，不代表真实 SDK、Creator 或真机通过。OCR 宿主审阅和独立 reviewer 均无确定发现；硬隔离未核验。
 
@@ -144,9 +144,9 @@ Cook 固定 UI 共11页：设置、恢复、Map与Level已完成本地切片验�
 
 ## 棋盘编辑器
 
-Node 22 下，在本工程运行 `pnpm run editor:board`，打开 <http://127.0.0.1:7469>；无需 Creator，终端 Ctrl+C 停止。编辑器使用共享规则编辑棋盘与数字组；整份初始草稿可撤销，编译和确认导入只使用仓外隔离副本。
+用本机 Node.js 26.13.0 在本工程运行 `npm run editor:board`，打开 <http://127.0.0.1:7469>；无需 Creator，终端 Ctrl+C 停止。编辑器使用共享规则编辑棋盘与数字组；整份初始草稿可撤销，编译和确认导入只使用仓外隔离副本。
 
-“保存到工程”现固定输出运行JSON，Creator自动导入完成后刷新游戏读取，使用与验收边界见[JSON保存与刷新说明](LEVEL_JSON.md)。草稿导出 JSON 保存到浏览器下载位置，不自动写入主题关卡。`pnpm run editor:levels preview ...` 可合并显式关卡规则，生成CSV/运行TS候选、差异与真实模型搬运见证；`apply`只写标记隔离副本。端口处理、Node22命令、完整样例和验收边界见 [棋盘编辑器使用说明](BOARD_EDITOR.md)。
+“保存到工程”现固定输出运行JSON，Creator自动导入完成后刷新游戏读取，使用与验收边界见[JSON保存与刷新说明](LEVEL_JSON.md)。草稿导出 JSON 保存到浏览器下载位置，不自动写入主题关卡。`npm run editor:levels -- preview ...` 可合并显式关卡规则，生成CSV/运行TS候选、差异与真实模型搬运见证；`apply`只写标记隔离副本。端口处理、本机 Node 命令、完整样例和验收边界见 [棋盘编辑器使用说明](BOARD_EDITOR.md)。
 
 2026-10-11 独立验收补齐（测试检查点 v70 `640e5c41114e270b468394b689bd924b3aa0102b`，文档单独提交）：新增 `tests/editor/group-export-chain.test.ts`，将两个一起出发分组、A/B/C/L 固定颜色与数量、整份草稿 JSON 保存重开、规则转换、候选编译和确认导入串成一条链路。3／4／5 列分别读取隔离副本实际生成的运行 TS，以真实 `ColonyFlowModel` 验证两次原子入槽、五个格子的完成回执及最终 `SUCCESS`；数量不符、错误确认和重复导入均被拒绝。五列是旧解析器默认值，测试按有效默认值断言，没有因此修改业务源码。Node 22.23.3 下编辑器完整测试 62／62 通过，两类 strict 类型检查通过，CSV 只读检查为 5 主题／60 关／40 收集物。
 

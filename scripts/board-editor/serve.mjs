@@ -24,7 +24,8 @@ async function body(req, allowed) {
 
 export async function createLevelEditorServer(port = 7469, { runtimeProjectRoot = fileURLToPath(root) } = {}) {
   if (!Number.isSafeInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid explicit port');
-  if (Number(process.versions.node.split('.')[0]) !== 22) throw new Error('Use the existing Node22 runtime');
+  const [major, minor] = process.versions.node.split('.').map(Number);
+  if (major !== 26 || minor < 13) throw new Error('Use installed Node.js 26.13.0 or a newer Node 26 release');
   // Every start gets private compiled files. Existing7468/old output/browser remains untouched.
   const work = await mkdtemp(join(tmpdir(), 'ant-level-editor-v2-'));
   const output = join(work, 'compiled');

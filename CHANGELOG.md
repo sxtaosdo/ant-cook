@@ -1,5 +1,9 @@
 # 更新日志
 
+## Unreleased
+
+- 棋盘编辑器和项目验证使用本机 Node.js 26.13.0 起的 Node 26 版本。Windows 示例从本机查找 Node。框架指针同步至已验证的 Node 26 工具链提交 `7fee9c9`。
+
 ## Unreleased — 底部方块奇偶关开场
 
 - 同步 `extensions/shidai3` 至含 auth/observability Creator meta 的框架提交；忽略本地 `.creator/` 与 `scripts/__pycache__/`。

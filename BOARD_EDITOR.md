@@ -28,15 +28,15 @@
 
 试玩使用同一 `ColonyFlowModel` 的独立内存实例，按稳定批次完成搬运；关闭或重开均不写玩家存档、生产关卡或编辑草稿。简化试玩不展示游戏动画、不含道具；模型若仍允许铲子取钥匙，会说明这一限制，不自行判负。
 
-使用 Node 22（>=22 <23）、pnpm 10（来源使用10.33.2）和本工程已有依赖，在 `D:/code/shidai3/P4000/ant-cook` 运行：
+使用本机 Node.js 26.13.0（>=26.13.0 <27）、随本机 Node 安装的 npm 和本工程已有依赖，在 `D:/code/shidai3/P4000/ant-cook` 运行：
 
 ```bash
-pnpm editor:board
+npm run editor:board
 ```
 
-若本机使用 pnpm 12，请使用明确的 `pnpm run editor:board`（该版本简写会触发安装流程）；验证使用 `pnpm run verify:editor`。
+验证使用 `npm run verify:editor`。
 
-打开 <http://127.0.0.1:7469>。无需Creator或安装依赖；使用本机既有Node22。服务只监听本机，Ctrl+C停止。默认7469，可用 `--port` 指定空闲端口，无自动换端口；不要结束不明进程或重启已有编辑器。启动时生成物放入新建系统Temp目录，图片仍只在浏览器处理。
+打开 <http://127.0.0.1:7469>。无需Creator或安装依赖；使用本机已安装的 Node 26。服务只监听本机，Ctrl+C停止。默认7469，可用 `--port` 指定空闲端口，无自动换端口；不要结束不明进程或重启已有编辑器。启动时生成物放入新建系统Temp目录，图片仍只在浏览器处理。
 
 ## 编辑流程
 
@@ -66,7 +66,7 @@ pnpm editor:board
 
 ## 验证
 
-在Node22下运行 `pnpm run verify:editor`，检查编辑器与关卡编译链类型、棋盘序列化、输入拒绝、画笔插值、撤销容量、裁边、颜色采样、CSV编译一致性、关卡规则和隔离导入。浏览器验收需实际完成新建、画/擦、撤销/重做、图片预览/取消/应用、应用后编辑、JSON下载/重导入、非法配置保留原棋盘及64×64滚动/缩放。
+用本机 Node 26 运行 `npm run verify:editor`，检查编辑器与关卡编译链类型、棋盘序列化、输入拒绝、画笔插值、撤销容量、裁边、颜色采样、CSV编译一致性、关卡规则和隔离导入。浏览器验收需实际完成新建、画/擦、撤销/重做、图片预览/取消/应用、应用后编辑、JSON下载/重导入、非法配置保留原棋盘及64×64滚动/缩放。
 
 ## 4060 主题关卡编译与隔离导入
 
@@ -86,21 +86,21 @@ pnpm editor:board
 
 槽位由实际 `MAIN_SUPPLY_LEVELS` 决定：8、14、20关初始6槽，其他关5槽。`initialSlots` 可省略；提供时必须一致。编译器与编辑器共用实际12色表，不自动排序、生成数字组、重新设计难度或奖励。
 
-本机已有Node22，无需安装。PowerShell在本工程执行以下命令；候选和隔离目录必须是工程外的新目录，请按任务更换名称：
+使用本机已安装的 Node 26。PowerShell在本工程执行以下命令；候选和隔离目录必须是工程外的新目录，请按任务更换名称：
 
 ```powershell
-$node22 = 'D:/code/shidai3/P8000/dual-game-build/node_modules/node/bin/node.exe'
+$node = (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
 $levelWork = Join-Path $env:TEMP 'ant-level-example'
-& $node22 --import tsx scripts/compileThemeCsv.mjs --check --assets
-& $node22 --import tsx scripts/board-editor/compile-level.ts preview --board tests/editor/fixtures/synthetic-board.json --rules tests/editor/fixtures/synthetic-rules.json --level 7 --out "$levelWork/source-preview"
-& $node22 --import tsx scripts/board-editor/compile-level.ts sandbox --out "$levelWork/sandbox"
-& $node22 --import tsx scripts/board-editor/compile-level.ts preview --project "$levelWork/sandbox" --board tests/editor/fixtures/synthetic-board.json --rules tests/editor/fixtures/synthetic-rules.json --level 7 --out "$levelWork/import-preview"
+& $node --import tsx scripts/compileThemeCsv.mjs --check --assets
+& $node --import tsx scripts/board-editor/compile-level.ts preview --board tests/editor/fixtures/synthetic-board.json --rules tests/editor/fixtures/synthetic-rules.json --level 7 --out "$levelWork/source-preview"
+& $node --import tsx scripts/board-editor/compile-level.ts sandbox --out "$levelWork/sandbox"
+& $node --import tsx scripts/board-editor/compile-level.ts preview --project "$levelWork/sandbox" --board tests/editor/fixtures/synthetic-board.json --rules tests/editor/fixtures/synthetic-rules.json --level 7 --out "$levelWork/import-preview"
 ```
 
 先审阅 `import-preview/preview.diff`、`validation.json` 和 `plan.json`，然后使用该次preview输出的完整 `confirm` SHA256明确执行：
 
 ```powershell
-& $node22 --import tsx scripts/board-editor/compile-level.ts apply --project "$levelWork/sandbox" --plan "$levelWork/import-preview/plan.json" --confirm '<本次已审阅plan的完整SHA256>'
+& $node --import tsx scripts/board-editor/compile-level.ts apply --project "$levelWork/sandbox" --plan "$levelWork/import-preview/plan.json" --confirm '<本次已审阅plan的完整SHA256>'
 ```
 
 `preview` 不写真实CSV/运行TS；编译器无参数和 `--check` 均只读。`apply` 只允许工具创建的工程外标记隔离副本，拒绝真实工程及其路径别名。它核对源数据、代码与候选指纹，重编译并回放后再次检查，才写入隔离副本的两个文件；第二次写入失败时尝试回滚。此操作应在隔离副本无其他writer时执行，不能替代操作系统事务。生产导入仍须在Owner明确释放的写入窗口按候选差异处理，本工具不开放生产写入开关。
@@ -140,7 +140,7 @@ $levelWork = Join-Path $env:TEMP 'ant-level-example'
 - 满槽仍可搬运、或有在途交付时继续PLAYING。没有合法入槽、可派发搬运、在途交付及实际可执行的取钥匙铲子动作才FAIL；仅配置存在钥匙不阻止死局。普通可选道具仍不延长旧死局时机。
 - 不保存中途进度。撤销/重做深拷整份初始草稿，解法引用稳定组ID，重排后转换正确CSV索引。未知箭头与Runtime状态字段拒绝。
 
-新版默认7469；每次启动在新系统Temp目录编译并快照浏览器模块，不重启或覆盖旧7468服务、dist或浏览器草稿。可用 `pnpm run editor:board --port 7470` 显式选择另一个空闲端口，无自动换端口。源码变化后，旧服务拒绝继续preview/apply，应另启独立服务；这保护缓存执行代码与计划依赖哈希一致。
+新版默认7469；每次启动在新系统Temp目录编译并快照浏览器模块，不重启或覆盖旧7468服务、dist或浏览器草稿。可用 `npm run editor:board -- --port 7470` 显式选择另一个空闲端口，无自动换端口。源码变化后，旧服务拒绝继续preview/apply，应另启独立服务；这保护缓存执行代码与计划依赖哈希一致。
 
 页面底部以彩色方块列显示待选区，支持首次生成、明确更新、全部删除、添加、颜色／数字／所在列、上下移动和问号。一起出发采用独立分组面板，钥匙使用折叠区点击操作；手动食物／解法顺序与内部编号在高级设置中。数量或顺序暂时失配的草稿仍可保存、重开编辑；编译阻止失配，运行态、重复方块ID和列越界仍拒绝导入。完整草稿使用 `colony-level-draft-v2`，新增可选 `editorState`：首次生成意图、生成时棋盘指纹及空分组的稳定ID／组号。该字段只用于草稿和撤销，不进入 `rulesFor()`、CSV或运行模型；旧草稿不含该字段仍可打开。编译边界为 `colony-level-rules-v2`；旧rules-v1继续兼容。v2 CSV尾追加 `queueColumns,groupRules,cellKeys`，目标theme整表升级28列，其余关补5／空对象并保留身份、美术与运营元数据，生产数据不写。
 
